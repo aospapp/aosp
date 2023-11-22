@@ -1,30 +1,17 @@
 /*
- * Copyright (c) 2016, Google. All rights reserved.
+ * Copyright (C) 2016 The Android Open Source Project
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *     * Neither the name of The Linux Foundation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #define LOG_TAG "NanohubHAL"
@@ -187,6 +174,29 @@ int SystemComm::AppInfoSession::requestNext()
     return sendToSystem(buf.getData(), buf.getPos());
 }
 
+int SystemComm::GlobalSession::setup(const hub_message_t *) {
+    Mutex::Autolock _l(mLock);
+
+    setState(SESSION_USER);
+
+    return 0;
+}
+
+int SystemComm::GlobalSession::handleRx(MessageBuf &buf)
+{
+    Mutex::Autolock _l(mLock);
+
+    NanohubRsp rsp(buf);
+    if (rsp.cmd != NANOHUB_REBOOT) {
+        return 1;
+    }
+
+    ALOGW("Nanohub reboot status [UNSOLICITED]: %08" PRIX32, rsp.status);
+    sendToApp(CONTEXT_HUB_OS_REBOOT, &rsp.status, sizeof(rsp.status));
+
+    return 0;
+}
+
 int SystemComm::MemInfoSession::setup(const hub_message_t *)
 {
     Mutex::Autolock _l(mLock);
@@ -269,6 +279,10 @@ int SystemComm::AppMgmtSession::setup(const hub_message_t *appMsg)
 {
     Mutex::Autolock _l(mLock);
 
+    char data[MAX_RX_PACKET];
+    MessageBuf buf(data, sizeof(data));
+    const uint8_t *msgData = static_cast<const uint8_t*>(appMsg->message);
+
     mCmd = appMsg->message_type;
     mLen = appMsg->message_len;
     mPos = 0;
@@ -282,19 +296,19 @@ int SystemComm::AppMgmtSession::setup(const hub_message_t *appMsg)
         return setupMgmt(appMsg, NANOHUB_EXT_APP_DELETE);
     case  CONTEXT_HUB_LOAD_OS:
     case  CONTEXT_HUB_LOAD_APP:
-        const uint8_t *p = static_cast<const uint8_t*>(appMsg->message);
         mData.clear();
-        mData = std::vector<uint8_t>(p, p + mLen);
+        mData = std::vector<uint8_t>(msgData, msgData + mLen);
         setState(TRANSFER);
 
-        char data[MAX_RX_PACKET];
-        MessageBuf buf(data, sizeof(data));
         buf.writeU8(NANOHUB_START_UPLOAD);
         buf.writeU8(mCmd == CONTEXT_HUB_LOAD_OS ? 1 : 0);
         buf.writeU32(mLen);
-
         return sendToSystem(buf.getData(), buf.getPos());
-    break;
+
+    case  CONTEXT_HUB_OS_REBOOT:
+        setState(REBOOT);
+        buf.writeU8(NANOHUB_REBOOT);
+        return sendToSystem(buf.getData(), buf.getPos());
     }
 
     return -EINVAL;
@@ -331,6 +345,9 @@ int SystemComm::AppMgmtSession::handleRx(MessageBuf &buf)
         break;
     case RELOAD:
         ret = handleReload(rsp);
+        break;
+    case REBOOT:
+        ret = handleReboot(rsp);
         break;
     case MGMT:
         ret = handleMgmt(rsp);
@@ -396,14 +413,33 @@ int SystemComm::AppMgmtSession::handleFinish(NanohubRsp &rsp)
     return ret;
 }
 
-/* reboot notification is not yet supported in FW; this code is for (near) future */
+/* reboot notification, when triggered as part of App reload sequence */
 int SystemComm::AppMgmtSession::handleReload(NanohubRsp &rsp)
 {
     int32_t result = NANOHUB_APP_LOADED;
 
-    ALOGI("Nanohub reboot status: %08" PRIX32, rsp.status);
+    ALOGI("Nanohub reboot status [NEW APP START]: %08" PRIX32, rsp.status);
 
     sendToApp(mCmd, &result, sizeof(result));
+
+    // in addition to sending response to the CONTEXT_HUB_LOAD_APP command,
+    // we should send unsolicited reboot notification;
+    // I choose to do it here rather than delegate it to global session
+    // because I want the log to clearly differentiate between UNSOLICITED reboots
+    // (meaning FW faults) and REQUESTED reboots.
+    sendToApp(CONTEXT_HUB_OS_REBOOT, &rsp.status, sizeof(rsp.status));
+
+    complete();
+
+    return 0;
+}
+
+/* reboot notification, when triggered by App request */
+int SystemComm::AppMgmtSession::handleReboot(NanohubRsp &rsp)
+{
+    ALOGI("Nanohub reboot status [USER REQ]: %08" PRIX32, rsp.status);
+
+    sendToApp(mCmd, &rsp.status, sizeof(rsp.status));
     complete();
 
     return 0;
@@ -521,6 +557,9 @@ int SystemComm::SessionManager::handleRx(MessageBuf &buf)
         if (status < 0) {
             session->complete();
         }
+    }
+    if (status > 0) {
+        status = mGlobal.handleRx(buf);
     }
 
     return status;

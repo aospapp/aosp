@@ -30,7 +30,7 @@ Remove link 3-4 and power the board
 
 * Flashing images:
 Enter fastboot mode by linking J15 1-2 and 5-6 pins
-$ fastboot flash boot out/target/product/hikey/boot_fat.uefi.img
+$ fastboot flash boot out/target/product/hikey/boot.img
 $ fastboot flash system out/target/product/hikey/system.img
 $ fastboot flash cache out/target/product/hikey/cache.img
 $ fastboot flash userdata out/target/product/hikey/userdata.img
@@ -39,14 +39,16 @@ Remove jumper 5-6 and power the board
 * Building kernel
 $ git clone https://android.googlesource.com/kernel/hikey-linaro
 $ cd hikey-linaro
-$ git checkout -b android-hikey-linaro-4.1 origin/android-hikey-linaro-4.1
+$ git checkout -b android-hikey-linaro-4.4 origin/android-hikey-linaro-4.4
 $ make ARCH=arm64 hikey_defconfig
 $ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- -j24
 Output: arch/arm64/boot/Image & arch/arm64/boot/dts/hisilicon/hi6220-hikey.dtb
-   copy Image and hi6220-hikey.dtb to hikey-kernel directory
+   copy Image-dtb and hi6220-hikey.dtb to hikey-kernel directory
 
 * Setting monitor resolution
-Edit device/linaro/hikey/bootloader/EFI/BOOT/grub.cfg
+Add to BOARD_KERNEL_CMDLINE in BoardConfig.mk or
+if you are setting TARGET_BOOTIMAGE_USE_FAT=true edit
+device/linaro/hikey/bootloader/EFI/BOOT/grub.cfg
 Set video= (for example for 24” monitor): video=HDMI-A-1:1280x800@60
 
 * Kernel serial output (uart3):

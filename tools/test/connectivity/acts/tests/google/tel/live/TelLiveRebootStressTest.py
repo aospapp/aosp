@@ -18,7 +18,6 @@
 """
 
 import time
-from acts.utils import load_config
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.test_utils.tel.tel_data_utils import wifi_tethering_setup_teardown
 from acts.test_utils.tel.tel_defines import AOSP_PREFIX
@@ -73,7 +72,6 @@ class TelLiveRebootStressTest(TelephonyBaseTest):
             "test_reboot_stress_without_clear_provisioning"
             )
 
-        self.simconf = load_config(self.user_params["sim_conf_file"])
         self.stress_test_number = int(self.user_params["stress_test_number"])
         self.wifi_network_ssid = self.user_params["wifi_network_ssid"]
 

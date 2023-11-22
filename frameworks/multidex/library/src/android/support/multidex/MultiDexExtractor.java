@@ -30,8 +30,9 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -70,12 +71,14 @@ final class MultiDexExtractor {
     /* Keep value away from 0 because it is a too probable time stamp value */
     private static final long NO_VALUE = -1L;
 
+    private static final String LOCK_FILENAME = "MultiDex.lock";
+
     /**
      * Extracts application secondary dexes into files in the application data
      * directory.
      *
      * @return a list of files that were created. The list may be empty if there
-     *         are no secondary dex files.
+     *         are no secondary dex files. Never return null.
      * @throws IOException if encounters a problem while reading or writing
      *         secondary dex files
      */
@@ -86,27 +89,64 @@ final class MultiDexExtractor {
 
         long currentCrc = getZipCrc(sourceApk);
 
+        // Validity check and extraction must be done only while the lock file has been taken.
+        File lockFile = new File(dexDir, LOCK_FILENAME);
+        RandomAccessFile lockRaf = new RandomAccessFile(lockFile, "rw");
+        FileChannel lockChannel = null;
+        FileLock cacheLock = null;
         List<File> files;
-        if (!forceReload && !isModified(context, sourceApk, currentCrc)) {
-            try {
-                files = loadExistingExtractions(context, sourceApk, dexDir);
-            } catch (IOException ioe) {
-                Log.w(TAG, "Failed to reload existing extracted secondary dex files,"
-                        + " falling back to fresh extraction", ioe);
+        IOException releaseLockException = null;
+        try {
+            lockChannel = lockRaf.getChannel();
+            Log.i(TAG, "Blocking on lock " + lockFile.getPath());
+            cacheLock = lockChannel.lock();
+            Log.i(TAG, lockFile.getPath() + " locked");
+
+            if (!forceReload && !isModified(context, sourceApk, currentCrc)) {
+                try {
+                    files = loadExistingExtractions(context, sourceApk, dexDir);
+                } catch (IOException ioe) {
+                    Log.w(TAG, "Failed to reload existing extracted secondary dex files,"
+                            + " falling back to fresh extraction", ioe);
+                    files = performExtractions(sourceApk, dexDir);
+                    putStoredApkInfo(context,
+                            getTimeStamp(sourceApk), currentCrc, files.size() + 1);
+
+                }
+            } else {
+                Log.i(TAG, "Detected that extraction must be performed.");
                 files = performExtractions(sourceApk, dexDir);
                 putStoredApkInfo(context, getTimeStamp(sourceApk), currentCrc, files.size() + 1);
-
             }
-        } else {
-            Log.i(TAG, "Detected that extraction must be performed.");
-            files = performExtractions(sourceApk, dexDir);
-            putStoredApkInfo(context, getTimeStamp(sourceApk), currentCrc, files.size() + 1);
+        } finally {
+            if (cacheLock != null) {
+                try {
+                    cacheLock.release();
+                } catch (IOException e) {
+                    Log.e(TAG, "Failed to release lock on " + lockFile.getPath());
+                    // Exception while releasing the lock is bad, we want to report it, but not at
+                    // the price of overriding any already pending exception.
+                    releaseLockException = e;
+                }
+            }
+            if (lockChannel != null) {
+                closeQuietly(lockChannel);
+            }
+            closeQuietly(lockRaf);
+        }
+
+        if (releaseLockException != null) {
+            throw releaseLockException;
         }
 
         Log.i(TAG, "load found " + files.size() + " secondary dex files");
         return files;
     }
 
+    /**
+     * Load previously extracted secondary dex files. Should be called only while owning the lock on
+     * {@link #LOCK_FILENAME}.
+     */
     private static List<File> loadExistingExtractions(Context context, File sourceApk, File dexDir)
             throws IOException {
         Log.i(TAG, "loading existing secondary dex files");
@@ -133,6 +173,11 @@ final class MultiDexExtractor {
         return files;
     }
 
+
+    /**
+     * Compare current archive and crc with values stored in {@link SharedPreferences}. Should be
+     * called only while owning the lock on {@link #LOCK_FILENAME}.
+     */
     private static boolean isModified(Context context, File archive, long currentCrc) {
         SharedPreferences prefs = getMultiDexPreferences(context);
         return (prefs.getLong(KEY_TIME_STAMP, NO_VALUE) != getTimeStamp(archive))
@@ -227,20 +272,27 @@ final class MultiDexExtractor {
         return files;
     }
 
+    /**
+     * Save {@link SharedPreferences}. Should be called only while owning the lock on
+     * {@link #LOCK_FILENAME}.
+     */
     private static void putStoredApkInfo(Context context, long timeStamp, long crc,
             int totalDexNumber) {
         SharedPreferences prefs = getMultiDexPreferences(context);
         SharedPreferences.Editor edit = prefs.edit();
         edit.putLong(KEY_TIME_STAMP, timeStamp);
         edit.putLong(KEY_CRC, crc);
-        /* SharedPreferences.Editor doc says that apply() and commit() "atomically performs the
-         * requested modifications" it should be OK to rely on saving the dex files number (getting
-         * old number value would go along with old crc and time stamp).
-         */
         edit.putInt(KEY_DEX_NUMBER, totalDexNumber);
-        apply(edit);
+        /* Use commit() and not apply() as advised by the doc because we need synchronous writing of
+         * the editor content and apply is doing an "asynchronous commit to disk".
+         */
+        edit.commit();
     }
 
+    /**
+     * Get the MuliDex {@link SharedPreferences} for the current application. Should be called only
+     * while owning the lock on {@link #LOCK_FILENAME}.
+     */
     private static SharedPreferences getMultiDexPreferences(Context context) {
         return context.getSharedPreferences(PREFS_FILE,
                 Build.VERSION.SDK_INT < 11 /* Build.VERSION_CODES.HONEYCOMB */
@@ -249,15 +301,16 @@ final class MultiDexExtractor {
     }
 
     /**
-     * This removes any files that do not have the correct prefix.
+     * This removes old files.
      */
     private static void prepareDexDir(File dexDir, final String extractedFilePrefix) {
-        // Clean possible old files
         FileFilter filter = new FileFilter() {
 
             @Override
             public boolean accept(File pathname) {
-                return !pathname.getName().startsWith(extractedFilePrefix);
+                String name = pathname.getName();
+                return !(name.startsWith(extractedFilePrefix)
+                        || name.equals(LOCK_FILENAME));
             }
         };
         File[] files = dexDir.listFiles(filter);
@@ -342,31 +395,5 @@ final class MultiDexExtractor {
         } catch (IOException e) {
             Log.w(TAG, "Failed to close resource", e);
         }
-    }
-
-    // The following is taken from SharedPreferencesCompat to avoid having a dependency of the
-    // multidex support library on another support library.
-    private static Method sApplyMethod;  // final
-    static {
-        try {
-            Class<?> cls = SharedPreferences.Editor.class;
-            sApplyMethod = cls.getMethod("apply");
-        } catch (NoSuchMethodException unused) {
-            sApplyMethod = null;
-        }
-    }
-
-    private static void apply(SharedPreferences.Editor editor) {
-        if (sApplyMethod != null) {
-            try {
-                sApplyMethod.invoke(editor);
-                return;
-            } catch (InvocationTargetException unused) {
-                // fall through
-            } catch (IllegalAccessException unused) {
-                // fall through
-            }
-        }
-        editor.commit();
     }
 }

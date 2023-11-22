@@ -186,7 +186,7 @@ public class HomeScreenTests extends InstrumentationTestCase {
     public void testCreateRenameRemoveFolderOnHome() throws Exception {
         // Create two shortcuts on the home screen
         createShortcutOnHome("Calculator");
-        createShortcutOnHome("Clock");
+        createShortcutOnHome("Gmail");
         mDevice.pressHome();
         mDevice.waitForIdle();
 
@@ -195,7 +195,7 @@ public class HomeScreenTests extends InstrumentationTestCase {
         UiObject2 calculatorIcon = mDevice.wait
                 (Until.findObject(By.text("Calculator")), TIMEOUT);
         UiObject2 clockIcon = mDevice.wait
-                (Until.findObject(By.text("Clock")), TIMEOUT);
+                (Until.findObject(By.text("Gmail")), TIMEOUT);
         calculatorIcon.drag(clockIcon.getVisibleCenter(), 1000);
 
         // Verify that there is a new unnamed folder at this point
@@ -206,7 +206,7 @@ public class HomeScreenTests extends InstrumentationTestCase {
                 (Until.findObject(By.text("Unnamed Folder")), TIMEOUT);
         assertNotNull("Custom folder not created", unnamedFolder);
 
-        // Rename the unnamed folder to 'Snowflake'
+        // Rename the unnamed folder to Snowflake.
         unnamedFolder.click();
         unnamedFolder.setText("Snowflake");
 
@@ -221,27 +221,18 @@ public class HomeScreenTests extends InstrumentationTestCase {
         UiObject2 snowflakeFolder = mDevice.wait
                 (Until.findObject(By.text("Snowflake")), TIMEOUT);
         assertNotNull("Custom folder not created", snowflakeFolder);
+        snowflakeFolder.click();
+        UiObject2 calculatorButton = mDevice.wait
+                (Until.findObject(By.text("Calculator")), TIMEOUT);
+        calculatorButton.click();
+        assertTrue("Calculator wasn't opened from the Google folder",
+                mDevice.wait(Until.hasObject
+                (By.pkg("com.google.android.calculator")), TIMEOUT));
+        mDevice.pressHome();
+        mDevice.waitForIdle();
 
         // Verify that the Snowflake folder can be removed
         removeObjectFromHomeScreen(snowflakeFolder, "text", "Snowflake");
-    }
-
-    // Folders - opening an app from folder
-    @MediumTest
-    public void testOpenAppFromFolderOnHome() {
-        mDevice.pressHome();
-        mDevice.waitForIdle();
-        UiObject2 googleFolder = mDevice.wait
-                (Until.findObject(By.desc("Folder: Google")), TIMEOUT);
-        googleFolder.click();
-        UiObject2 youTubeButton = mDevice.wait
-                (Until.findObject(By.text("YouTube")), TIMEOUT);
-        youTubeButton.click();
-        assertTrue("Youtube wasn't opened from the Google folder",
-                mDevice.wait(Until.hasObject
-                (By.pkg("com.google.android.youtube")), TIMEOUT));
-        mDevice.pressHome();
-        mDevice.waitForIdle();
     }
 
     /* This method takes in an object to be drag/dropped onto the
@@ -261,14 +252,30 @@ public class HomeScreenTests extends InstrumentationTestCase {
         // because today, UIAutomator doesn't allow us to search for an element
         // while a touchdown has been executed, but before the touch up.
         // FYI: A click is a combination of a touch down and a touch up motion.
-        UiObject2 removeButton = mDevice.wait(Until.findObject(By.desc("Google Search")),
-                TIMEOUT);
-        // Drag the calculator icon to the 'Remove' button to remove it
+        UiObject2 removeButton = null;
+        int removeButtonCenterYCoordinate = 0;
+        String deviceName = mDevice.getProductName();
+        if (deviceName.equals("marlin") || deviceName.equals("sailfish")) {
+            mDevice.wait(Until.findObject(By.res
+                    ("com.google.android.apps.nexuslauncher:id/g_icon")),
+                    TIMEOUT).click();
+            removeButton = mDevice.wait(Until.findObject
+                    (By.res("com.google.android.googlequicksearchbox:id/search_plate")),
+                    TIMEOUT);
+            removeButtonCenterYCoordinate = removeButton.getVisibleCenter().y;
+            // Hit back to go back to the regular Home screen
+            mDevice.pressBack();
+            mDevice.waitForIdle();
+        }
+        else {
+            removeButton = mDevice.wait(Until.findObject(By.desc("Google Search")),
+                    TIMEOUT);
+            removeButtonCenterYCoordinate = removeButton.getVisibleCenter().y;
+        }
         objectToRemove.drag(new Point(mDevice.getDisplayWidth() / 2,
-                 removeButton.getVisibleCenter().y), 1000);
-
+                removeButtonCenterYCoordinate), 1000);
         UiObject2 checkForObject = null;
-        // Refetch the calculator icon
+        // Refetch the icon
         if (searchCategory.equals("text")) {
             checkForObject = mDevice.findObject(By.text(searchContent));
         }
@@ -292,8 +299,7 @@ public class HomeScreenTests extends InstrumentationTestCase {
     private void createShortcutOnHome(String appName) throws Exception {
         // Navigate to All Apps
         mDevice.pressHome();
-        UiObject2 allApps = mDevice.findObject(By.desc("Apps"));
-        allApps.click();
+        mDevice.findObject(mLauncherStrategy.getAllAppsButtonSelector()).click();
         mDevice.waitForIdle();
 
         // Long press on the Calculator app for two seconds and release on home screen

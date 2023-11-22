@@ -17,6 +17,7 @@
 #include <plat/inc/eeData.h>
 #include <plat/inc/plat.h>
 #include <plat/inc/bl.h>
+#include <plat/inc/wdt.h>
 #include <platform.h>
 #include <hostIntf.h>
 #include <inttypes.h>
@@ -146,8 +147,9 @@ static struct Task *osSetCurrentTask(struct Task *task)
     struct Task *old = mCurrentTask;
     while (true) {
         old = mCurrentTask;
-        if (atomicCmpXchg32bits((uint32_t*)&mCurrentTask, (uint32_t)old, (uint32_t)task))
+        if (atomicCmpXchgPtr((uintptr_t*)&mCurrentTask, (uintptr_t)old, (uintptr_t)task)) {
             break;
+        }
     }
     return old;
 }
@@ -197,7 +199,11 @@ static inline struct Task *osTaskByIdx(size_t idx)
 
 uint32_t osGetCurrentTid()
 {
-    return osGetCurrentTask()->tid;
+    struct Task *task = osGetCurrentTask();
+    if (task == NULL) {
+        return UINT32_MAX;
+    }
+    return task->tid;
 }
 
 uint32_t osSetCurrentTid(uint32_t tid)
@@ -371,7 +377,7 @@ static inline void osTaskHandle(struct Task *task, uint32_t evtType, const void*
     osSetCurrentTask(preempted);
 }
 
-static void handleEventFreeing(uint32_t evtType, void *evtData, uintptr_t evtFreeData) // watch out, this is synchronous
+static void handleEventFreeing(uint32_t evtType, void *evtData, TaggedPtr evtFreeData) // watch out, this is synchronous
 {
     if ((taggedPtrIsPtr(evtFreeData) && !taggedPtrToPtr(evtFreeData)) ||
         (taggedPtrIsUint(evtFreeData) && !taggedPtrToUint(evtFreeData)))
@@ -490,11 +496,13 @@ struct Segment *osGetSegment(const struct AppHdr *app)
 
 bool osEraseShared()
 {
+    wdtDisableClk();
     mpuAllowRamExecution(true);
     mpuAllowRomWrite(true);
     (void)BL.blEraseShared(BL_FLASH_KEY1, BL_FLASH_KEY2);
     mpuAllowRomWrite(false);
     mpuAllowRamExecution(false);
+    wdtEnableClk();
     return true;
 }
 
@@ -692,6 +700,11 @@ static bool osStartApp(const struct AppHdr *app)
         task->subbedEvtListSz = MAX_EMBEDDED_EVT_SUBS;
         task->subbedEvents = task->subbedEventsInt;
         MAKE_NEW_TID(task);
+
+        // print external NanoApp info to facilitate NanoApp debugging
+        if (!(task->app->hdr.fwFlags & FL_APP_HDR_INTERNAL))
+            osLog(LOG_INFO, "loaded app ID 0x%llx at flash base 0x%08x ram base 0x%08x; TID %04X\n",
+                  task->app->hdr.appId, (uintptr_t) &task->app, (uintptr_t) task->platInfo.data, task->tid);
 
         done = osTaskInit(task);
 
@@ -1026,6 +1039,7 @@ void osMainInit(void)
     osApiExport(mMiscInternalThingsSlab);
     apIntInit();
     cpuIntsOn();
+    wdtInit();
     osStartTasks();
 
     //broadcast app start to all already-loaded apps
@@ -1083,6 +1097,7 @@ void __attribute__((noreturn)) osMain(void)
     while (true)
     {
         osMainDequeueLoop();
+        platPeriodic();
     }
 }
 
@@ -1178,8 +1193,10 @@ bool osDefer(OsDeferCbkF callback, void *cookie, bool urgent)
 static bool osEnqueuePrivateEvtEx(uint32_t evtType, void *evtData, TaggedPtr evtFreeInfo, uint32_t toTid)
 {
     union InternalThing *act = slabAllocatorAlloc(mMiscInternalThingsSlab);
-    if (!act)
-            return false;
+    if (!act) {
+        osLog(LOG_ERROR, "[seos] ERROR: osEnqueuePrivateEvtEx: call to slabAllocatorAlloc() failed\n");
+        return false;
+    }
 
     act->privateEvt.evtType = evtType;
     act->privateEvt.evtData = evtData;

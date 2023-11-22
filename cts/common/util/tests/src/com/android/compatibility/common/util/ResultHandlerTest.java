@@ -45,6 +45,10 @@ public class ResultHandlerTest extends TestCase {
     private static final String JAVA_VERSION = System.getProperty("java.version");
     private static final String NAME_A = "ModuleA";
     private static final String NAME_B = "ModuleB";
+    private static final String DONE_A = "false";
+    private static final String DONE_B = "true";
+    private static final String NOT_EXECUTED_A = "1";
+    private static final String NOT_EXECUTED_B = "0";
     private static final String ABI = "mips64";
     private static final String ID_A = AbiUtils.createId(ABI, NAME_A);
     private static final String ID_B = AbiUtils.createId(ABI, NAME_B);
@@ -74,6 +78,9 @@ public class ResultHandlerTest extends TestCase {
     private static final String MESSAGE = "Something small is not alright";
     private static final String STACK_TRACE = "Something small is not alright\n " +
             "at four.big.insects.Marley.sing(Marley.java:10)";
+    private static final String BUG_REPORT = "https://cnsviewer.corp.google.com/cns/bugreport.txt";
+    private static final String LOGCAT = "https://cnsviewer.corp.google.com/cns/logcat.gz";
+    private static final String SCREENSHOT = "https://cnsviewer.corp.google.com/screenshot.png";
     private static final long START_MS = 1431586801000L;
     private static final long END_MS = 1431673199000L;
     private static final String START_DISPLAY = "Fri Aug 20 15:13:03 PDT 2010";
@@ -102,7 +109,7 @@ public class ResultHandlerTest extends TestCase {
             "  <Summary pass=\"%d\" failed=\"%d\" not_executed=\"%d\" " +
             "modules_done=\"1\" modules_total=\"1\" />\n";
     private static final String XML_MODULE =
-            "  <Module name=\"%s\" abi=\"%s\" device=\"%s\">\n" +
+            "  <Module name=\"%s\" abi=\"%s\" device=\"%s\" done=\"%s\" not_executed=\"%s\">\n" +
             "%s" +
             "  </Module>\n";
     private static final String XML_CASE =
@@ -118,6 +125,9 @@ public class ResultHandlerTest extends TestCase {
             "        <Failure message=\"%s\">\n" +
             "          <StackTrace>%s</StackTrace>\n" +
             "        </Failure>\n" +
+            "        <BugReport>%s</BugReport>\n" +
+            "        <Logcat>%s</Logcat>\n" +
+            "        <Screenshot>%s</Screenshot>\n" +
             "      </Test>\n";
     private static final String XML_TEST_RESULT =
             "      <Test result=\"pass\" name=\"%s\">\n" +
@@ -152,18 +162,24 @@ public class ResultHandlerTest extends TestCase {
         result.addInvocationInfo(BUILD_ID, EXAMPLE_BUILD_ID);
         result.addInvocationInfo(BUILD_PRODUCT, EXAMPLE_BUILD_PRODUCT);
         IModuleResult moduleA = result.getOrCreateModule(ID_A);
+        moduleA.setDone(false);
         ICaseResult moduleACase = moduleA.getOrCreateResult(CLASS_A);
         ITestResult moduleATest1 = moduleACase.getOrCreateResult(METHOD_1);
         moduleATest1.setResultStatus(TestStatus.PASS);
         ITestResult moduleATest2 = moduleACase.getOrCreateResult(METHOD_2);
-        moduleATest2.setResultStatus(TestStatus.NOT_EXECUTED);
+        moduleATest2.setResultStatus(null); // not executed test
+        moduleA.setNotExecuted(1);
 
         IModuleResult moduleB = result.getOrCreateModule(ID_B);
+        moduleB.setDone(true);
         ICaseResult moduleBCase = moduleB.getOrCreateResult(CLASS_B);
         ITestResult moduleBTest3 = moduleBCase.getOrCreateResult(METHOD_3);
         moduleBTest3.setResultStatus(TestStatus.FAIL);
         moduleBTest3.setMessage(MESSAGE);
         moduleBTest3.setStackTrace(STACK_TRACE);
+        moduleBTest3.setBugReport(BUG_REPORT);
+        moduleBTest3.setLog(LOGCAT);
+        moduleBTest3.setScreenshot(SCREENSHOT);
         ITestResult moduleBTest4 = moduleBCase.getOrCreateResult(METHOD_4);
         moduleBTest4.setResultStatus(TestStatus.PASS);
         ReportLog report = new ReportLog();
@@ -193,12 +209,12 @@ public class ResultHandlerTest extends TestCase {
             String buildInfo = String.format(XML_BUILD_INFO, DEVICE_A,
                     EXAMPLE_BUILD_ID, EXAMPLE_BUILD_PRODUCT);
             String summary = String.format(XML_SUMMARY, 2, 1, 1);
-            String moduleATest1 = String.format(XML_TEST_PASS, METHOD_1);
-            String moduleATest2 = String.format(XML_TEST_NOT_EXECUTED, METHOD_2);
-            String moduleATests = String.format(JOIN, moduleATest1, moduleATest2);
-            String moduleACases = String.format(XML_CASE, CLASS_A, moduleATests);
-            String moduleA = String.format(XML_MODULE, NAME_A, ABI, DEVICE_A, moduleACases);
-            String moduleBTest3 = String.format(XML_TEST_FAIL, METHOD_3, MESSAGE, STACK_TRACE);
+            String moduleATest = String.format(XML_TEST_PASS, METHOD_1);
+            String moduleACases = String.format(XML_CASE, CLASS_A, moduleATest);
+            String moduleA = String.format(XML_MODULE, NAME_A, ABI, DEVICE_A, DONE_A,
+                    NOT_EXECUTED_A, moduleACases);
+            String moduleBTest3 = String.format(XML_TEST_FAIL, METHOD_3, MESSAGE, STACK_TRACE,
+                    BUG_REPORT, LOGCAT, SCREENSHOT);
             String moduleBTest4 = String.format(XML_TEST_RESULT, METHOD_4,
                     SUMMARY_SOURCE, SUMMARY_MESSAGE, ResultType.HIGHER_BETTER.toReportString(),
                     ResultUnit.SCORE.toReportString(), Double.toString(SUMMARY_VALUE),
@@ -207,7 +223,8 @@ public class ResultHandlerTest extends TestCase {
                     Double.toString(DETAILS_VALUE_2), Double.toString(DETAILS_VALUE_3));
             String moduleBTests = String.format(JOIN, moduleBTest3, moduleBTest4);
             String moduleBCases = String.format(XML_CASE, CLASS_B, moduleBTests);
-            String moduleB = String.format(XML_MODULE, NAME_B, ABI, DEVICE_B, moduleBCases);
+            String moduleB = String.format(XML_MODULE, NAME_B, ABI, DEVICE_B, DONE_B,
+                    NOT_EXECUTED_B, moduleBCases);
             String modules = String.format(JOIN, moduleA, moduleB);
             String hostName = "";
             try {
@@ -235,7 +252,7 @@ public class ResultHandlerTest extends TestCase {
         IInvocationResult result = results.get(0);
         assertEquals("Expected 2 passes", 2, result.countResults(TestStatus.PASS));
         assertEquals("Expected 1 failure", 1, result.countResults(TestStatus.FAIL));
-        assertEquals("Expected 1 not executed", 1, result.countResults(TestStatus.NOT_EXECUTED));
+        assertEquals("Expected 1 not executed", 1, result.getNotExecuted());
 
         Map<String, String> buildInfo = result.getInvocationInfo();
         assertEquals("Incorrect Build ID", EXAMPLE_BUILD_ID, buildInfo.get(BUILD_ID));
@@ -256,7 +273,6 @@ public class ResultHandlerTest extends TestCase {
         IModuleResult moduleA = modules.get(0);
         assertEquals("Expected 1 pass", 1, moduleA.countResults(TestStatus.PASS));
         assertEquals("Expected 0 failures", 0, moduleA.countResults(TestStatus.FAIL));
-        assertEquals("Expected 1 not executed", 1, moduleA.countResults(TestStatus.NOT_EXECUTED));
         assertEquals("Incorrect ABI", ABI, moduleA.getAbi());
         assertEquals("Incorrect name", NAME_A, moduleA.getName());
         assertEquals("Incorrect ID", ID_A, moduleA.getId());
@@ -265,7 +281,7 @@ public class ResultHandlerTest extends TestCase {
         ICaseResult moduleACase = moduleACases.get(0);
         assertEquals("Incorrect name", CLASS_A, moduleACase.getName());
         List<ITestResult> moduleAResults = moduleACase.getResults();
-        assertEquals("Expected 2 results", 2, moduleAResults.size());
+        assertEquals("Expected 1 result", 1, moduleAResults.size());
         ITestResult moduleATest1 = moduleAResults.get(0);
         assertEquals("Incorrect name", METHOD_1, moduleATest1.getName());
         assertEquals("Incorrect result", TestStatus.PASS, moduleATest1.getResultStatus());
@@ -275,20 +291,10 @@ public class ResultHandlerTest extends TestCase {
         assertNull("Unexpected message", moduleATest1.getMessage());
         assertNull("Unexpected stack trace", moduleATest1.getStackTrace());
         assertNull("Unexpected report", moduleATest1.getReportLog());
-        ITestResult moduleATest2 = moduleAResults.get(1);
-        assertEquals("Incorrect name", METHOD_2, moduleATest2.getName());
-        assertEquals("Incorrect result", TestStatus.NOT_EXECUTED, moduleATest2.getResultStatus());
-        assertNull("Unexpected bugreport", moduleATest2.getBugReport());
-        assertNull("Unexpected log", moduleATest2.getLog());
-        assertNull("Unexpected screenshot", moduleATest2.getScreenshot());
-        assertNull("Unexpected message", moduleATest2.getMessage());
-        assertNull("Unexpected stack trace", moduleATest2.getStackTrace());
-        assertNull("Unexpected report", moduleATest2.getReportLog());
 
         IModuleResult moduleB = modules.get(1);
         assertEquals("Expected 1 pass", 1, moduleB.countResults(TestStatus.PASS));
         assertEquals("Expected 1 failure", 1, moduleB.countResults(TestStatus.FAIL));
-        assertEquals("Expected 0 not executed", 0, moduleB.countResults(TestStatus.NOT_EXECUTED));
         assertEquals("Incorrect ABI", ABI, moduleB.getAbi());
         assertEquals("Incorrect name", NAME_B, moduleB.getName());
         assertEquals("Incorrect ID", ID_B, moduleB.getId());
@@ -301,9 +307,9 @@ public class ResultHandlerTest extends TestCase {
         ITestResult moduleBTest3 = moduleBResults.get(0);
         assertEquals("Incorrect name", METHOD_3, moduleBTest3.getName());
         assertEquals("Incorrect result", TestStatus.FAIL, moduleBTest3.getResultStatus());
-        assertNull("Unexpected bugreport", moduleBTest3.getBugReport());
-        assertNull("Unexpected log", moduleBTest3.getLog());
-        assertNull("Unexpected screenshot", moduleBTest3.getScreenshot());
+        assertEquals("Incorrect bugreport", BUG_REPORT, moduleBTest3.getBugReport());
+        assertEquals("Incorrect log", LOGCAT, moduleBTest3.getLog());
+        assertEquals("Incorrect screenshot", SCREENSHOT, moduleBTest3.getScreenshot());
         assertEquals("Incorrect message", MESSAGE, moduleBTest3.getMessage());
         assertEquals("Incorrect stack trace", STACK_TRACE, moduleBTest3.getStackTrace());
         assertNull("Unexpected report", moduleBTest3.getReportLog());

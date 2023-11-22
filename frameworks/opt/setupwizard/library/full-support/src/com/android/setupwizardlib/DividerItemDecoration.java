@@ -67,11 +67,25 @@ public class DividerItemDecoration extends RecyclerView.ItemDecoration {
     public static final int DIVIDER_CONDITION_BOTH = 1;
 
     /**
-     * Creates a default instance of {@link DividerItemDecoration}, using
-     * {@code android:attr/listDivider} as the divider and {@code android:attr/dividerHeight} as the
-     * divider height.
+     * @deprecated Use {@link #DividerItemDecoration(android.content.Context)}
      */
+    @Deprecated
     public static DividerItemDecoration getDefault(Context context) {
+        return new DividerItemDecoration(context);
+    }
+
+    /* non-static section */
+
+    private Drawable mDivider;
+    private int mDividerHeight;
+    private int mDividerIntrinsicHeight;
+    @DividerCondition
+    private int mDividerCondition;
+
+    public DividerItemDecoration() {
+    }
+
+    public DividerItemDecoration(Context context) {
         final TypedArray a = context.obtainStyledAttributes(R.styleable.SuwDividerItemDecoration);
         final Drawable divider = a.getDrawable(
                 R.styleable.SuwDividerItemDecoration_android_listDivider);
@@ -82,20 +96,10 @@ public class DividerItemDecoration extends RecyclerView.ItemDecoration {
                 DIVIDER_CONDITION_EITHER);
         a.recycle();
 
-        final DividerItemDecoration decoration = new DividerItemDecoration();
-        decoration.setDivider(divider);
-        decoration.setDividerHeight(dividerHeight);
-        decoration.setDividerCondition(dividerCondition);
-        return decoration;
+        setDivider(divider);
+        setDividerHeight(dividerHeight);
+        setDividerCondition(dividerCondition);
     }
-
-    /* non-static section */
-
-    private Drawable mDivider;
-    private int mDividerHeight;
-    private int mDividerIntrinsicHeight;
-    @DividerCondition
-    private int mDividerCondition;
 
     @Override
     public void onDraw(Canvas c, RecyclerView parent, RecyclerView.State state) {
@@ -127,32 +131,57 @@ public class DividerItemDecoration extends RecyclerView.ItemDecoration {
         final RecyclerView.ViewHolder holder = parent.getChildViewHolder(view);
         final int index = holder.getLayoutPosition();
         final int lastItemIndex = parent.getAdapter().getItemCount() - 1;
-        if ((holder instanceof DividedViewHolder)) {
-            if (((DividedViewHolder) holder).isDividerAllowedBelow()) {
-                if (mDividerCondition == DIVIDER_CONDITION_EITHER) {
-                    // Draw the divider without consulting the next item if we only
-                    // need permission for either above or below.
-                    return true;
-                }
-            } else if (mDividerCondition == DIVIDER_CONDITION_BOTH || index == lastItemIndex) {
-                // Don't draw if the current view holder doesn't allow drawing below
-                // and the current theme requires permission for both the item below and above.
-                // Also, if this is the last item, there is no item below to ask permission
-                // for whether to draw a divider above, so don't draw it.
-                return false;
+        if (isDividerAllowedBelow(holder)) {
+            if (mDividerCondition == DIVIDER_CONDITION_EITHER) {
+                // Draw the divider without consulting the next item if we only
+                // need permission for either above or below.
+                return true;
             }
+        } else if (mDividerCondition == DIVIDER_CONDITION_BOTH || index == lastItemIndex) {
+            // Don't draw if the current view holder doesn't allow drawing below
+            // and the current theme requires permission for both the item below and above.
+            // Also, if this is the last item, there is no item below to ask permission
+            // for whether to draw a divider above, so don't draw it.
+            return false;
         }
         // Require permission from index below to draw the divider.
         if (index < lastItemIndex) {
             final RecyclerView.ViewHolder nextHolder =
                     parent.findViewHolderForLayoutPosition(index + 1);
-            if ((nextHolder instanceof DividedViewHolder)
-                    && !((DividedViewHolder) nextHolder).isDividerAllowedAbove()) {
+            if (!isDividerAllowedAbove(nextHolder)) {
                 // Don't draw if the next view holder doesn't allow drawing above
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * Whether a divider is allowed above the view holder. The allowed values will be combined
+     * according to {@link #getDividerCondition()}. The default implementation delegates to
+     * {@link com.android.setupwizardlib.DividerItemDecoration.DividedViewHolder}, or simply allows
+     * the divider if the view holder doesn't implement {@code DividedViewHolder}. Subclasses can
+     * override this to give more information to decide whether a divider should be drawn.
+     *
+     * @return True if divider is allowed above this view holder.
+     */
+    protected boolean isDividerAllowedAbove(RecyclerView.ViewHolder viewHolder) {
+        return !(viewHolder instanceof DividedViewHolder)
+                || ((DividedViewHolder) viewHolder).isDividerAllowedAbove();
+    }
+
+    /**
+     * Whether a divider is allowed below the view holder. The allowed values will be combined
+     * according to {@link #getDividerCondition()}. The default implementation delegates to
+     * {@link com.android.setupwizardlib.DividerItemDecoration.DividedViewHolder}, or simply allows
+     * the divider if the view holder doesn't implement {@code DividedViewHolder}. Subclasses can
+     * override this to give more information to decide whether a divider should be drawn.
+     *
+     * @return True if divider is allowed below this view holder.
+     */
+    protected boolean isDividerAllowedBelow(RecyclerView.ViewHolder viewHolder) {
+        return !(viewHolder instanceof DividedViewHolder)
+                || ((DividedViewHolder) viewHolder).isDividerAllowedBelow();
     }
 
     /**

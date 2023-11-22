@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Cargando fondo de pantalla animado…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Pantalla de inicio"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Pantalla de inicio e pantalla de bloqueo"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"Contrae o panel de información do fondo de pantalla"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"Desprega o panel de información do fondo de pantalla"</string>
 </resources>

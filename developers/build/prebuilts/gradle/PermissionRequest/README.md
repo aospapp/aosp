@@ -46,8 +46,8 @@ URL, the app uses the SimpleWebServer class to provide the content via
 Pre-requisites
 --------------
 
-- Android SDK 23
-- Android Build Tools v23.0.3
+- Android SDK 24
+- Android Build Tools v24.0.1
 - Android Support Repository
 
 Screenshots

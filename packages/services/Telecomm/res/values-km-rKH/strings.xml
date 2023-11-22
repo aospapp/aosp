@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"បាត់​​ចំនួន​​សារ​ជា​សំឡេង"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"គ្មាន​ចំនួន​សារ​ជា​សំឡេង​​ត្រូវ​បាន​រក្សា​ទុក​នៅ​លើ​ស៊ី​ម​កាត​ទេ​។"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"បន្ថែម​លេខ"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"ប្តូរកម្មវិធីហៅទូរស័ព្ទលំនាំដើម?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"ប្រើ <xliff:g id="NEW_APP">%1$s</xliff:g> ជំនួសឲ្យ <xliff:g id="CURRENT_APP">%2$s</xliff:g> ជាកម្មវិធីហៅទូរស័ព្ទលំនាំដើមរបស់អ្នក?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"ប្រើ <xliff:g id="NEW_APP">%s</xliff:g> ជាកម្មវិធីហៅទូរស័ព្ទលំនាំដើមរបស់អ្នក?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"ធ្វើ​ <xliff:g id="NEW_APP">%s</xliff:g> ជា​កម្មវិធី​ទូរសព្ទ​លំនាំដើម​របស់​អ្នក​ដែរ ឬ​ទេ?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"កំណត់​លំនាំដើម"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"បោះបង់"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> នឹង​អាច​ដាក់ចុះ និង​ត្រួតពិនិត្យ​​ទិដ្ឋភាព​ការ​ហៅ​ទាំងអស់។ មាន​តែ​កម្មវិធី​ដែល​អ្នក​ទុកចិត្ត​ប៉ុណ្ណោះ​​អាច​​ត្រូវ​បាន​​កំណត់​ជា​កម្មវិធី​ទូរសព្ទ​លំនាំដើម។"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"លេខដែល​បានរារាំង"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"អ្នក​នឹង​មិន​ទទួល​បាន​ការ​ហៅទូរស័ព្ទ ឬ​សារ​​ពី​លេខ​ដែល​បាន​​រារាំង​ឡើយ។"</string>
     <string name="block_number" msgid="1101252256321306179">"បញ្ចូល​លេខ"</string>

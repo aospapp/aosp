@@ -165,6 +165,9 @@ public class TestConnectionService extends ConnectionService {
             capabilities |= CAPABILITY_RESPOND_VIA_TEXT;
             setConnectionCapabilities(capabilities);
 
+            if (isIncoming) {
+                putExtra(Connection.EXTRA_ANSWERING_DROPS_FG_CALL, true);
+            }
             LocalBroadcastManager.getInstance(getApplicationContext()).registerReceiver(
                     mHangupReceiver, new IntentFilter(TestCallActivity.ACTION_HANGUP_CALLS));
             final IntentFilter filter =

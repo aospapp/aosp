@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Memuat wallpaper animasi…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Layar utama"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Layar utama dan layar kunci"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"Ciutkan panel info wallpaper"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"Luaskan panel info wallpaper"</string>
 </resources>

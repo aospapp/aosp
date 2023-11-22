@@ -19,6 +19,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
 import com.android.managedprovisioning.BootReminder;
@@ -60,24 +61,26 @@ public class EncryptDeviceActivity extends SetupLayoutActivity {
             ProvisionLogger.loge("Unknown provisioning action: " + mParams.provisioningAction);
             finish();
         }
+
+        Button encryptButton = (Button) findViewById(R.id.encrypt_button);
+        encryptButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    EncryptionController.getInstance(EncryptDeviceActivity.this)
+                            .setEncryptionReminder(mParams);
+                    // Use settings so user confirms password/pattern and its passed
+                    // to encryption tool.
+                    Intent intent = new Intent();
+                    intent.setAction(DevicePolicyManager.ACTION_START_ENCRYPTION);
+                    startActivity(intent);
+                }
+            });
     }
 
     private void initializeUi(int headerRes, int titleRes, int mainTextRes) {
         initializeLayoutParams(R.layout.encrypt_device, headerRes, false);
         setTitle(titleRes);
         ((TextView) findViewById(R.id.encrypt_main_text)).setText(mainTextRes);
-        configureNavigationButtons(R.string.encrypt_device_launch_settings,
-            View.VISIBLE, View.VISIBLE);
         maybeSetLogoAndMainColor(mParams.mainColor);
-    }
-
-    @Override
-    public void onNavigateNext() {
-        EncryptionController.getInstance(this).setEncryptionReminder(mParams);
-        // Use settings so user confirms password/pattern and its passed
-        // to encryption tool.
-        Intent intent = new Intent();
-        intent.setAction(DevicePolicyManager.ACTION_START_ENCRYPTION);
-        startActivity(intent);
     }
 }

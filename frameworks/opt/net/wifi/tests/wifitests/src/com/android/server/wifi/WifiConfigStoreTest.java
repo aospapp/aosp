@@ -19,6 +19,7 @@ package com.android.server.wifi;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import android.content.Context;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import org.junit.Before;
@@ -155,6 +156,7 @@ public class WifiConfigStoreTest {
             + "}\n";
 
     @Mock private WifiNative mWifiNative;
+    @Mock private Context mContext;
     private MockKeyStore mMockKeyStore;
     private WifiConfigStore mWifiConfigStore;
 
@@ -163,8 +165,8 @@ public class WifiConfigStoreTest {
         MockitoAnnotations.initMocks(this);
 
         mMockKeyStore = new MockKeyStore();
-        mWifiConfigStore = new WifiConfigStore(mWifiNative, mMockKeyStore.createMock(), null,
-                false, true);
+        mWifiConfigStore = new WifiConfigStore(mContext, mWifiNative, mMockKeyStore.createMock(),
+                null, false, true);
     }
 
     /**

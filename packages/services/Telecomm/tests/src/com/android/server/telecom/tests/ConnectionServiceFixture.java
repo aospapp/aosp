@@ -102,24 +102,43 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         @Override
         public Connection onCreateOutgoingConnection(
                 PhoneAccountHandle connectionManagerPhoneAccount, ConnectionRequest request) {
-            mLatestConnection = new FakeConnection(request.getVideoState(), request.getAddress());
-            return mLatestConnection;
+            FakeConnection fakeConnection = new FakeConnection(request.getVideoState(),
+                    request.getAddress());
+            mLatestConnection = fakeConnection;
+            if (mCapabilities != NOT_SPECIFIED) {
+                fakeConnection.setConnectionCapabilities(mCapabilities);
+            }
+            if (mProperties != NOT_SPECIFIED) {
+                fakeConnection.setConnectionProperties(mProperties);
+            }
+            return fakeConnection;
         }
 
         @Override
         public void onConference(Connection cxn1, Connection cxn2) {
-            // Usually, this is implemented by something in Telephony, which does a bunch of radio
-            // work to conference the two connections together. Here we just short-cut that and
-            // declare them conferenced.
-            Conference fakeConference = new FakeConference();
-            fakeConference.addConnection(cxn1);
-            fakeConference.addConnection(cxn2);
-            mLatestConference = fakeConference;
-            addConference(fakeConference);
+            if (((FakeConnection) cxn1).getIsConferenceCreated()) {
+                // Usually, this is implemented by something in Telephony, which does a bunch of
+                // radio work to conference the two connections together. Here we just short-cut
+                // that and declare them conferenced.
+                Conference fakeConference = new FakeConference();
+                fakeConference.addConnection(cxn1);
+                fakeConference.addConnection(cxn2);
+                mLatestConference = fakeConference;
+                addConference(fakeConference);
+            } else {
+                try {
+                    sendSetConferenceMergeFailed(cxn1.getTelecomCallId());
+                } catch (Exception e) {
+                    Log.w(this, "Exception on sendSetConferenceMergeFailed: " + e.getMessage());
+                }
+            }
         }
     }
 
     public class FakeConnection extends Connection {
+        // Set to false if you wish the Conference merge to fail.
+        boolean mIsConferenceCreated = true;
+
         public FakeConnection(int videoState, Uri address) {
             super();
             int capabilities = getConnectionCapabilities();
@@ -128,13 +147,21 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             capabilities |= CAPABILITY_HOLD;
             setVideoState(videoState);
             setConnectionCapabilities(capabilities);
-            setActive();
+            setDialing();
             setAddress(address, TelecomManager.PRESENTATION_ALLOWED);
         }
 
         @Override
         public void onExtrasChanged(Bundle extras) {
             mExtrasLock.countDown();
+        }
+
+        public boolean getIsConferenceCreated() {
+            return mIsConferenceCreated;
+        }
+
+        public void setIsConferenceCreated(boolean isConferenceCreated) {
+            mIsConferenceCreated = isConferenceCreated;
         }
     }
 
@@ -203,6 +230,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             c.videoState = request.getVideoState();
             c.mockVideoProvider = new MockVideoProvider();
             c.videoProvider = c.mockVideoProvider.getInterface();
+            c.isConferenceCreated = true;
             mConnectionById.put(id, c);
             mConnectionServiceDelegateAdapter.createConnection(connectionManagerPhoneAccount,
                     id, request, isIncoming, isUnknown);
@@ -317,6 +345,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         int videoState;
         boolean isVoipAudioMode;
         Bundle extras;
+        boolean isConferenceCreated;
     }
 
     public class ConferenceInfo {
@@ -519,6 +548,12 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
     public void sendConnectionEvent(String id, String event, Bundle extras) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
             a.onConnectionEvent(id, event, extras);
+        }
+    }
+
+    public void sendSetConferenceMergeFailed(String id) throws Exception {
+        for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
+            a.setConferenceMergeFailed(id);
         }
     }
 

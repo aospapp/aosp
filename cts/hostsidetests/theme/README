@@ -66,14 +66,32 @@ II. Building theme tests
 
 III. Running theme tests
 
-1. Connect the device that you wish to test. Confirm that is is connected with:
+To obtain reliable results, theme tests should be run against the device's
+native density; however, many of the tests will also work in a scaled density.
+If you don't possess a device for a given density and would still like to run
+tests for that density, you can manually force scaling via:
 
-   adb devices
+  adb shell wm density <dpi>
 
-2. Run the theme tests using cts-tradefed:
+As of API 24, the results will NOT be 100% reliable due to scaling artifacts.
+To reset the device to its native density, run:
 
-   cts-tradefed run singleCommand cts --skip-device-info --skip-preconditions \
-       --skip-connectivity-check --module CtsThemeHostTestCases \
-       --test android.theme.cts.ThemeHostTest
+  adb shell wm density reset
 
-3. Wait for the tests to complete. This should take less than five minutes.
+Once the device is in the desired state, do the following:
+
+  1. Connect the device that you wish to test. Confirm that is is connected with:
+
+     adb devices
+
+  2. Run the theme tests using cts-tradefed:
+
+     cts-tradefed run singleCommand cts-dev --module CtsThemeHostTestCases \
+         --test android.theme.cts.ThemeHostTest
+
+  3. Wait for the tests to complete. This should take less than five minutes.
+
+If any tests failures are encountered, diff PNGs will be generated and collected
+in a ZIP file in the tmp directory. Look for the following test output:
+
+  I/ThemeHostTest: Wrote <N> failures to file: /tmp/failures<random-number>.zip

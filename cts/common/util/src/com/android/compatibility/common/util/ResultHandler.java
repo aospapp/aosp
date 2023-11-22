@@ -152,6 +152,9 @@ public class ResultHandler {
                     boolean done = Boolean.parseBoolean(parser.getAttributeValue(NS, DONE_ATTR));
                     IModuleResult module = invocation.getOrCreateModule(moduleId);
                     module.setDone(done);
+                    int notExecuted =
+                            Integer.parseInt(parser.getAttributeValue(NS, NOT_EXECUTED_ATTR));
+                    module.setNotExecuted(notExecuted);
                     while (parser.nextTag() == XmlPullParser.START_TAG) {
                         parser.require(XmlPullParser.START_TAG, NS, CASE_TAG);
                         String caseName = parser.getAttributeValue(NS, NAME_ATTR);
@@ -162,7 +165,8 @@ public class ResultHandler {
                             ITestResult test = testCase.getOrCreateResult(testName);
                             String result = parser.getAttributeValue(NS, RESULT_ATTR);
                             test.setResultStatus(TestStatus.getStatus(result));
-                            if (parser.nextTag() == XmlPullParser.START_TAG) {
+                            test.setRetry(true);
+                            while (parser.nextTag() == XmlPullParser.START_TAG) {
                                 if (parser.getName().equals(FAILURE_TAG)) {
                                     test.setMessage(parser.getAttributeValue(NS, MESSAGE_ATTR));
                                     if (parser.nextTag() == XmlPullParser.START_TAG) {
@@ -172,19 +176,17 @@ public class ResultHandler {
                                         parser.nextTag();
                                     }
                                     parser.require(XmlPullParser.END_TAG, NS, FAILURE_TAG);
-                                    parser.nextTag();
                                 } else if (parser.getName().equals(BUGREPORT_TAG)) {
                                     test.setBugReport(parser.nextText());
-                                    parser.nextTag();
+                                    parser.require(XmlPullParser.END_TAG, NS, BUGREPORT_TAG);
                                 } else if (parser.getName().equals(LOGCAT_TAG)) {
                                     test.setLog(parser.nextText());
-                                    parser.nextTag();
+                                    parser.require(XmlPullParser.END_TAG, NS, LOGCAT_TAG);
                                 } else if (parser.getName().equals(SCREENSHOT_TAG)) {
                                     test.setScreenshot(parser.nextText());
-                                    parser.nextTag();
+                                    parser.require(XmlPullParser.END_TAG, NS, SCREENSHOT_TAG);
                                 } else {
                                     test.setReportLog(ReportLog.parse(parser));
-                                    parser.nextTag();
                                 }
                             }
                             parser.require(XmlPullParser.END_TAG, NS, TEST_TAG);
@@ -230,7 +232,7 @@ public class ResultHandler {
                     throws IOException, XmlPullParserException {
         int passed = result.countResults(TestStatus.PASS);
         int failed = result.countResults(TestStatus.FAIL);
-        int notExecuted = result.countResults(TestStatus.NOT_EXECUTED);
+        int notExecuted = result.getNotExecuted();
         File resultFile = new File(resultDir, TEST_RESULT_FILE_NAME);
         OutputStream stream = new FileOutputStream(resultFile);
         XmlSerializer serializer = XmlPullParserFactory.newInstance(TYPE, null).newSerializer();
@@ -311,12 +313,17 @@ public class ResultHandler {
             serializer.attribute(NS, ABI_ATTR, module.getAbi());
             serializer.attribute(NS, RUNTIME_ATTR, String.valueOf(module.getRuntime()));
             serializer.attribute(NS, DONE_ATTR, Boolean.toString(module.isDone()));
+            serializer.attribute(NS, NOT_EXECUTED_ATTR, Integer.toString(module.getNotExecuted()));
             for (ICaseResult cr : module.getResults()) {
                 serializer.startTag(NS, CASE_TAG);
                 serializer.attribute(NS, NAME_ATTR, cr.getName());
                 for (ITestResult r : cr.getResults()) {
+                    TestStatus status = r.getResultStatus();
+                    if (status == null) {
+                        continue; // test was not executed, don't report
+                    }
                     serializer.startTag(NS, TEST_TAG);
-                    serializer.attribute(NS, RESULT_ATTR, r.getResultStatus().getValue());
+                    serializer.attribute(NS, RESULT_ATTR, status.getValue());
                     serializer.attribute(NS, NAME_ATTR, r.getName());
                     String message = r.getMessage();
                     if (message != null) {

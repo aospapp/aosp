@@ -20,7 +20,7 @@
     <!-- General -->
     <dimen name="suw_layout_margin_sides">40dp</dimen>
     <dimen name="suw_glif_margin_sides">24dp</dimen>
-    <dimen name="suw_glif_margin_top">24dp</dimen>
+    <dimen name="suw_glif_margin_top">48dp</dimen>
 
     <!-- Content styles -->
     <dimen name="suw_check_box_line_spacing_extra">4sp</dimen>
@@ -38,6 +38,9 @@
     <dimen name="suw_description_margin_bottom_lists">24dp</dimen>
     <dimen name="suw_description_line_spacing_extra">4sp</dimen>
     <dimen name="suw_description_text_size">16sp</dimen>
+
+    <dimen name="suw_description_glif_margin_top">3dp</dimen>
+    <dimen name="suw_description_glif_margin_bottom_lists">24dp</dimen>
 
     <!-- Margin on the start to offset for margin in the drawable -->
     <dimen name="suw_radio_button_margin_start">-6dp</dimen>
@@ -79,8 +82,8 @@
     <!-- This is the extra spacing required to make the leading exactly 32sp -->
     <dimen name="suw_header_title_line_spacing_extra">3.67sp</dimen>
 
-    <dimen name="suw_glif_header_title_margin_top">24dp</dimen>
-    <dimen name="suw_glif_header_title_margin_bottom">8dp</dimen>
+    <dimen name="suw_glif_header_title_margin_top">15dp</dimen>
+    <dimen name="suw_glif_header_title_margin_bottom">2dp</dimen>
 
     <dimen name="suw_glif_icon_max_height">32dp</dimen>
 

@@ -24,11 +24,8 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
-import android.media.MediaPlayer.OnErrorListener;
 import android.media.MediaPlayer.OnCompletionListener;
-import android.media.Ringtone;
-import android.media.RingtoneManager;
-import android.net.Uri;
+import android.media.MediaPlayer.OnErrorListener;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -39,7 +36,6 @@ import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.MissingResourceException;
 
@@ -56,10 +52,6 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     /** Action to start playing alert audio/vibration/speech. */
     static final String ACTION_START_ALERT_AUDIO = "ACTION_START_ALERT_AUDIO";
 
-    /** Extra for alert audio duration (from settings). */
-    public static final String ALERT_AUDIO_DURATION_EXTRA =
-            "com.android.cellbroadcastreceiver.ALERT_AUDIO_DURATION";
-
     /** Extra for message body to speak (if speech enabled in settings). */
     public static final String ALERT_AUDIO_MESSAGE_BODY =
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_BODY";
@@ -73,6 +65,10 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     public static final String ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE =
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE";
 
+    /** Extra for alert tone type */
+    public static final String ALERT_AUDIO_TONE_TYPE =
+            "com.android.cellbroadcastreceiver.ALERT_AUDIO_TONE_TYPE";
+
     /** Extra for alert audio vibration enabled (from settings). */
     public static final String ALERT_AUDIO_VIBRATE_EXTRA =
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_VIBRATE";
@@ -85,13 +81,6 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
     /** Pause duration between alert sound and alert speech. */
     private static final int PAUSE_DURATION_BEFORE_SPEAKING_MSEC = 1000;
-
-    /** Duration of a CMAS alert. */
-    private static final int CMAS_DURATION_MSEC = 10500;
-
-    /** Vibration uses the same on/off pattern as the CMAS alert tone */
-    private static final long[] sVibratePattern = { 0, 2000, 500, 1000, 500, 1000, 500,
-            2000, 500, 1000, 500, 1000};
 
     private static final int STATE_IDLE = 0;
     private static final int STATE_ALERTING = 1;
@@ -117,6 +106,14 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     private int mInitialCallState;
 
     private PendingIntent mPlayReminderIntent;
+
+    public enum ToneType {
+        CMAS_DEFAULT,
+        ETWS_DEFAULT,
+        EARTHQUAKE,
+        TSUNAMI,
+        OTHER
+    }
 
     // Internal messages
     private static final int ALERT_SOUND_FINISHED = 1000;
@@ -298,11 +295,6 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             return START_NOT_STICKY;
         }
 
-        // This extra should always be provided by CellBroadcastAlertService,
-        // but default to 10.5 seconds just to be safe (CMAS requirement).
-        int duration = intent.getIntExtra(ALERT_AUDIO_DURATION_EXTRA, CMAS_DURATION_MSEC);
-        if (DBG) log("Duration: " + duration);
-
         // Get text to speak (if enabled by user)
         mMessageBody = intent.getStringExtra(ALERT_AUDIO_MESSAGE_BODY);
         mMessagePreferredLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_PREFERRED_LANGUAGE);
@@ -341,7 +333,11 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         }
 
         if (mEnableAudio || mEnableVibrate) {
-            play(duration);     // in milliseconds
+            ToneType toneType = ToneType.CMAS_DEFAULT;
+            if (intent.getSerializableExtra(ALERT_AUDIO_TONE_TYPE) != null) {
+                toneType = (ToneType) intent.getSerializableExtra(ALERT_AUDIO_TONE_TYPE);
+            }
+            playAlertTone(toneType);
         } else {
             stopSelf();
             return START_NOT_STICKY;
@@ -358,19 +354,29 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     private static final float IN_CALL_VOLUME = 0.125f;
 
     /**
-     * Start playing the alert sound, and send delayed message when it's time to stop.
-     * @param duration the alert sound duration in milliseconds
+     * Start playing the alert sound.
+     * @param toneType the alert tone type (e.g. default, earthquake, tsunami, etc..)
      */
-    private void play(int duration) {
+    private void playAlertTone(ToneType toneType) {
         // stop() checks to see if we are already playing.
         stop();
 
-        if (DBG) log("play()");
+        log("playAlertTone: toneType=" + toneType);
 
         // Start the vibration first.
         if (mEnableVibrate) {
-            mVibrator.vibrate(sVibratePattern, -1);
+
+            int[] patternArray = getApplicationContext().getResources().
+                    getIntArray(R.array.default_vibration_pattern);
+            long[] vibrationPattern = new long[patternArray.length];
+
+            for (int i = 0; i < patternArray.length; i++) {
+                vibrationPattern[i] = patternArray[i];
+            }
+
+            mVibrator.vibrate(vibrationPattern, -1);
         }
+
 
         if (mEnableAudio) {
             // future optimization: reuse media player object
@@ -402,35 +408,46 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                     mMediaPlayer.setVolume(IN_CALL_VOLUME, IN_CALL_VOLUME);
                 }
 
+                log("Locale=" + getResources().getConfiguration().getLocales());
+
+                // Load the tones based on type
+                switch (toneType) {
+                    case EARTHQUAKE:
+                        setDataSourceFromResource(getResources(), mMediaPlayer,
+                                R.raw.etws_earthquake);
+                        break;
+                    case TSUNAMI:
+                        setDataSourceFromResource(getResources(), mMediaPlayer,
+                                R.raw.etws_tsunami);
+                        break;
+                    case OTHER:
+                        setDataSourceFromResource(getResources(), mMediaPlayer,
+                                R.raw.etws_other_disaster);
+                        break;
+                    case ETWS_DEFAULT:
+                        setDataSourceFromResource(getResources(), mMediaPlayer,
+                                R.raw.etws_default);
+                    case CMAS_DEFAULT:
+                    default:
+                        setDataSourceFromResource(getResources(), mMediaPlayer,
+                                R.raw.cmas_default);
+                }
+
                 // start playing alert audio (unless master volume is vibrate only or silent).
-                setDataSourceFromResource(getResources(), mMediaPlayer,
-                        R.raw.attention_signal);
                 mAudioManager.requestAudioFocus(null, AudioManager.STREAM_NOTIFICATION,
                         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-                // if the duration isn't equal to one play of the full 10.5s file then play
-                // with looping enabled.
-                startAlarm(mMediaPlayer, duration != CMAS_DURATION_MSEC);
+
+                mMediaPlayer.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
+                mMediaPlayer.setLooping(false);
+                mMediaPlayer.prepare();
+                mMediaPlayer.start();
+
             } catch (Exception ex) {
                 loge("Failed to play alert sound: " + ex);
             }
         }
 
-        // stop alert after the specified duration, unless we are playing the full 10.5s file once
-        // in which case we'll use the end of playback callback rather than a delayed message.
-        // This is to avoid the CMAS alert potentially being truncated due to audio playback lag.
-        if (duration != CMAS_DURATION_MSEC) {
-            mHandler.sendMessageDelayed(mHandler.obtainMessage(ALERT_SOUND_FINISHED), duration);
-        }
         mState = STATE_ALERTING;
-    }
-
-    // Do the common stuff when starting the alarm.
-    private static void startAlarm(MediaPlayer player, boolean looping)
-            throws java.io.IOException, IllegalArgumentException, IllegalStateException {
-        player.setAudioStreamType(AudioManager.STREAM_NOTIFICATION);
-        player.setLooping(looping);
-        player.prepare();
-        player.start();
     }
 
     private static void setDataSourceFromResource(Resources resources,
@@ -440,22 +457,6 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             player.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(),
                     afd.getLength());
             afd.close();
-        }
-    }
-
-    private void playAlertReminderSound() {
-        Uri notificationUri = RingtoneManager.getDefaultUri(
-                RingtoneManager.TYPE_NOTIFICATION | RingtoneManager.TYPE_ALARM);
-        if (notificationUri == null) {
-            loge("Can't get URI for alert reminder sound");
-            return;
-        }
-        Ringtone r = RingtoneManager.getRingtone(this, notificationUri);
-        if (r != null) {
-            log("playing alert reminder sound");
-            r.play();
-        } else {
-            loge("can't get Ringtone for alert reminder sound");
         }
     }
 

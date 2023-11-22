@@ -38,7 +38,6 @@
 #define PRINTF_FORMAT(a,b)
 #define STRUCT_PACKED
 #endif
-#include "qca-vendor.h"
 #include "vendor_definitions.h"
 #include "wifi_hal.h"
 
@@ -83,7 +82,6 @@ public:
 class WifihalGeneric: public WifiVendorCommand
 {
 private:
-    wifi_interface_handle mHandle;
     feature_set mSet;
     int mSetSizeMax;
     int *mSetSizePtr;

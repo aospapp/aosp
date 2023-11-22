@@ -15,7 +15,7 @@
 -->
 <configuration description="Config for CTS Carrier APIs test cases">
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.TokenRequirement">
-        <option name="token" value="sim-card" />
+        <option name="token" value="sim-card-with-certs" />
     </target_preparer>
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
         <option name="cleanup-apks" value="true" />

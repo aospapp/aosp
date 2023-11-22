@@ -108,6 +108,7 @@
 #define HCI_VS_GET_ADDON_FEATURES_EVENT      (0x1B)
 #define EDL_BOARD_ID_RESPONSE                (0x23)
 #define HCI_VS_GET_BUILD_VER_EVT             (0x05)
+#define HCI_VS_STRAY_EVT                (0x17)
 
 /* Status Codes of HCI CMD execution*/
 #define HCI_CMD_SUCCESS                     (0x0)

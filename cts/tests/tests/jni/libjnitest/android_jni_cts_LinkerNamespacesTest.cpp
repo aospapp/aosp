@@ -45,10 +45,10 @@ static const std::string kSystemLibraryPath = "/system/lib";
 static const std::string kVendorLibraryPath = "/vendor/lib";
 #endif
 
-// This is not complete list - just a small subset
+// This is not the complete list - just a small subset
 // of the libraries that should reside in /system/lib
 // (in addition to kSystemPublicLibraries)
-static std::unordered_set<std::string> kSystemLibraries = {
+static std::vector<std::string> kSystemLibraries = {
     "libart.so",
     "libandroid_runtime.so",
     "libbinder.so",
@@ -60,39 +60,6 @@ static std::unordered_set<std::string> kSystemLibraries = {
     "libui.so",
     "libutils.so",
   };
-
-template <typename F>
-static bool for_each_file(const std::string& dir, F functor, std::string* error_msg) {
-  auto dir_deleter = [](DIR* handle) { closedir(handle); };
-  std::unique_ptr<DIR, decltype(dir_deleter)> dirp(opendir(dir.c_str()), dir_deleter);
-  if (dirp == nullptr) {
-    *error_msg = strerror(errno);
-    return false;
-  }
-
-  dirent* dp;
-  while ((dp = readdir(dirp.get())) != nullptr) {
-    // skip "." and ".."
-    if (strcmp(".", dp->d_name) == 0 ||
-        strcmp("..", dp->d_name) == 0) {
-      continue;
-    }
-
-    if (!functor(dp->d_name, error_msg)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-static bool should_be_accessible(const std::string& public_library_path,
-                                 const std::unordered_set<std::string>& public_libraries,
-                                 const std::string& path) {
-  std::string name = basename(path.c_str());
-  return (public_libraries.find(name) != public_libraries.end()) &&
-         (public_library_path + "/" + name == path);
-}
 
 static bool is_directory(const std::string path) {
   struct stat sb;
@@ -107,10 +74,18 @@ static bool is_libdl(const std::string path) {
   return kSystemLibraryPath + "/libdl.so" == path;
 }
 
-static bool check_lib(const std::string& public_library_path,
-                      const std::unordered_set<std::string>& public_libraries,
-                      const std::string& path,
-                      std::string* error_msg) {
+static bool already_loaded(const std::string& library, const std::string& err) {
+  if (err.find("dlopen failed: library \"" + library + "\"") != 0 ||
+      err.find("is not accessible for the namespace \"classloader-namespace\"") == std::string::npos) {
+    return false;
+  }
+  return true;
+}
+
+static bool check_lib(const std::string& path,
+                      const std::string& library_path,
+                      const std::unordered_set<std::string>& libraries,
+                      std::vector<std::string>* errors) {
   if (is_libdl(path)) {
     // TODO (dimitry): we skip check for libdl.so because
     // 1. Linker will fail to check accessibility because it imposes as libdl.so (see http://b/27106625)
@@ -119,76 +94,118 @@ static bool check_lib(const std::string& public_library_path,
     return true;
   }
 
-  auto dlcloser = [](void* handle) { dlclose(handle); };
-  std::unique_ptr<void, decltype(dlcloser)> handle(dlopen(path.c_str(), RTLD_NOW), dlcloser);
-  if (should_be_accessible(public_library_path, public_libraries, path)) {
+  std::unique_ptr<void, int (*)(void*)> handle(dlopen(path.c_str(), RTLD_NOW), dlclose);
+
+  // The current restrictions on public libraries:
+  //  - It must exist only in the top level directory of "library_path".
+  //  - No library with the same name can be found in a sub directory.
+  //  - Each public library does not contain any directory components.
+
+  // Check if this library should be considered a public library.
+  std::string baselib = basename(path.c_str());
+  if (libraries.find(baselib) != libraries.end() &&
+      library_path + "/" + baselib == path) {
     if (handle.get() == nullptr) {
-      *error_msg = "The library \"" + path + "\" should be accessible but isn't: " + dlerror();
+      errors->push_back("The library \"" + path +
+                        "\" is a public library but it cannot be loaded: " + dlerror());
       return false;
     }
-  } else if (handle != nullptr) {
-    *error_msg = "The library \"" + path + "\" should not be accessible";
+  } else if (handle.get() != nullptr) {
+    errors->push_back("The library \"" + path + "\" is not a public library but it loaded.");
     return false;
   } else { // (handle == nullptr && !shouldBeAccessible(path))
     // Check the error message
     std::string err = dlerror();
-
-    if (err.find("dlopen failed: library \"" + path + "\"") != 0 ||
-        err.find("is not accessible for the namespace \"classloader-namespace\"") == std::string::npos) {
-      *error_msg = "unexpected dlerror: " + err;
+    if (!already_loaded(path, err)) {
+      errors->push_back("unexpected dlerror: " + err);
       return false;
     }
   }
   return true;
 }
 
-static bool check_libs(const std::string& public_library_path,
-                       const std::unordered_set<std::string>& public_libraries,
-                       const std::unordered_set<std::string>& mandatory_files,
-                       std::string* error) {
-  std::list<std::string> dirs;
-  dirs.push_back(public_library_path);
-
+static bool check_path(const std::string& library_path,
+                       const std::unordered_set<std::string> libraries,
+                       std::vector<std::string>* errors) {
+  bool success = true;
+  std::list<std::string> dirs = { library_path };
   while (!dirs.empty()) {
-    const auto dir = dirs.front();
+    std::string dir = dirs.front();
     dirs.pop_front();
-    bool success = for_each_file(dir, [&](const char* name, std::string* error_msg) {
-      std::string path = dir + "/" + name;
+
+    auto dir_deleter = [](DIR* handle) { closedir(handle); };
+    std::unique_ptr<DIR, decltype(dir_deleter)> dirp(opendir(dir.c_str()), dir_deleter);
+    if (dirp == nullptr) {
+      errors->push_back("Failed to open " + dir + ": " + strerror(errno));
+      success = false;
+      continue;
+    }
+
+    dirent* dp;
+    while ((dp = readdir(dirp.get())) != nullptr) {
+      // skip "." and ".."
+      if (strcmp(".", dp->d_name) == 0 || strcmp("..", dp->d_name) == 0) {
+        continue;
+      }
+
+      std::string path = dir + "/" + dp->d_name;
       if (is_directory(path)) {
         dirs.push_back(path);
-        return true;
-      }
-
-      return check_lib(public_library_path, public_libraries, path, error_msg);
-    }, error);
-
-    if (!success) {
-      return false;
-    }
-
-    // Check mandatory files - the grey list
-    for (const auto& name : mandatory_files) {
-      std::string path = public_library_path + "/" + name;
-      if (!check_lib(public_library_path, public_libraries, path, error)) {
-        return false;
+      } else if (!check_lib(path, library_path, libraries, errors)) {
+        success = false;
       }
     }
   }
 
-  return true;
+  return success;
 }
 
-static void jobject_array_to_set(JNIEnv* env,
+static bool jobject_array_to_set(JNIEnv* env,
                                  jobjectArray java_libraries_array,
-                                 std::unordered_set<std::string>* libraries) {
+                                 std::unordered_set<std::string>* libraries,
+                                 std::string* error_msg) {
+  error_msg->clear();
   size_t size = env->GetArrayLength(java_libraries_array);
+  bool success = true;
   for (size_t i = 0; i<size; ++i) {
     ScopedLocalRef<jstring> java_soname(
         env, (jstring) env->GetObjectArrayElement(java_libraries_array, i));
+    std::string soname(ScopedUtfChars(env, java_soname.get()).c_str());
 
-    ScopedUtfChars soname(env, java_soname.get());
-    libraries->insert(soname.c_str());
+    // Verify that the name doesn't contain any directory components.
+    if (soname.rfind('/') != std::string::npos) {
+      *error_msg += "\n---Illegal value, no directories allowed: " + soname;
+      continue;
+    }
+
+    // Check to see if the string ends in " 32" or " 64" to indicate the
+    // library is only public for one bitness.
+    size_t space_pos = soname.rfind(' ');
+    if (space_pos != std::string::npos) {
+      std::string type = soname.substr(space_pos + 1);
+      if (type != "32" && type != "64") {
+        *error_msg += "\n---Illegal value at end of line (only 32 or 64 allowed): " + soname;
+        success = false;
+        continue;
+      }
+#if defined(__LP64__)
+      if (type == "32") {
+        // Skip this, it's a 32 bit only public library.
+        continue;
+      }
+#else
+      if (type == "64") {
+        // Skip this, it's a 64 bit only public library.
+        continue;
+      }
+#endif
+      soname.resize(space_pos);
+    }
+
+    libraries->insert(soname);
   }
+
+  return success;
 }
 
 extern "C" JNIEXPORT jstring JNICALL
@@ -197,17 +214,55 @@ extern "C" JNIEXPORT jstring JNICALL
         jclass clazz __attribute__((unused)),
         jobjectArray java_system_public_libraries,
         jobjectArray java_vendor_public_libraries) {
-  std::string error;
-
+  bool success = true;
+  std::vector<std::string> errors;
+  std::string error_msg;
   std::unordered_set<std::string> vendor_public_libraries;
-  std::unordered_set<std::string> system_public_libraries;
-  std::unordered_set<std::string> empty_set;
-  jobject_array_to_set(env, java_vendor_public_libraries, &vendor_public_libraries);
-  jobject_array_to_set(env, java_system_public_libraries, &system_public_libraries);
+  if (!jobject_array_to_set(env, java_vendor_public_libraries, &vendor_public_libraries,
+                            &error_msg)) {
+    success = false;
+    errors.push_back("Errors in vendor public library file:" + error_msg);
+  }
 
-  if (!check_libs(kSystemLibraryPath, system_public_libraries, kSystemLibraries, &error) ||
-      !check_libs(kVendorLibraryPath, vendor_public_libraries, empty_set, &error)) {
-    return env->NewStringUTF(error.c_str());
+  std::unordered_set<std::string> system_public_libraries;
+  if (!jobject_array_to_set(env, java_system_public_libraries, &system_public_libraries,
+                            &error_msg)) {
+    success = false;
+    errors.push_back("Errors in system public library file:" + error_msg);
+  }
+
+  // Check the system libraries.
+  if (!check_path(kSystemLibraryPath, system_public_libraries, &errors)) {
+    success = false;
+  }
+
+  // Check that the mandatory system libraries are present - the grey list
+  for (const auto& name : kSystemLibraries) {
+    std::string library = kSystemLibraryPath + "/" + name;
+    void* handle = dlopen(library.c_str(), RTLD_NOW);
+    if (handle == nullptr) {
+      std::string err = dlerror();
+      // If the library is already loaded, then dlopen failing is okay.
+      if (!already_loaded(library, err)) {
+          errors.push_back("Mandatory system library \"" + library + "\" failed to load: " + err);
+          success = false;
+      }
+    } else {
+      dlclose(handle);
+    }
+  }
+
+  // Check the vendor libraries.
+  if (!check_path(kVendorLibraryPath, vendor_public_libraries, &errors)) {
+    success = false;
+  }
+
+  if (!success) {
+    std::string error_str;
+    for (const auto& line : errors) {
+      error_str += line + '\n';
+    }
+    return env->NewStringUTF(error_str.c_str());
   }
 
   return nullptr;

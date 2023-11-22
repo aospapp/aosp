@@ -29,6 +29,8 @@
 
 #define BMP280_APP_ID APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 5)
 
+#define BMP280_APP_VERSION 1
+
 #define I2C_BUS_ID                      0
 #define I2C_SPEED                       400000
 #define I2C_ADDR                        0x76
@@ -449,7 +451,6 @@ static void handleI2cEvent(enum BMP280TaskState state)
         case STATE_FINISH_INIT: {
             sensorRegisterInitComplete(mTask.baroHandle);
             sensorRegisterInitComplete(mTask.tempHandle);
-            osLog(LOG_INFO, "BMP280: idle\n");
             break;
         }
 
@@ -547,8 +548,6 @@ static void handleEvent(uint32_t evtType, const void* evtData)
 
 static bool startTask(uint32_t taskId)
 {
-    osLog(LOG_INFO, "BMP280: task starting\n");
-
     mTask.id = taskId;
     mTask.offset = 0.0f;
 
@@ -566,4 +565,4 @@ static void endTask(void)
 
 }
 
-INTERNAL_APP_INIT(BMP280_APP_ID, 0, startTask, endTask, handleEvent);
+INTERNAL_APP_INIT(BMP280_APP_ID, BMP280_APP_VERSION, startTask, endTask, handleEvent);

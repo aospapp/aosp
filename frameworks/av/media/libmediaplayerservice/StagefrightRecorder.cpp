@@ -22,6 +22,8 @@
 #include "WebmWriter.h"
 #include "StagefrightRecorder.h"
 
+#include <algorithm>
+
 #include <android/hardware/ICamera.h>
 
 #include <binder/IPCThreadState.h>
@@ -56,6 +58,11 @@
 #include "ARTPWriter.h"
 
 namespace android {
+
+static const float kTypicalDisplayRefreshingRate = 60.f;
+// display refresh rate drops on battery saver
+static const float kMinTypicalDisplayRefreshingRate = kTypicalDisplayRefreshingRate / 2;
+static const int kMaxNumVideoTemporalLayers = 8;
 
 // To collect the encoder usage for the battery app
 static void addBatteryData(uint32_t params) {
@@ -820,6 +827,9 @@ status_t StagefrightRecorder::prepareInternal() {
             break;
     }
 
+    ALOGV("Recording frameRate: %d captureFps: %f",
+            mFrameRate, mCaptureFps);
+
     return status;
 }
 
@@ -1562,9 +1572,44 @@ status_t StagefrightRecorder::setupVideoEncoder(
         format->setInt32("level", mVideoEncoderLevel);
     }
 
+    uint32_t tsLayers = 1;
+    bool preferBFrames = true; // we like B-frames as it produces better quality per bitrate
     format->setInt32("priority", 0 /* realtime */);
+    float maxPlaybackFps = mFrameRate; // assume video is only played back at normal speed
+
     if (mCaptureFpsEnable) {
         format->setFloat("operating-rate", mCaptureFps);
+
+        // enable layering for all time lapse and high frame rate recordings
+        if (mFrameRate / mCaptureFps >= 1.9) { // time lapse
+            preferBFrames = false;
+            tsLayers = 2; // use at least two layers as resulting video will likely be sped up
+        } else if (mCaptureFps > maxPlaybackFps) { // slow-mo
+            maxPlaybackFps = mCaptureFps; // assume video will be played back at full capture speed
+            preferBFrames = false;
+        }
+    }
+
+    for (uint32_t tryLayers = 1; tryLayers <= kMaxNumVideoTemporalLayers; ++tryLayers) {
+        if (tryLayers > tsLayers) {
+            tsLayers = tryLayers;
+        }
+        // keep going until the base layer fps falls below the typical display refresh rate
+        float baseLayerFps = maxPlaybackFps / (1 << (tryLayers - 1));
+        if (baseLayerFps < kMinTypicalDisplayRefreshingRate / 0.9) {
+            break;
+        }
+    }
+
+    if (tsLayers > 1) {
+        uint32_t bLayers = std::min(2u, tsLayers - 1); // use up-to 2 B-layers
+        uint32_t pLayers = tsLayers - bLayers;
+        format->setString(
+                "ts-schema", AStringPrintf("android.generic.%u+%u", pLayers, bLayers));
+
+        // TODO: some encoders do not support B-frames with temporal layering, and we have a
+        // different preference based on use-case. We could move this into camera profiles.
+        format->setInt32("android._prefer-b-frames", preferBFrames);
     }
 
     if (mMetaDataStoredInVideoBuffers != kMetadataBufferTypeInvalid) {
@@ -1762,19 +1807,38 @@ status_t StagefrightRecorder::resume() {
         return OK;
     }
 
-    // 30 ms buffer to avoid timestamp overlap
-    mTotalPausedDurationUs += (systemTime() / 1000) - mPauseStartTimeUs - 30000;
+    int64_t bufferStartTimeUs = 0;
+    bool allSourcesStarted = true;
+    for (const auto &source : { mAudioEncoderSource, mVideoEncoderSource }) {
+        if (source == nullptr) {
+            continue;
+        }
+        int64_t timeUs = source->getFirstSampleSystemTimeUs();
+        if (timeUs < 0) {
+            allSourcesStarted = false;
+        }
+        if (bufferStartTimeUs < timeUs) {
+            bufferStartTimeUs = timeUs;
+        }
+    }
+
+    if (allSourcesStarted) {
+        if (mPauseStartTimeUs < bufferStartTimeUs) {
+            mPauseStartTimeUs = bufferStartTimeUs;
+        }
+        // 30 ms buffer to avoid timestamp overlap
+        mTotalPausedDurationUs += (systemTime() / 1000) - mPauseStartTimeUs - 30000;
+    }
     double timeOffset = -mTotalPausedDurationUs;
     if (mCaptureFpsEnable) {
         timeOffset *= mCaptureFps / mFrameRate;
     }
-    if (mAudioEncoderSource != NULL) {
-        mAudioEncoderSource->setInputBufferTimeOffset((int64_t)timeOffset);
-        mAudioEncoderSource->start();
-    }
-    if (mVideoEncoderSource != NULL) {
-        mVideoEncoderSource->setInputBufferTimeOffset((int64_t)timeOffset);
-        mVideoEncoderSource->start();
+    for (const auto &source : { mAudioEncoderSource, mVideoEncoderSource }) {
+        if (source == nullptr) {
+            continue;
+        }
+        source->setInputBufferTimeOffset((int64_t)timeOffset);
+        source->start();
     }
     mPauseStartTimeUs = 0;
 

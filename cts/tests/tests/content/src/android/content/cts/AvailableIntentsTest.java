@@ -24,6 +24,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.storage.StorageManager;
 import android.provider.AlarmClock;
 import android.provider.MediaStore;
 import android.provider.Settings;
@@ -241,5 +242,9 @@ public class AvailableIntentsTest extends AndroidTestCase {
 
     public void testViewDownloads() {
         assertCanBeHandled(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));
+    }
+
+    public void testManageStorage() {
+        assertCanBeHandled(new Intent(StorageManager.ACTION_MANAGE_STORAGE));
     }
 }

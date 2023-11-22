@@ -27,6 +27,7 @@ import android.support.graphics.drawable.animated.test.R;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
@@ -47,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
 
+@MediumTest
 @RunWith(AndroidJUnit4.class)
 public class AnimatedVectorDrawableTest {
     @Rule public final ActivityTestRule<DrawableStubActivity> mActivityTestRule;
@@ -142,26 +144,28 @@ public class AnimatedVectorDrawableTest {
 
     @Test
     public void testGetChangingConfigurations() {
-        ConstantState constantState = mAnimatedVectorDrawable.getConstantState();
+        AnimatedVectorDrawableCompat d1 = AnimatedVectorDrawableCompat.create(mContext,
+                R.drawable.animated_color_fill_copy);
+        ConstantState constantState = d1.getConstantState();
 
         if (constantState != null) {
             // default
             assertEquals(0, constantState.getChangingConfigurations());
-            assertEquals(0, mAnimatedVectorDrawable.getChangingConfigurations());
+            assertEquals(0, d1.getChangingConfigurations());
 
             // change the drawable's configuration does not affect the state's configuration
-            mAnimatedVectorDrawable.setChangingConfigurations(0xff);
-            assertEquals(0xff, mAnimatedVectorDrawable.getChangingConfigurations());
+            d1.setChangingConfigurations(0xff);
+            assertEquals(0xff, d1.getChangingConfigurations());
             assertEquals(0, constantState.getChangingConfigurations());
 
             // the state's configuration get refreshed
-            constantState = mAnimatedVectorDrawable.getConstantState();
+            constantState = d1.getConstantState();
             assertEquals(0xff, constantState.getChangingConfigurations());
 
             // set a new configuration to drawable
-            mAnimatedVectorDrawable.setChangingConfigurations(0xff00);
+            d1.setChangingConfigurations(0xff00);
             assertEquals(0xff, constantState.getChangingConfigurations());
-            assertEquals(0xffff, mAnimatedVectorDrawable.getChangingConfigurations());
+            assertEquals(0xffff, d1.getChangingConfigurations());
         }
     }
 

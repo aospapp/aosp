@@ -54,13 +54,12 @@ struct StmRcc {
     volatile uint32_t PLLI2SCFGR;
 };
 
-#define RCC ((struct StmRcc*)RCC_BASE)
-
 struct StmPwr {
     volatile uint32_t CR;
     volatile uint32_t CSR;
 };
 
+#define RCC ((struct StmRcc*)RCC_BASE)
 #define PWR ((struct StmPwr*)PWR_BASE)
 
 /* RCC bit definitions */
@@ -182,7 +181,7 @@ void pwrEnableAndClockRtc(enum RtcClock rtcClock)
     uint32_t backupRegs[RTC_NUM_BACKUP_REGS], i, *regs = rtcGetBackupStorage();
 
     /* Enable power clock */
-    RCC->APB1ENR |= PERIPH_APB1_PWR;
+    pwrUnitClock(PERIPH_BUS_APB1, PERIPH_APB1_PWR, true);
 
     /* Enable write permission for backup domain */
     pwrEnableWriteBackupDomainRegs();
@@ -245,10 +244,10 @@ void pwrSetSleepType(enum Stm32F4xxSleepType sleepType)
     case stm32f411SleepModeSleep:
         SCB->SCR &=~ SCB_SCR_SLEEPDEEP_Msk;
         break;
-    case stm32f144SleepModeStopMR:
+    case stm32f411SleepModeStopMR:
         SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
         break;
-    case stm32f144SleepModeStopMRFPD:
+    case stm32f411SleepModeStopMRFPD:
         SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
         cr |= PWR_CR_FPDS;
         break;

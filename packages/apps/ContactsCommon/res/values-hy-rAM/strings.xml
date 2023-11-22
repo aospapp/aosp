@@ -230,13 +230,13 @@
     <string name="activity_title_settings" msgid="3056389601004689380">"Կարգավորումներ"</string>
     <string name="share_visible_contacts" msgid="2150662668080757107">"Փոխանցել տեսանելի կոնտակտները"</string>
     <string name="share_visible_contacts_failure" msgid="5895137872238059893">"Չհաջողվեց համօգտագործել տեսանելի կոնտակտները:"</string>
-    <string name="share_favorite_contacts" msgid="2838432887118216222">"Տրամադրել նախընտրած կոնտակտները"</string>
+    <string name="share_favorite_contacts" msgid="2838432887118216222">"Ուղարկել կոնտակտների ընտրանին"</string>
     <string name="share_contacts" msgid="6404040163340914061">"Տրամադրել բոլոր կոնտակտները"</string>
     <string name="share_contacts_failure" msgid="3498837575583860197">"Չհաջողվեց տրամադրել կոնտակտները:"</string>
     <string name="dialog_import_export" msgid="1125776851100740858">"Կոնտակտների ներմուծում/արտահանում"</string>
     <string name="dialog_import" msgid="5177004290082451296">"Ներմուծել կոնտակտներ"</string>
     <string name="share_error" msgid="665756457151793108">"Հնարավոր չէ տարածել կոնտակտը:"</string>
-    <string name="no_contact_to_share" msgid="5749367538191552509">"Կոնտակտներ չունեք, որոնցով կարող եք կիսվել:"</string>
+    <string name="no_contact_to_share" msgid="5749367538191552509">"Հասանելի կոնտակտներ չկան։"</string>
     <string name="menu_search" msgid="7464453023659824700">"Որոնել"</string>
     <string name="menu_contacts_filter" msgid="586356478145511794">"Ցուցադրվող կոնտկատներ"</string>
     <string name="activity_title_contacts_filter" msgid="7689519428197855166">"Ցուցադրվող կոնտակտներ"</string>
@@ -258,7 +258,7 @@
     <string name="settings_contact_display_options_title" msgid="1020420603072835628">"Կոնտակտի ցուցադրման ընտրանքները"</string>
     <string name="select_account_dialog_title" msgid="5509088895267310568">"Հաշիվ"</string>
     <string name="set_default_account" msgid="3865970860434642695">"Միշտ օգտագործել սա՝ զանգերի համար"</string>
-    <string name="select_phone_account_for_calls" msgid="933905607702811164">"Զանգահարել հետևյալով"</string>
+    <string name="select_phone_account_for_calls" msgid="933905607702811164">"Զանգել հետևյալով"</string>
     <string name="call_with_a_note" msgid="8453800473226831257">"Գրառումով զանգ"</string>
     <string name="call_subject_hint" msgid="2270115162050853866">"Մուտքագրեք նշում՝ զանգի հետ ուղարկելու համար ..."</string>
     <string name="send_and_call_button" msgid="7459507823002185202">"ՈՒՂԱՐԿԵԼ ԵՎ ԶԱՆԳԵԼ"</string>

@@ -366,8 +366,7 @@ def convert_raw_to_rgb_image(r_plane, gr_plane, gb_plane, b_plane,
 
     # Reorder black levels and gains to R,Gr,Gb,B, to match the order
     # of the planes.
-    idxs = get_canonical_cfa_order(props)
-    black_levels = [black_levels[i] for i in idxs]
+    black_levels = [get_black_level(i,props,cap_res) for i in range(4)]
     gains = get_gains_in_canonical_order(props, gains)
 
     # Convert CCM from rational to float, as numpy arrays.
@@ -389,6 +388,28 @@ def convert_raw_to_rgb_image(r_plane, gr_plane, gb_plane, b_plane,
     img = (((img.reshape(h,w,3) - black_levels) * scale) * gains).clip(0.0,1.0)
     img = numpy.dot(img.reshape(w*h,3), ccm.T).reshape(h,w,3).clip(0.0,1.0)
     return img
+
+def get_black_level(chan, props, cap_res):
+    """Return the black level to use for a given capture.
+
+    Uses a dynamic value from the capture result if available, else falls back
+    to the static global value in the camera characteristics.
+
+    Args:
+        chan: The channel index, in canonical order (R, Gr, Gb, B).
+        props: The camera properties object.
+        cap_res: A capture result object.
+
+    Returns:
+        The black level value for the specified channel.
+    """
+    if cap_res.has_key("android.sensor.dynamicBlackLevel"):
+        black_levels = cap_res["android.sensor.dynamicBlackLevel"]
+    else:
+        black_levels = props['android.sensor.blackLevelPattern']
+    idxs = its.image.get_canonical_cfa_order(props)
+    ordered_black_levels = [black_levels[i] for i in idxs]
+    return ordered_black_levels[chan]
 
 def convert_yuv420_planar_to_rgb_image(y_plane, u_plane, v_plane,
                                        w, h,

@@ -49,6 +49,8 @@ class WindowManagerState {
             "mCurrentFocus=Window\\{([0-9a-fA-F]+) u(\\d+) (\\S+)\\}");
     private static final Pattern sAppErrorFocusedWindowPattern = Pattern.compile(
             "mCurrentFocus=Window\\{([0-9a-fA-F]+) u(\\d+) Application Error\\: (\\S+)\\}");
+    private static final Pattern sWaitingForDebuggerFocusedWindowPattern = Pattern.compile(
+            "mCurrentFocus=Window\\{([0-9a-fA-F]+) u(\\d+) Waiting For Debugger\\: (\\S+)\\}");
 
     private static final Pattern sFocusedAppPattern =
             Pattern.compile("mFocusedApp=AppWindowToken\\{(.+) token=Token\\{(.+) "
@@ -58,7 +60,8 @@ class WindowManagerState {
 
     private static final Pattern[] sExtractStackExitPatterns = {
             sStackIdPattern, sWindowPattern, sStartingWindowPattern, sExitingWindowPattern,
-            sFocusedWindowPattern, sAppErrorFocusedWindowPattern, sFocusedAppPattern };
+            sFocusedWindowPattern, sAppErrorFocusedWindowPattern,
+            sWaitingForDebuggerFocusedWindowPattern, sFocusedAppPattern };
 
     // Windows in z-order with the top most at the front of the list.
     private List<String> mWindows = new ArrayList();
@@ -174,6 +177,15 @@ class WindowManagerState {
             }
 
             matcher = sAppErrorFocusedWindowPattern.matcher(line);
+            if (matcher.matches()) {
+                log(line);
+                final String focusedWindow = matcher.group(3);
+                log(focusedWindow);
+                mFocusedWindow = focusedWindow;
+                continue;
+            }
+
+            matcher = sWaitingForDebuggerFocusedWindowPattern.matcher(line);
             if (matcher.matches()) {
                 log(line);
                 final String focusedWindow = matcher.group(3);

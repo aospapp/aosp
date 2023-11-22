@@ -69,10 +69,23 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             "com.android.cts.net.hostside.app2.extra.RECEIVER_NAME";
     private static final String EXTRA_NOTIFICATION_ID =
             "com.android.cts.net.hostside.app2.extra.NOTIFICATION_ID";
+    private static final String EXTRA_NOTIFICATION_TYPE =
+            "com.android.cts.net.hostside.app2.extra.NOTIFICATION_TYPE";
+
+    protected static final String NOTIFICATION_TYPE_CONTENT = "CONTENT";
+    protected static final String NOTIFICATION_TYPE_DELETE = "DELETE";
+    protected static final String NOTIFICATION_TYPE_FULL_SCREEN = "FULL_SCREEN";
+    protected static final String NOTIFICATION_TYPE_BUNDLE = "BUNDLE";
+    protected static final String NOTIFICATION_TYPE_ACTION = "ACTION";
+    protected static final String NOTIFICATION_TYPE_ACTION_BUNDLE = "ACTION_BUNDLE";
+    protected static final String NOTIFICATION_TYPE_ACTION_REMOTE_INPUT = "ACTION_REMOTE_INPUT";
+
+
     private static final String NETWORK_STATUS_SEPARATOR = "\\|";
     private static final int SECOND_IN_MS = 1000;
     static final int NETWORK_TIMEOUT_MS = 15 * SECOND_IN_MS;
     private static final int PROCESS_STATE_FOREGROUND_SERVICE = 4;
+    private static final int PROCESS_STATE_TOP = 2;
 
 
     // Must be higher than NETWORK_TIMEOUT_MS
@@ -283,60 +296,75 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
      * Asserts whether the active network is available or not.
      */
     private void assertNetworkAccess(boolean expectAvailable) throws Exception {
-        final Intent intent = new Intent(ACTION_CHECK_NETWORK);
-
         final int maxTries = 5;
-        String resultData = null;
+        String error = null;
+        int timeoutMs = 500;
+
         for (int i = 1; i <= maxTries; i++) {
-            resultData = sendOrderedBroadcast(intent);
-            assertNotNull("timeout waiting for ordered broadcast", resultData);
+            error = checkNetworkAccess(expectAvailable);
 
-            // Network status format is described on MyBroadcastReceiver.checkNetworkStatus()
-            final String[] parts = resultData.split(NETWORK_STATUS_SEPARATOR);
-            assertEquals("Wrong network status: " + resultData, 5, parts.length); // Sanity check
-            final State state = State.valueOf(parts[0]);
-            final DetailedState detailedState = DetailedState.valueOf(parts[1]);
-            final boolean connected = Boolean.valueOf(parts[2]);
-            final String connectionCheckDetails = parts[3];
-            final String networkInfo = parts[4];
+            if (error.isEmpty()) return;
 
-            if (expectAvailable) {
-                if (!connected) {
-                    // Since it's establishing a connection to an external site, it could be flaky.
-                    Log.w(TAG, "Failed to connect to an external site on attempt #" + i +
-                            " (error: " + connectionCheckDetails + ", NetworkInfo: " + networkInfo
-                            + "); sleeping " + NETWORK_TIMEOUT_MS + "ms before trying again");
-                    SystemClock.sleep(NETWORK_TIMEOUT_MS);
-                    continue;
-                }
-                if (state != State.CONNECTED) {
-                    Log.d(TAG, "State (" + state + ") not set to CONNECTED on attempt #" + i
-                            + "; sleeping 1s before trying again");
-                    SystemClock.sleep(SECOND_IN_MS);
-                } else {
-                    assertEquals("wrong detailed state for " + networkInfo,
-                            DetailedState.CONNECTED, detailedState);
-                    return;
-                }
-                return;
-            } else {
-                assertFalse("should not be connected: " + connectionCheckDetails
-                        + " (network info: " + networkInfo + ")", connected);
-                if (state != State.DISCONNECTED) {
-                    // When the network info state change, it's possible the app still get the
-                    // previous value, so we need to retry a couple times.
-                    Log.d(TAG, "State (" + state + ") not set to DISCONNECTED on attempt #" + i
-                            + "; sleeping 1s before trying again");
-                    SystemClock.sleep(SECOND_IN_MS);
-                } else {
-                    assertEquals("wrong detailed state for " + networkInfo,
-                            DetailedState.BLOCKED, detailedState);
-                   return;
-                }
-            }
+            // TODO: ideally, it should retry only when it cannot connect to an external site,
+            // or no retry at all! But, currently, the initial change fails almost always on
+            // battery saver tests because the netd changes are made asynchronously.
+            // Once b/27803922 is fixed, this retry mechanism should be revisited.
+
+            Log.w(TAG, "Network status didn't match for expectAvailable=" + expectAvailable
+                    + " on attempt #" + i + ": " + error + "\n"
+                    + "Sleeping " + timeoutMs + "ms before trying again");
+            SystemClock.sleep(timeoutMs);
+            // Exponential back-off.
+            timeoutMs = Math.min(timeoutMs*2, NETWORK_TIMEOUT_MS);
         }
         fail("Invalid state for expectAvailable=" + expectAvailable + " after " + maxTries
-                + " attempts. Last data: " + resultData);
+                + " attempts.\nLast error: " + error);
+    }
+
+    /**
+     * Checks whether the network is available as expected.
+     *
+     * @return error message with the mismatch (or empty if assertion passed).
+     */
+    private String checkNetworkAccess(boolean expectAvailable) throws Exception {
+        String resultData = sendOrderedBroadcast(new Intent(ACTION_CHECK_NETWORK));
+        if (resultData == null) {
+            return "timeout waiting for ordered broadcast";
+        }
+        // Network status format is described on MyBroadcastReceiver.checkNetworkStatus()
+        final String[] parts = resultData.split(NETWORK_STATUS_SEPARATOR);
+        assertEquals("Wrong network status: " + resultData, 5, parts.length); // Sanity check
+        final State state = State.valueOf(parts[0]);
+        final DetailedState detailedState = DetailedState.valueOf(parts[1]);
+        final boolean connected = Boolean.valueOf(parts[2]);
+        final String connectionCheckDetails = parts[3];
+        final String networkInfo = parts[4];
+
+        final StringBuilder errors = new StringBuilder();
+        final State expectedState;
+        final DetailedState expectedDetailedState;
+        if (expectAvailable) {
+            expectedState = State.CONNECTED;
+            expectedDetailedState = DetailedState.CONNECTED;
+        } else {
+            expectedState = State.DISCONNECTED;
+            expectedDetailedState = DetailedState.BLOCKED;
+        }
+
+        if (expectAvailable != connected) {
+            errors.append(String.format("External site connection failed: expected %s, got %s\n",
+                    expectAvailable, connected));
+        }
+        if (expectedState != state || expectedDetailedState != detailedState) {
+            errors.append(String.format("Connection state mismatch: expected %s/%s, got %s/%s\n",
+                    expectedState, expectedDetailedState, state, detailedState));
+        }
+
+        if (errors.length() > 0) {
+            errors.append("\tnetworkInfo: " + networkInfo + "\n");
+            errors.append("\tconnectionCheckDetails: " + connectionCheckDetails + "\n");
+        }
+        return errors.toString();
     }
 
     protected String executeShellCommand(String command) throws Exception {
@@ -723,7 +751,17 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     protected void launchActivity() throws Exception {
         turnScreenOn();
         executeShellCommand("am start com.android.cts.net.hostside.app2/.MyActivity");
-        assertForegroundState();
+        final int maxTries = 30;
+        ProcessState state = null;
+        for (int i = 1; i <= maxTries; i++) {
+            state = getProcessStateByUid(mUid);
+            if (state.state == PROCESS_STATE_TOP) return;
+            Log.w(TAG, "launchActivity(): uid " + mUid + " not on TOP state on attempt #" + i
+                    + "; turning screen on and sleeping 1s before checking again");
+            turnScreenOn();
+            SystemClock.sleep(SECOND_IN_MS);
+        }
+        fail("App2 is not on foreground state after " + maxTries + " attempts: " + state);
     }
 
     /**
@@ -735,10 +773,12 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
                 + "--receiver-foreground --receiver-registered-only");
     }
 
-    protected void sendNotification(int notificationId) {
+    protected void sendNotification(int notificationId, String notificationType) {
         final Intent intent = new Intent(ACTION_SEND_NOTIFICATION);
         intent.putExtra(EXTRA_NOTIFICATION_ID, notificationId);
-        Log.d(TAG, "Sending broadcast: " + intent);
+        intent.putExtra(EXTRA_NOTIFICATION_TYPE, notificationType);
+        Log.d(TAG, "Sending notification broadcast (id=" + notificationId + ", type="
+                + notificationType + ": " + intent);
         mContext.sendBroadcast(intent);
     }
 

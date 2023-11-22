@@ -174,12 +174,6 @@ public class CallLogBackupAgent extends BackupAgent {
     @Override
     public void onRestore(BackupDataInput data, int appVersionCode, ParcelFileDescriptor newState)
             throws IOException {
-        if (shouldPreventBackup(this)) {
-            if (isDebug()) {
-                Log.d(TAG, "Skipping restore");
-            }
-            return;
-        }
 
         if (isDebug()) {
             Log.d(TAG, "Performing Restore");

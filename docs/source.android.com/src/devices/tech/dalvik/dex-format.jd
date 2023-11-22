@@ -285,7 +285,7 @@ versions of the format differ significantly from the version described in this
 document.</p>
 
 <p class="note"><strong>Note:</strong> Support for version <code>037</code> of
-the format was added in the Android N release. Prior to this release most
+the format was added in the Android 7.0 release. Prior to this release most
 versions of Android have used version <code>035</code> of the format. The only
 difference between versions <code>035</code> and <code>037</code> is the
 addition of default methods and the adjustment of the <code>invoke</code>

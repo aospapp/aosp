@@ -145,6 +145,14 @@ public class MockInCallService extends InCallService {
                 getCallbacks().onCannedTextResponsesLoaded(call, cannedTextResponses);
             }
         }
+
+        @Override
+        public void onConnectionEvent(Call call, String event, Bundle extras) {
+            super.onConnectionEvent(call, event, extras);
+            if (getCallbacks() != null) {
+                getCallbacks().onConnectionEvent(call, event, extras);
+            }
+        }
     };
 
     private void saveVideoCall(Call call, VideoCall videoCall) {

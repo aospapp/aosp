@@ -1,11 +1,10 @@
 <?cs # A link to a package ?><?cs
+
 def:package_link(pkg) ?>
   <a href="<?cs var:toroot ?><?cs var:pkg.link ?>"><?cs var:pkg.name ?></a><?cs
-/def ?>
+  /def ?><?cs
 
-
-
-<?cs # A link to a type, or not if it is a primitive type
+# A link to a type, or not if it is a primitive type
         link: whether to create a link at the top level, always creates links in
               recursive invocations.
               Overloaded version to support use of 'nav' parameter, which when true,
@@ -16,9 +15,9 @@ def:package_link(pkg) ?>
             .isPrimitive
             .superBounds.N.(more links)   (... super ... & ...)
             .extendsBounds.N.(more links) (... extends ... & ...)
-            .typeArguments.N.(more links) (< ... >)
-?><?cs
+            .typeArguments.N.(more links) (< ... >) ?><?cs
 def:type_link_impl(type, link) ?><?cs call:type_link_impl2(type, link, "false") ?><?cs /def ?><?cs
+
 def:type_link_impl2(type, link, nav) ?><?cs
   if:type.link && link=="true" ?><?cs
     if:type.federated ?><a href="<?cs var:type.link ?>"><?cs
@@ -44,9 +43,8 @@ def:type_link_impl2(type, link, nav) ?><?cs
           if:!last(t) ?>,&nbsp;<?cs /if ?><?cs
       /each ?>&gt;<?cs
   /if ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs
 def:simple_type_link(type)?><?cs
   if:type.link?><?cs
     if:type.federated ?><a href="<?cs var:type.link ?>"><?cs var:type.label ?></a><?cs
@@ -61,34 +59,37 @@ def:simple_type_link(type)?><?cs
       /if ?><?cs
     /each ?>&gt;<?cs
   /if ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs def:class_name(type) ?><?cs call:type_link_impl(type, "false") ?><?cs /def ?>
-<?cs def:type_link2(type,nav) ?><?cs call:type_link_impl2(type, "true", nav) ?><?cs /def ?>
-<?cs def:type_link(type) ?><?cs call:type_link2(type, "false") ?><?cs /def ?>
+def:class_name(type) ?><?cs call:type_link_impl(type, "false") ?><?cs
+/def ?><?cs
+def:type_link2(type,nav) ?><?cs call:type_link_impl2(type, "true", nav) ?><?cs
+/def ?><?cs
+def:type_link(type) ?><?cs call:type_link2(type, "false") ?><?cs
+/def ?><?cs
 
-<?cs # a conditional link.
-      if the "condition" parameter evals to true then the link is displayed
-      otherwise only the text is displayed
-?><?cs
+# a conditional link.
+  if the "condition" parameter evals to true then the link is displayed
+  otherwise only the text is displayed ?><?cs
 def:cond_link(text, root, path, condition) ?><?cs
-  if:condition ?><a href="<?cs var:root ?><?cs var:path ?>"><?cs /if ?><?cs var:text ?><?cs if:condition ?></a><?cs /if ?><?cs
-/def ?>
+  if:condition ?><a href="<?cs var:root ?><?cs
+  var:path ?>"><?cs /if ?><?cs var:text ?><?cs
+  if:condition ?></a><?cs /if ?><?cs
+/def ?><?cs
 
-<?cs # A comma separated parameter list ?><?cs
+# A comma separated parameter list ?><?cs
 def:parameter_list(params) ?><?cs
   each:param = params ?><?cs
       call:simple_type_link(param.type)?> <?cs
       var:param.name ?><?cs
       if: name(param)!=subcount(params)-1?>, <?cs /if ?><?cs
   /each ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs def:doc_root_override()
+def:doc_root_override()
   ?><?cs var:toroot ?><?cs
-/def ?>
-
-<?cs # Print a list of tags (e.g. description text ?><?cs
+/def ?><?cs
+# Print a list of tags (e.g. description text ?><?cs
 def:tag_list(tags) ?><?cs
   each:tag = tags ?><?cs
       if:tag.name == "Text" ?><?cs var:tag.text?><?cs
@@ -130,9 +131,9 @@ def:tag_list(tags) ?><?cs
       else ?>{<?cs var:tag.name?> <?cs var:tag.text ?>}<?cs
       /if ?><?cs
   /each ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # Print output for block tags that are not "standard" javadoc tags ?><?cs
+# Print output for block tags that are not "standard" javadoc tags ?><?cs
 def:block_tag_list(tags) ?><?cs
   each:tag = tags ?><?cs
       if:tag.kind == "@apiNote" ?>
@@ -154,9 +155,9 @@ def:block_tag_list(tags) ?><?cs
         </div><?cs
       /if ?><?cs
   /each ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # Show the short-form description of something.  These come from shortDescr and deprecated ?><?cs
+# Show the short-form description of something.  These come from shortDescr and deprecated ?><?cs
 def:short_descr(obj) ?><?cs
   if:subcount(obj.deprecated) ?><em><?cs
     if:obj.deprecatedsince ?>
@@ -172,10 +173,8 @@ def:short_descr(obj) ?><?cs
     <div><?cs var:annodoc.text?></div><?cs
     /each?><?cs /if?><?cs
   /if ?><?cs
-/def ?>
+/def ?><?cs
 
-
-<?cs
 # Show a list of annotations associated with obj
 #
 # pre is an HTML string to start the list.
@@ -202,14 +201,14 @@ def:show_annotations_list(obj, pre, between, post) ?><?cs
       var:post ?><?cs
     /if ?><?cs
   /each ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # Show a comma-separated list of annotations associated with obj ?><?cs
+# Show a comma-separated list of annotations associated with obj ?><?cs
 def:show_simple_annotations_list(obj, pre, post) ?><?cs
   call:show_annotations_list(obj, pre, ", ", post) ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # Show the red box with the deprecated warning ?><?cs
+# Show the red box with the deprecated warning ?><?cs
 def:deprecated_warning(obj) ?><?cs
   if:subcount(obj.deprecated) ?><p>
   <p class="caution"><strong><?cs
@@ -222,9 +221,9 @@ def:deprecated_warning(obj) ?><?cs
     <?cs call:tag_list(obj.deprecated) ?>
   </p><?cs
   /if ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # print the See Also: section ?><?cs
+# print the See Also: section ?><?cs
 def:see_also_tags(also) ?><?cs
   if:subcount(also) ?>
   <div>
@@ -241,15 +240,16 @@ def:see_also_tags(also) ?><?cs
       </ul>
   </div><?cs
   /if ?>
-<?cs /def ?>
+<?cs /def ?><?cs
 
-<?cs # print the API Level ?><?cs
+# print the API Level ?><?cs
 def:since_tags(obj) ?><?cs
 if:reference.apilevels && obj.since ?>
   Added in <a href="<?cs var:toroot ?>guide/topics/manifest/uses-sdk-element.html#ApiLevels">API level <?cs var:obj.since ?></a><?cs
 /if ?><?cs
-/def ?>
-<?cs def:federated_refs(obj) ?>
+/def ?><?cs
+
+def:federated_refs(obj) ?>
   <?cs if:subcount(obj.federated) ?>
     <div>
     Also:
@@ -259,8 +259,8 @@ if:reference.apilevels && obj.since ?>
     <?cs /each ?>
     </div>
   <?cs /if ?>
-<?cs /def ?>
-<?cs
+<?cs /def ?><?cs
+
 #
 # Print the long-form description for something.
 # Uses the following fields: deprecated descr seeAlso since
@@ -350,9 +350,9 @@ def:description(obj) ?><?cs
   <?cs
   /if ?><?cs
   call:see_also_tags(obj.seeAlso) ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # A table of links to classes with descriptions, as in a package file or the nested classes ?><?cs
+# A table of links to classes with descriptions, as in a package file or the nested classes ?><?cs
 def:class_link_table(classes) ?><?cs
   set:count = #1 ?>
   <table class="jd-sumtable-expando"><?cs
@@ -363,9 +363,9 @@ def:class_link_table(classes) ?><?cs
           </tr><?cs set:count = count + #1 ?><?cs
       /each ?>
   </table><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # A list of links to classes, for use in the side navigation of classes when viewing a package (panel nav) ?><?cs
+# A list of links to classes, for use in the side navigation of classes when viewing a package (panel nav) ?><?cs
 def:class_link_list(label, classes) ?><?cs
   if:subcount(classes) ?>
     <li><h2><?cs var:label ?></h2>
@@ -376,9 +376,9 @@ def:class_link_list(label, classes) ?><?cs
       </ul>
     </li><?cs
   /if ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # A list of links to classes, for use in the side navigation of classes when viewing a class (panel nav) ?><?cs
+# A list of links to classes, for use in the side navigation of classes when viewing a class (panel nav) ?><?cs
 def:list(label, classes) ?><?cs
   if:subcount(classes) ?>
     <li><h2><?cs var:label ?></h2>
@@ -389,25 +389,25 @@ def:list(label, classes) ?><?cs
       </ul>
     </li><?cs
   /if ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # A list of links to packages, for use in the side navigation of packages (panel nav) ?><?cs
+# A list of links to packages, for use in the side navigation of packages (panel nav) ?><?cs
 def:package_link_list(packages) ?><?cs
   each:pkg=packages ?>
     <li class="<?cs if:(class.package.name == pkg.name) || (package.name == pkg.name)?>selected <?cs /if ?>api apilevel-<?cs var:pkg.since ?>"><?cs call:package_link(pkg) ?></li><?cs
   /each ?><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # An expando trigger ?><?cs
+# An expando trigger ?><?cs
 def:expando_trigger(id, default) ?>
   <a href="#" onclick="return toggleInherited(this, null)" id="<?cs var:id ?>" class="jd-expando-trigger closed"
           ><img height="34" id="<?cs var:id ?>-trigger"
           src="<?cs var:toroot ?>assets/images/styles/disclosure_<?cs
             if:default == 'closed' ?>down<?cs else ?>up<?cs /if ?>.png"
           class="jd-expando-trigger-img" /></a><?cs
-/def ?>
+/def ?><?cs
 
-<?cs # An expandable list of classes ?><?cs
+# An expandable list of classes ?><?cs
 def:expandable_class_list(id, classes, default) ?>
   <div id="<?cs var:id ?>">
       <div id="<?cs var:id ?>-list"
@@ -437,6 +437,5 @@ def:expandable_class_list(id, classes, default) ?>
           call:class_link_table(classes) ?>
       </div>
   </div><?cs
-/def ?>
-
-<?cs include:"components.cs" ?>
+/def ?><?cs
+include:"components.cs" ?>

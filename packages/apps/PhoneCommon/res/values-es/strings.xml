@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"Número no válido"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"Número de buzón de voz desconocido."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"No se pueden realizar videollamadas si el TTY está habilitado."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"Se ha transferido la llamada a otro dispositivo."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"Ninguno"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Tono desconocido"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Todas las líneas disponibles están ocupadas. Si quieres llamar, tienes que desconectar una llamada de este dispositivo o de otro de los tuyos."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

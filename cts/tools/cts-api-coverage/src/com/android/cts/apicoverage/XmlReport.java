@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Class that outputs an XML report of the {@link ApiCoverage} collected. It can be viewed in
@@ -83,9 +84,13 @@ class XmlReport {
                                 + "\">");
 
                         for (ApiConstructor constructor : apiClass.getConstructors()) {
+                            String coveredWithList =
+                                    constructor.getCoveredWith().stream().collect(Collectors.joining(","));
                             out.println("<constructor name=\"" + constructor.getName()
                                     + "\" deprecated=\"" + constructor.isDeprecated()
-                                    + "\" covered=\"" + constructor.isCovered() + "\">");
+                                    + "\" covered=\"" + constructor.isCovered()
+                                    + "\" with=\"" + coveredWithList
+                                    + "\">");
                             if (constructor.isDeprecated()) {
                                 if (constructor.isCovered()) {
                                     totalCoveredMethods -= 1;
@@ -100,6 +105,8 @@ class XmlReport {
                         }
 
                         for (ApiMethod method : apiClass.getMethods()) {
+                            String coveredWithList =
+                                    method.getCoveredWith().stream().collect(Collectors.joining(","));
                             out.println("<method name=\"" + method.getName()
                                     + "\" returnType=\"" + method.getReturnType()
                                     + "\" deprecated=\"" + method.isDeprecated()
@@ -107,7 +114,9 @@ class XmlReport {
                                     + "\" final=\"" + method.isFinalMethod()
                                     + "\" visibility=\"" + method.getVisibility()
                                     + "\" abstract=\"" + method.isAbstractMethod()
-                                    + "\" covered=\"" + method.isCovered() + "\">");
+                                    + "\" covered=\"" + method.isCovered()
+                                    + "\" with=\"" + coveredWithList
+                                    + "\">");
                             if (method.isDeprecated()) {
                                 if (method.isCovered()) {
                                     totalCoveredMethods -= 1;

@@ -27,5 +27,10 @@
         <boolean name="allow_adding_apns_bool" value="false" />
         <boolean name="broadcast_emergency_call_state_changes_bool" value="true" />
         <string name="carrier_eri_file_name_string">eri_311480.xml</string>
+        <int name="carrier_default_wfc_ims_mode_int" value="1"/>
+        <boolean name="editable_wfc_mode_bool" value="false"/>
+        <boolean name="disable_severe_when_extreme_disabled_bool" value="false" />
+        <boolean name="mmsCloseConnection" value="true"/>
+        <int name="wfc_spn_format_idx_int" value="1" />
     </carrier_config>
 </carrier_config_list>

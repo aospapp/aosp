@@ -19,6 +19,7 @@ package android.permission.cts;
 
 import android.app.ActivityManager;
 import android.app.AlarmManager;
+import android.app.WallpaperManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -83,6 +84,10 @@ public class NoSystemFunctionPermissionTest extends AndroidTestCase {
      */
     @SmallTest
     public void testSetWallpaper() throws IOException {
+        if (!WallpaperManager.getInstance(mContext).isWallpaperSupported()) {
+            return;
+        }
+
         Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.RGB_565);
 
         try {

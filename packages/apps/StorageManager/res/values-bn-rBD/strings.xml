@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2016 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_name" msgid="963247385700831716">"সঞ্চয়স্থান পরিচালক"</string>
+    <string name="cancel" msgid="7021218262867558825">"বাতিল করুন"</string>
+    <string name="storage_menu_free" msgid="1878247401436882778">"সঞ্চয়স্থান খালি করুন"</string>
+    <string name="deletion_helper_title" msgid="7928959984891140427">"মুছে ফেলার জন্য আইটেমগুলি বাছুন"</string>
+    <string name="deletion_helper_app_summary" msgid="1923023368736447552">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$d</xliff:g> দিন আগে"</string>
+    <string name="deletion_helper_app_summary_never_used" msgid="7461207117653761032">"<xliff:g id="USED">%1$s</xliff:g> • এর আগে কখনো ব্যবহার করা হয়নি"</string>
+    <string name="deletion_helper_app_summary_unknown_used" msgid="257918462233851162">"<xliff:g id="USED">%1$s</xliff:g> • শেষবার কখন ব্যবহার করা হয়েছে তা নিশ্চিত নয়"</string>
+    <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> খালি করুন"</string>
+    <string name="deletion_helper_photos_title" msgid="8694284659307845664">"(<xliff:g id="NUM_ITEMS">%1$d</xliff:g>টি) ফটো ও ভিডিও"</string>
+    <string name="deletion_helper_photos_summary" msgid="2636724338009030470">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$d</xliff:g> দিনের বেশি পুরানো"</string>
+    <string name="deletion_helper_downloads_title" msgid="2976599380628177756">"(<xliff:g id="NUMITEMS">%1$d</xliff:g>টি) ডাউনলোড"</string>
+    <!-- no translation found for deletion_helper_downloads_category_summary (8545989355108311347) -->
+    <skip />
+    <string name="deletion_helper_downloads_file_summary" msgid="2610952169093565355">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$s</xliff:g>"</string>
+    <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
+    <skip />
+    <string name="deletion_helper_clear_dialog_message" msgid="921129346098616363">"আপনার ডিভাইস থেকে <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> সরান৷"</string>
+    <string name="deletion_helper_clear_dialog_remove" msgid="3386502418767917932">"সরান"</string>
+    <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"সঞ্চয়স্থান স্বয়ংক্রিয়ভাবে পরিচালনা করবেন?"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> এখন খালি হয়েছে। সঞ্চয়স্থানের পরিচালককে আপনার ডিভাইস থেকে স্বয়ংক্রিয়ভাবে ব্যাক আপ নেওয়া সামগ্রীকে সরানোর দ্বারা সঞ্চয়স্থান খালি করার অনুমতি দেবেন?"</string>
+    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"না থাক"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"চালু করুন"</string>
+    <string name="deletion_helper_apps_group_title" msgid="6554321362396920050">"(<xliff:g id="NUM_ITEMS">%1$d</xliff:g>টি) অ্যাপ্স"</string>
+    <string name="deletion_helper_apps_group_summary" msgid="3466154404460006085">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$d</xliff:g> দিন আগে শেষবার ব্যবহার করা হয়েছে"</string>
+    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"স্বয়ংক্রিয়"</string>
+    <string name="deletion_helper_manual_title" msgid="3905192395039688529">"ম্যানুয়াল"</string>
+    <string name="deletion_helper_preference_title" msgid="803484286872745892">"এখনই স্থান খালি করুন"</string>
+    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"স্বয়ংক্রিয় সঞ্চয়স্থান পরিচালনার পরিষেবা"</string>
+    <string name="automatic_storage_manager_notification_title" msgid="8480483265300964701">"আপনার ফোনে স্থান কম রয়েছে"</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"আপনার ফোনের সঞ্চয়স্থান আবার ভরে যেতে শুরু করলে স্বয়ংক্রিয়ভাবে পুরোনো ছবি ও ভিডিওগুলি সরিয়ে সঞ্চয়স্থান পরিচালককে স্থান খালি করতে দিন।"</string>
+    <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"না থাক"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"চালু করুন"</string>
+    <string name="deletion_helper_photos_loading_title" msgid="5411813715495227745">"ফটো এবং ভিডিও"</string>
+    <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"আইটেমগুলি খোঁজা হচ্ছে…"</string>
+</resources>

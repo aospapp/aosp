@@ -31,19 +31,18 @@ import android.view.KeyEvent;
 
 import junit.framework.Assert;
 
-import java.util.concurrent.TimeoutException;
-
 /**
  * Helper for all the system apps jank tests
  */
 public class SysAppTestHelper {
 
-    private static final String LOG_TAG = SysAppTestHelper.class.getSimpleName();
     public static final int EXPECTED_FRAMES_CARDS_TEST = 20;
+    public static final int EXPECTED_FRAMES_WATCHFACE_PICKER_TEST = 20;
     public static final int EXPECTED_FRAMES = 100;
     public static final int LONG_TIMEOUT = 5000;
     public static final int SHORT_TIMEOUT = 500;
     public static final int FLING_SPEED = 5000;
+    private static final String LOG_TAG = SysAppTestHelper.class.getSimpleName();
     private static final long NEW_CARD_TIMEOUT_MS = 5 * 1000; // 5s
     private static final String RELOAD_NOTIFICATION_CARD_INTENT = "com.google.android.wearable."
             + "support.wearnotificationgenerator.SHOW_NOTIFICATION";
@@ -51,6 +50,7 @@ public class SysAppTestHelper {
     private static final String LAUNCHER_VIEW_NAME = "launcher_view";
     private static final String CARD_VIEW_NAME = "activity_view";
     private static final String QUICKSETTING_VIEW_NAME = "settings_icon";
+    private static final String WATCHFACE_PREVIEW_NAME = "preview_image";
 
     // Demo card selectors
     private static final UiSelector CARD_SELECTOR = new UiSelector()
@@ -65,21 +65,18 @@ public class SysAppTestHelper {
             .resourceId("com.google.android.wearable.app:id/text");
     private static final UiSelector STATUS_BAR_SELECTOR = new UiSelector()
             .resourceId("com.google.android.wearable.app:id/status_bar_icons");
-
+    private static SysAppTestHelper sysAppTestHelperInstance;
     private UiDevice mDevice = null;
     private Instrumentation instrumentation = null;
     private UiObject mCard = null;
     private UiObject mTitle = null;
-    private UiObject mClock = null;
     private UiObject mIcon = null;
     private UiObject mText = null;
-    private UiObject mStatus = null;
     private Intent mIntent = null;
-    private static SysAppTestHelper sysAppTestHelperInstance;
 
     /**
-     * @param mDevice
-     * @param instrumentation
+     * @param mDevice Instance to represent the current device.
+     * @param instrumentation Instance for instrumentation.
      */
     private SysAppTestHelper(UiDevice mDevice, Instrumentation instrumentation) {
         super();
@@ -88,10 +85,8 @@ public class SysAppTestHelper {
         mIntent = new Intent();
         mCard = mDevice.findObject(CARD_SELECTOR);
         mTitle = mDevice.findObject(TITLE_SELECTOR);
-        mClock = mDevice.findObject(CLOCK_SELECTOR);
         mIcon = mDevice.findObject(ICON_SELECTOR);
         mText = mDevice.findObject(TEXT_SELECTOR);
-        mStatus = mDevice.findObject(STATUS_BAR_SELECTOR);
     }
 
     public static SysAppTestHelper getInstance(UiDevice device, Instrumentation instrumentation) {
@@ -101,6 +96,7 @@ public class SysAppTestHelper {
         return sysAppTestHelperInstance;
     }
 
+    // TODO: Cleanup confusion between swipe and fling.
     public void swipeRight() {
         mDevice.swipe(50,
                 mDevice.getDisplayHeight() / 2, mDevice.getDisplayWidth() - 25,
@@ -126,6 +122,19 @@ public class SysAppTestHelper {
         SystemClock.sleep(SHORT_TIMEOUT);
     }
 
+    // TODO: Cleanup confusion between swipe and fling.
+    public void flingLeft() {
+        mDevice.swipe(mDevice.getDisplayWidth() - 50, mDevice.getDisplayHeight() / 2,
+                50, mDevice.getDisplayHeight() / 2, 5); // fast speed
+        SystemClock.sleep(SHORT_TIMEOUT);
+    }
+
+    public void flingRight() {
+        mDevice.swipe(50, mDevice.getDisplayHeight() / 2,
+                mDevice.getDisplayWidth() - 50, mDevice.getDisplayHeight() / 2, 5); // fast speed
+        SystemClock.sleep(SHORT_TIMEOUT);
+    }
+
     public void flingUp() {
         mDevice.swipe(mDevice.getDisplayWidth() / 2, mDevice.getDisplayHeight() / 2 + 50,
                 mDevice.getDisplayWidth() / 2, 0, 5); // fast speed
@@ -140,29 +149,31 @@ public class SysAppTestHelper {
 
     // Helper method to go back to home screen
     public void goBackHome() {
-        String launcherPackage = mDevice.getLauncherPackageName();
-        UiObject2 homeScreen = mDevice.findObject(By.res(launcherPackage, HOME_INDICATOR));
         int count = 0;
-        while (homeScreen == null && count < 5) {
+        do {
+            UiObject2 homeScreen = waitForSysAppUiObject2(HOME_INDICATOR);
+            if (homeScreen != null) {
+                break;
+            }
             mDevice.pressBack();
-            homeScreen = mDevice.findObject(By.res(launcherPackage, HOME_INDICATOR));
-            count ++;
-        }
+            count++;
+        } while (count < 5);
 
         // TODO (yuanlang@) Delete the following hacky codes after charging icon issue fixed
         // Make sure we're not in the launcher
-        homeScreen = mDevice.findObject(By.res(launcherPackage, LAUNCHER_VIEW_NAME));
-        if (homeScreen != null) {
+        if (waitForSysAppUiObject2(LAUNCHER_VIEW_NAME) != null) {
             mDevice.pressBack();
         }
         // Make sure we're not in cards view
-        homeScreen = mDevice.findObject(By.res(launcherPackage, CARD_VIEW_NAME));
-        if (homeScreen != null) {
+        if (waitForSysAppUiObject2(CARD_VIEW_NAME) != null) {
             mDevice.pressBack();
         }
         // Make sure we're not in the quick settings
-        homeScreen = mDevice.findObject(By.res(launcherPackage, QUICKSETTING_VIEW_NAME));
-        if (homeScreen != null) {
+        if (waitForSysAppUiObject2(QUICKSETTING_VIEW_NAME) != null) {
+            mDevice.pressBack();
+        }
+        // Make sure we're not in watch face picker
+        if (waitForSysAppUiObject2(WATCHFACE_PREVIEW_NAME) != null) {
             mDevice.pressBack();
         }
         SystemClock.sleep(LONG_TIMEOUT);
@@ -172,7 +183,7 @@ public class SysAppTestHelper {
 
     // TODO: Allow user to pass in how many cards are expected to find cause some tests may require
     // more than one card.
-    public void hasDemoCards() throws Exception {
+    public void hasDemoCards() {
         // Device should be pre-loaded with demo cards.
 
         goBackHome(); // Start by going to Home.
@@ -221,11 +232,18 @@ public class SysAppTestHelper {
     }
 
     // Helper method to goto app launcher and verifies you are there.
-    public void gotoAppLauncher() throws TimeoutException {
+    public void gotoAppLauncher() {
         goBackHome();
         mDevice.pressKeyCode(KeyEvent.KEYCODE_BACK);
         UiObject2 appLauncher = mDevice.wait(Until.findObject(By.text("Agenda")),
                 SysAppTestHelper.LONG_TIMEOUT);
         Assert.assertNotNull("App launcher not launched", appLauncher);
+    }
+
+    public UiObject2 waitForSysAppUiObject2(String resourceId) {
+        String launcherPackageName = mDevice.getLauncherPackageName();
+        return mDevice.wait(
+                Until.findObject(By.res(launcherPackageName, resourceId)),
+                SHORT_TIMEOUT);
     }
 }

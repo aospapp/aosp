@@ -29,6 +29,8 @@
 #include <sensors.h>
 #include <limits.h>
 
+#define TILT_APP_VERSION 1
+
 #define EVT_SENSOR_ANY_MOTION sensorGetMyEventType(SENS_TYPE_ANY_MOTION)
 #define EVT_SENSOR_NO_MOTION sensorGetMyEventType(SENS_TYPE_NO_MOTION)
 #define EVT_SENSOR_ACCEL sensorGetMyEventType(SENS_TYPE_ACCEL)
@@ -227,7 +229,6 @@ static void tiltDetectionHandleEvent(uint32_t evtType, const void* evtData)
 
     switch (evtType) {
     case EVT_APP_START:
-        osLog(LOG_INFO, "[Tilt] idle\n");
         osEventUnsubscribe(mTask.taskId, EVT_APP_START);
         sensorFind(SENS_TYPE_ANY_MOTION, 0, &mTask.anyMotionHandle);
         sensorFind(SENS_TYPE_NO_MOTION, 0, &mTask.noMotionHandle);
@@ -289,8 +290,7 @@ static void tiltDetectionEnd()
 
 INTERNAL_APP_INIT(
         APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 8),
-        0,
+        TILT_APP_VERSION,
         tiltDetectionStart,
         tiltDetectionEnd,
         tiltDetectionHandleEvent);
-

@@ -131,6 +131,13 @@ bool IsSymlink(const char* path);
 // only returns true if "/dev/ubi%d_0" becomes available in |timeout| seconds.
 bool TryAttachingUbiVolume(int volume_num, int timeout);
 
+// Setup the directory |new_root_temp_dir| to be used as the root directory for
+// temporary files instead of the system's default. If the directory doesn't
+// exists, it will be created when first used.
+// NOTE: The memory pointed by |new_root_temp_dir| must be available until this
+// function is called again with a different value.
+void SetRootTempDir(const char* new_root_temp_dir);
+
 // If |base_filename_template| is neither absolute (starts with "/") nor
 // explicitly relative to the current working directory (starts with "./" or
 // "../"), then it is prepended the system's temporary directory. On success,
@@ -314,16 +321,6 @@ std::string FormatTimeDelta(base::TimeDelta delta);
 // idempotent, i.e. if called with a value previously returned by this method,
 // it'll return the same value again.
 ErrorCode GetBaseErrorCode(ErrorCode code);
-
-// Creates the powerwash marker file with the appropriate commands in it.  Uses
-// |file_path| as the path to the marker file if non-null, otherwise uses the
-// global default. Returns true if successfully created.  False otherwise.
-bool CreatePowerwashMarkerFile(const char* file_path);
-
-// Deletes the marker file used to trigger Powerwash using clobber-state.  Uses
-// |file_path| as the path to the marker file if non-null, otherwise uses the
-// global default. Returns true if successfully deleted. False otherwise.
-bool DeletePowerwashMarkerFile(const char* file_path);
 
 // Decodes the data in |base64_encoded| and stores it in a temporary
 // file. Returns false if the given data is empty, not well-formed

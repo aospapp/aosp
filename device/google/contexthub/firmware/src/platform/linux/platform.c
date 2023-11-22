@@ -65,6 +65,10 @@ uint32_t platFreeResources(uint32_t tid)
     return 0;
 }
 
+void platPeriodic()
+{
+}
+
 int main(int argc, char** argv)
 {
     osMain();

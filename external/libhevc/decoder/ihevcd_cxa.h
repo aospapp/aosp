@@ -270,6 +270,9 @@ typedef enum
     /** Get VUI parameters */
     IHEVCD_CXA_CMD_CTL_GET_VUI_PARAMS        = IVD_CMD_CTL_CODEC_SUBCMD_START + 0x101,
 
+    /** Get SEI Mastering display color volume parameters */
+    IHEVCD_CXA_CMD_CTL_GET_SEI_MASTERING_PARAMS   = IVD_CMD_CTL_CODEC_SUBCMD_START + 0x102,
+
     /** Enable/disable GPU, supported on select platforms */
     IHEVCD_CXA_CMD_CTL_GPU_ENABLE_DISABLE    = IVD_CMD_CTL_CODEC_SUBCMD_START + 0x200,
 
@@ -965,6 +968,50 @@ typedef struct {
     */
     UWORD8 au1_cpb_cnt_minus1[6];
 }ihevcd_cxa_ctl_get_vui_params_op_t;
+
+typedef struct
+{
+    UWORD32                                     u4_size;
+    IVD_API_COMMAND_TYPE_T                      e_cmd;
+    IVD_CONTROL_API_COMMAND_TYPE_T              e_sub_cmd;
+}ihevcd_cxa_ctl_get_sei_mastering_params_ip_t;
+
+typedef struct
+{
+    UWORD32                                     u4_size;
+    UWORD32                                     u4_error_code;
+
+    /**
+     * Array to store the display_primaries_x values
+     */
+    UWORD16 au2_display_primaries_x[3];
+
+    /**
+     * Array to store the display_primaries_y values
+     */
+    UWORD16 au2_display_primaries_y[3];
+
+    /**
+     * Variable to store the white point x value
+     */
+    UWORD16 u2_white_point_x;
+
+    /**
+     * Variable to store the white point y value
+     */
+    UWORD16 u2_white_point_y;
+
+    /**
+     * Variable to store the max display mastering luminance value
+     */
+    UWORD32 u4_max_display_mastering_luminance;
+
+    /**
+     * Variable to store the min display mastering luminance value
+     */
+    UWORD32 u4_min_display_mastering_luminance;
+
+}ihevcd_cxa_ctl_get_sei_mastering_params_op_t;
 
 #ifdef __cplusplus
 } /* closing brace for extern "C" */

@@ -3,6 +3,7 @@
 
 import os
 import os.path
+
 import serial, time
 import array
 import sys, getopt
@@ -113,7 +114,7 @@ class bootdownload(object):
         print 'failed'
 
     def sendstartframe(self):
-        self.s.setTimeout(0.01)
+	self.s.timeout = 0.01
         data = array.array('B', self.startframe[self.chip]).tostring()
         crc = self.calc_crc(data)
         data += chr((crc >> 8)&0xff)
@@ -121,7 +122,7 @@ class bootdownload(object):
         self.sendframe(data,10000)
 
     def sendheadframe(self,length,address):
-        self.s.setTimeout(0.03)
+	self.s.timeout = 0.03
         self.headframe[self.chip][4] = (length>>24)&0xff
         self.headframe[self.chip][5] = (length>>16)&0xff
         self.headframe[self.chip][6] = (length>>8)&0xff
@@ -141,7 +142,7 @@ class bootdownload(object):
 
 
     def senddataframe(self,seq,data):
-        self.s.setTimeout(0.15)
+        self.s.timeout = 0.15
         head = chr(0xDA)
         head += chr(seq&0xFF)
         head += chr((~seq)&0xFF)

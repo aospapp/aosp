@@ -46,4 +46,12 @@
     <string name="which_wallpaper_option_home_screen">Home screen</string>
     <!-- Option for setting the wallpaper on both the home screen and lock screen. -->
     <string name="which_wallpaper_option_home_screen_and_lock_screen">Home screen and lock screen</string>
+
+    <!-- Content description for a button letting the user collapse a visual panel showing info
+         about the wallpaper being previewed. [CHAR LIMIT=none] -->
+    <string name="collapse_attribution_panel">Collapse wallpaper info panel</string>
+
+    <!-- Content description for a button letting the user expand a visual panel showing info about
+         the wallpaper being previewed. [CHAR LIMIT=none] -->
+    <string name="expand_attribution_panel">Expand wallpaper info panel</string>
 </resources>

@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"ບໍ່ມີເບີຂໍ້ຄວາມສຽງ"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"ບໍ່ມີເບີຂໍ້ຄວາມສຽງຖືກບັນທຶກໃນ SIM card."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"ເພີ່ມໝາຍເລກ"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"ປ່ຽນ​ແປງ​ແອັບ​ແຜ່ນ​ກົດ​ມາດ​ຕະ​ຖານ?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"ໃຊ້ <xliff:g id="NEW_APP">%1$s</xliff:g> ແທນ <xliff:g id="CURRENT_APP">%2$s</xliff:g> ເປັນ​ແອັບ​ແຜ່ນ​ກົດ​ມາດ​ຕະ​ຖານ​ຂອງ​ທ່ານ?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"ໃຊ້ <xliff:g id="NEW_APP">%s</xliff:g> ເປັນ​ແອັບ​ແຜ່ນ​ກົດ​ມາດ​ຕະ​ຖານ​ຂອງ​ທ່ານ?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"ຕັ້ງໃຫ້ <xliff:g id="NEW_APP">%s</xliff:g> ເປັນແອັບໂທລະສັບເລີ່ມຕົ້ນຂອງທ່ານບໍ?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"ຕັ້ງເປັນຄ່າເລີ່ມຕົ້ນ"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"ຍົກເລີກ"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> ຈະສາມາດໂທ ແລະ ຄວບຄຸມທຸກແງ່ມຸມຂອງການໂທຕ່າງໆໄດ້. ທ່ານຄວນຕັ້ງໃຫ້ແອັບໂທລະສັບທີ່ທ່ານໄວ້ໃຈໄດ້ເທົ່ານັ້ນເປັນແອັບເລີ່ມຕົ້ນ."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"ເບີໂທລະສັບທີ່ບລັອກໄວ້"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"ທ່ານຈະບໍ່ໄດ້ຮັບສາຍ ຫຼື ຂໍ້ຄວາມຈາກເບີທີ່ບລັອກໄວ້."</string>
     <string name="block_number" msgid="1101252256321306179">"ເພີ່ມເບີໂທລະສັບ"</string>

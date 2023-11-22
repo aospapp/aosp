@@ -564,7 +564,7 @@
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"このアプリはアカウントにアクセスする場合があります"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"位置情報"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"アプリに位置情報の使用を許可する"</string>
-    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"制限付きプロファイルを入力"</string>
+    <string name="restricted_profile_switch_to" msgid="1926433350907032138">"制限付きプロファイルを開始"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"制限付きプロファイルを終了"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"制限付きプロファイルを削除"</string>
     <string name="restricted_profile_create_title" msgid="1392190365829029390">"制限付きプロファイルの作成"</string>

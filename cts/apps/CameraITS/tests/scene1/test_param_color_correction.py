@@ -42,7 +42,7 @@ def main():
 
         # Baseline request
         e, s = its.target.get_target_exposure_combos(cam)["midSensitivity"]
-        req = its.objects.manual_capture_request(s, e, True, props)
+        req = its.objects.manual_capture_request(s, e, 0.0, True, props)
         req["android.colorCorrection.mode"] = 0
 
         # Transforms:

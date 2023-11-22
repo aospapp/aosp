@@ -130,7 +130,7 @@ public class GlifRecyclerLayout extends GlifLayout {
         if (mRecyclerView instanceof HeaderRecyclerView) {
             mHeader = ((HeaderRecyclerView) mRecyclerView).getHeader();
         }
-        mDividerDecoration = DividerItemDecoration.getDefault(getContext());
+        mDividerDecoration = new DividerItemDecoration(getContext());
         mRecyclerView.addItemDecoration(mDividerDecoration);
     }
 
@@ -143,6 +143,13 @@ public class GlifRecyclerLayout extends GlifLayout {
             }
         }
         return super.findViewById(id);
+    }
+
+    public void setDividerItemDecoration(DividerItemDecoration decoration) {
+        mRecyclerView.removeItemDecoration(mDividerDecoration);
+        mDividerDecoration = decoration;
+        mRecyclerView.addItemDecoration(mDividerDecoration);
+        updateDivider();
     }
 
     public RecyclerView getRecyclerView() {

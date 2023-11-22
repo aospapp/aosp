@@ -1,5 +1,5 @@
 permute : permute.c
-	gcc -o $@ -Wall permute.c -lsndfile
+	gcc -o $@ -Wall -Werror permute.c -lsndfile
 
 clean :
-	$(RM) $@
+	$(RM) permute

@@ -18,6 +18,7 @@ from builtins import str
 
 import argparse
 import multiprocessing
+import os
 import signal
 import sys
 import traceback
@@ -181,6 +182,9 @@ def load_test_config_file(test_config_path, tb_filters=None):
     # Unpack testbeds into separate json objects.
     beds = configs.pop(Config.key_testbed.value)
     config_jsons = []
+    # TODO: See if there is a better way to do this: b/29836695
+    config_path, _ = os.path.split(abs_path(test_config_path))
+    configs[Config.key_config_path] = config_path
     for original_bed_config in beds:
         new_test_config = dict(configs)
         new_test_config[Config.key_testbed.value] = original_bed_config

@@ -419,7 +419,7 @@
 
     <!-- Strings for Location GNSS tests -->
     <string name="location_gnss_constellation_type_test">GNSS Measurement Constellation Test</string>
-    <string name="location_gnss_measure_no_location_test">GNSS Measurement WhenNoLocation Test</string>
+    <string name="location_gnss_measure_no_location_test">GNSS Measurement Before Location Test</string>
     <string name="location_gnss_reg_test">GNSS Measurement Registration Test</string>
     <string name="location_gnss_value_test">GNSS Measurement Values Test</string>
     <string name="location_gnss_nav_msg_test">GNSS Navigation Message Test</string>
@@ -2217,8 +2217,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_owner_disallow_config_wifi_info">
         Please press the Set restriction button to set the user restriction.
         Then press Go to open the WiFi page in Settings.
-        Confirm that:\n
-        \n
+        Confirm that:\n\n
         - You cannot view WiFi networks in range.\n
         - Trying to edit, add or remove any existing WiFi configs triggers a support message.\n
         \n
@@ -2229,12 +2228,23 @@ You should be prompted to select credentials; choose the ones you just installed
         Device should have a sim card to perform this test.
         Please press the Set restriction button to set the user restriction.
         Then press Go to open the Cellular network page in Settings.
-        Confirm that:\n
-        \n
+        Confirm that:\n\n
         - Data roaming is disabled.\n
-        - Enabling data roaming is not possible and triggers a support message.\n
-        \n
+        - Enabling data roaming is not possible and triggers a support message.\n\n
         Use the Back button to return to this page.
+    </string>
+    <string name="device_owner_disallow_factory_reset">Disallow factory reset</string>
+    <string name="device_owner_disallow_factory_reset_info">
+        Please press the Set button to set the user restriction.\n
+        1. Go to the factory reset settings. It is often located in \"Backup &amp; reset\" settings.\n
+        Confirm that:\n
+           - Factory data reset is disabled.\n
+           - Pressing factory data reset is not possible and triggers a support message.\n\n
+        2. Go to OEM unlocking settings, if this device has this Settings option. It is often located under \"Developer options\".\n
+        Confirm that:\n
+           - Oem Unlocking is disabled.\n
+           - Enabling Oem unlocking is not possible and triggers a support message.\n\n
+        Return back to this page.
     </string>
     <string name="device_owner_user_restriction_set">Set restriction</string>
     <string name="device_owner_settings_go">Go</string>

@@ -107,6 +107,13 @@ public class CallAudioRouteStateMachine extends StateMachine {
     public static final int NO_FOCUS = 1;
     public static final int HAS_FOCUS = 2;
 
+    private static final SparseArray<String> AUDIO_ROUTE_TO_LOG_EVENT = new SparseArray<String>() {{
+        put(CallAudioState.ROUTE_BLUETOOTH, Log.Events.AUDIO_ROUTE_BT);
+        put(CallAudioState.ROUTE_EARPIECE, Log.Events.AUDIO_ROUTE_EARPIECE);
+        put(CallAudioState.ROUTE_SPEAKER, Log.Events.AUDIO_ROUTE_SPEAKER);
+        put(CallAudioState.ROUTE_WIRED_HEADSET, Log.Events.AUDIO_ROUTE_HEADSET);
+    }};
+
     private static final SparseArray<String> MESSAGE_CODE_TO_NAME = new SparseArray<String>() {{
         put(CONNECT_WIRED_HEADSET, "CONNECT_WIRED_HEADSET");
         put(DISCONNECT_WIRED_HEADSET, "DISCONNECT_WIRED_HEADSET");
@@ -319,9 +326,11 @@ public class CallAudioRouteStateMachine extends StateMachine {
             }
             switch (msg.what) {
                 case SWITCH_EARPIECE:
+                case USER_SWITCH_EARPIECE:
                     // Nothing to do here
                     return HANDLED;
                 case SWITCH_BLUETOOTH:
+                case USER_SWITCH_BLUETOOTH:
                     if ((mAvailableRoutes & ROUTE_BLUETOOTH) != 0) {
                         transitionTo(mQuiescentBluetoothRoute);
                     } else {
@@ -329,6 +338,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case SWITCH_HEADSET:
+                case USER_SWITCH_HEADSET:
                     if ((mAvailableRoutes & ROUTE_WIRED_HEADSET) != 0) {
                         transitionTo(mQuiescentHeadsetRoute);
                     } else {
@@ -336,6 +346,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case SWITCH_SPEAKER:
+                case USER_SWITCH_SPEAKER:
                     transitionTo(mQuiescentSpeakerRoute);
                     return HANDLED;
                 case SWITCH_FOCUS:
@@ -492,6 +503,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
             }
             switch (msg.what) {
                 case SWITCH_EARPIECE:
+                case USER_SWITCH_EARPIECE:
                     if ((mAvailableRoutes & ROUTE_EARPIECE) != 0) {
                         transitionTo(mQuiescentEarpieceRoute);
                     } else {
@@ -499,6 +511,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case SWITCH_BLUETOOTH:
+                case USER_SWITCH_BLUETOOTH:
                     if ((mAvailableRoutes & ROUTE_BLUETOOTH) != 0) {
                         transitionTo(mQuiescentBluetoothRoute);
                     } else {
@@ -506,9 +519,11 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case SWITCH_HEADSET:
+                case USER_SWITCH_HEADSET:
                     // Nothing to do
                     return HANDLED;
                 case SWITCH_SPEAKER:
+                case USER_SWITCH_SPEAKER:
                     transitionTo(mQuiescentSpeakerRoute);
                     return HANDLED;
                 case SWITCH_FOCUS:
@@ -678,6 +693,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
             }
             switch (msg.what) {
                 case SWITCH_EARPIECE:
+                case USER_SWITCH_EARPIECE:
                     if ((mAvailableRoutes & ROUTE_EARPIECE) != 0) {
                         transitionTo(mQuiescentEarpieceRoute);
                     } else {
@@ -685,9 +701,11 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case SWITCH_BLUETOOTH:
+                case USER_SWITCH_BLUETOOTH:
                     // Nothing to do
                     return HANDLED;
                 case SWITCH_HEADSET:
+                case USER_SWITCH_HEADSET:
                     if ((mAvailableRoutes & ROUTE_WIRED_HEADSET) != 0) {
                         transitionTo(mQuiescentHeadsetRoute);
                     } else {
@@ -695,6 +713,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case SWITCH_SPEAKER:
+                case USER_SWITCH_SPEAKER:
                     transitionTo(mQuiescentSpeakerRoute);
                     return HANDLED;
                 case SWITCH_FOCUS:
@@ -859,6 +878,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
             }
             switch(msg.what) {
                 case SWITCH_EARPIECE:
+                case USER_SWITCH_EARPIECE:
                     if ((mAvailableRoutes & ROUTE_EARPIECE) != 0) {
                         transitionTo(mQuiescentEarpieceRoute);
                     } else {
@@ -866,6 +886,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case SWITCH_BLUETOOTH:
+                case USER_SWITCH_BLUETOOTH:
                     if ((mAvailableRoutes & ROUTE_BLUETOOTH) != 0) {
                         transitionTo(mQuiescentBluetoothRoute);
                     } else {
@@ -873,6 +894,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case SWITCH_HEADSET:
+                case USER_SWITCH_HEADSET:
                     if ((mAvailableRoutes & ROUTE_WIRED_HEADSET) != 0) {
                         transitionTo(mQuiescentHeadsetRoute);
                     } else {
@@ -880,6 +902,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     }
                     return HANDLED;
                 case SWITCH_SPEAKER:
+                case USER_SWITCH_SPEAKER:
                     // Nothing to do
                     return HANDLED;
                 case SWITCH_FOCUS:
@@ -1104,6 +1127,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
         if (mAudioManager.isSpeakerphoneOn() != on) {
             Log.i(this, "turning speaker phone %s", on);
             mAudioManager.setSpeakerphoneOn(on);
+            mStatusBarNotifier.notifySpeakerphone(on);
         }
     }
 
@@ -1123,8 +1147,8 @@ public class CallAudioRouteStateMachine extends StateMachine {
 
     private void setMuteOn(boolean mute) {
         mIsMuted = mute;
-        Log.event(mCallsManager.getForegroundCall(), Log.Events.MUTE,
-                mute ? "on" : "off");
+        Log.event(mCallsManager.getForegroundCall(), mute ? Log.Events.MUTE : Log.Events.UNMUTE);
+
         if (mute != mAudioManager.isMicrophoneMute() && isInActiveState()) {
             IAudioService audio = mAudioServiceFactory.getAudioService();
             Log.i(this, "changing microphone mute state to: %b [serviceIsNull=%b]",
@@ -1138,6 +1162,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
                     // user and not the current foreground, which we want to avoid.
                     audio.setMicrophoneMute(
                             mute, mContext.getOpPackageName(), getCurrentUserId());
+                    mStatusBarNotifier.notifyMute(mute);
 
                 } catch (RemoteException e) {
                     Log.e(this, e, "Remote exception while toggling mute.");
@@ -1176,10 +1201,13 @@ public class CallAudioRouteStateMachine extends StateMachine {
     private void setSystemAudioState(CallAudioState newCallAudioState, boolean force) {
         Log.i(this, "setSystemAudioState: changing from %s to %s", mLastKnownCallAudioState,
                 newCallAudioState);
-        Log.event(mCallsManager.getForegroundCall(), Log.Events.AUDIO_ROUTE,
-                CallAudioState.audioRouteToString(newCallAudioState.getRoute()));
-
         if (force || !newCallAudioState.equals(mLastKnownCallAudioState)) {
+            if (newCallAudioState.getRoute() != mLastKnownCallAudioState.getRoute()) {
+                Log.event(mCallsManager.getForegroundCall(),
+                        AUDIO_ROUTE_TO_LOG_EVENT.get(newCallAudioState.getRoute(),
+                                Log.Events.AUDIO_ROUTE));
+            }
+
             mCallsManager.onCallAudioStateChanged(mLastKnownCallAudioState, newCallAudioState);
             updateAudioForForegroundCall(newCallAudioState);
             mLastKnownCallAudioState = newCallAudioState;
@@ -1301,6 +1329,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
         setMuteOn(mIsMuted);
         mWasOnSpeaker = false;
         mHasUserExplicitlyLeftBluetooth = false;
+        mLastKnownCallAudioState = initState;
         transitionTo(mRouteCodeToQuiescentState.get(initState.getRoute()));
     }
 }

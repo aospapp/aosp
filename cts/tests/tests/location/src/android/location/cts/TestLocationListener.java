@@ -30,7 +30,7 @@ class TestLocationListener implements LocationListener {
     private volatile boolean mProviderEnabled;
     private volatile boolean mLocationReceived;
     // Timeout in sec for count down latch wait
-    private static final int TIMEOUT_IN_SEC = 300;
+    private static final int TIMEOUT_IN_SEC = 120;
     private final CountDownLatch mCountDownLatch;
 
     TestLocationListener(int locationToCollect) {
@@ -62,7 +62,7 @@ class TestLocationListener implements LocationListener {
     }
 
     public boolean await() throws InterruptedException {
-        return TestUtils.waitFor(mCountDownLatch);
+        return TestUtils.waitFor(mCountDownLatch, TIMEOUT_IN_SEC);
     }
 
     /**

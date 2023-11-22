@@ -16,9 +16,13 @@
 
 package com.android.server.wifi;
 
+import static android.net.wifi.WifiManager.WIFI_MODE_FULL;
+
 import static com.android.server.wifi.WifiController.CMD_AP_STOPPED;
+import static com.android.server.wifi.WifiController.CMD_DEVICE_IDLE;
 import static com.android.server.wifi.WifiController.CMD_EMERGENCY_CALL_STATE_CHANGED;
 import static com.android.server.wifi.WifiController.CMD_EMERGENCY_MODE_CHANGED;
+import static com.android.server.wifi.WifiController.CMD_RESTART_WIFI;
 import static com.android.server.wifi.WifiController.CMD_SET_AP;
 import static com.android.server.wifi.WifiController.CMD_WIFI_TOGGLED;
 
@@ -28,6 +32,7 @@ import static org.mockito.Mockito.*;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.os.WorkSource;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 
@@ -79,7 +84,7 @@ public class WifiControllerTest {
     @Mock FrameworkFacade mFacade;
     @Mock WifiSettingsStore mSettingsStore;
     @Mock WifiStateMachine mWifiStateMachine;
-    @Mock WifiServiceImpl.LockList mLockList;
+    @Mock WifiLockManager mWifiLockManager;
 
     WifiController mWifiController;
 
@@ -94,7 +99,7 @@ public class WifiControllerTest {
         when(mContext.getContentResolver()).thenReturn(mock(ContentResolver.class));
 
         mWifiController = new WifiController(mContext, mWifiStateMachine,
-                mSettingsStore, mLockList, mLooper.getLooper(), mFacade);
+                mSettingsStore, mWifiLockManager, mLooper.getLooper(), mFacade);
 
         mWifiController.start();
         mLooper.dispatchAll();
@@ -264,5 +269,185 @@ public class WifiControllerTest {
         inOrder.verify(mWifiStateMachine).setOperationalMode(WifiStateMachine.CONNECT_MODE);
         inOrder.verify(mWifiStateMachine).setDriverStart(true);
         assertEquals("DeviceActiveState", getCurrentState().getName());
+    }
+
+    /**
+     * When AP mode is enabled and wifi is toggled on, we should transition to
+     * DeviceActiveState after the AP is disabled.
+     * Enter DeviceActiveState, activate AP mode, toggle WiFi.
+     * <p>
+     * Expected: AP should successfully start and exit, then return to DeviceActiveState.
+     */
+    @Test
+    public void testReturnToDeviceActiveStateAfterWifiEnabledShutdown() throws Exception {
+        enableWifi();
+        assertEquals("DeviceActiveState", getCurrentState().getName());
+
+        mWifiController.obtainMessage(CMD_SET_AP, 1, 0).sendToTarget();
+        mLooper.dispatchAll();
+        assertEquals("ApEnabledState", getCurrentState().getName());
+
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(true);
+        mWifiController.obtainMessage(CMD_WIFI_TOGGLED).sendToTarget();
+        mWifiController.obtainMessage(CMD_AP_STOPPED).sendToTarget();
+        mLooper.dispatchAll();
+
+        InOrder inOrder = inOrder(mWifiStateMachine);
+        inOrder.verify(mWifiStateMachine).setSupplicantRunning(true);
+        inOrder.verify(mWifiStateMachine).setOperationalMode(WifiStateMachine.CONNECT_MODE);
+        inOrder.verify(mWifiStateMachine).setDriverStart(true);
+        assertEquals("DeviceActiveState", getCurrentState().getName());
+    }
+
+    /**
+     * When the wifi device is idle, AP mode is enabled and disabled
+     * we should return to the appropriate Idle state.
+     * Enter DeviceActiveState, indicate idle device, activate AP mode, disable AP mode.
+     * <p>
+     * Expected: AP should successfully start and exit, then return to a device idle state.
+     */
+    @Test
+    public void testReturnToDeviceIdleStateAfterAPModeShutdown() throws Exception {
+        enableWifi();
+        assertEquals("DeviceActiveState", getCurrentState().getName());
+
+        // make sure mDeviceIdle is set to true
+        when(mWifiLockManager.getStrongestLockMode()).thenReturn(WIFI_MODE_FULL);
+        when(mWifiLockManager.createMergedWorkSource()).thenReturn(new WorkSource());
+        mWifiController.sendMessage(CMD_DEVICE_IDLE);
+        mLooper.dispatchAll();
+        assertEquals("FullLockHeldState", getCurrentState().getName());
+
+        mWifiController.obtainMessage(CMD_SET_AP, 1, 0).sendToTarget();
+        mLooper.dispatchAll();
+        assertEquals("ApEnabledState", getCurrentState().getName());
+
+        when(mSettingsStore.getWifiSavedState()).thenReturn(1);
+        mWifiController.obtainMessage(CMD_AP_STOPPED).sendToTarget();
+        mLooper.dispatchAll();
+
+        InOrder inOrder = inOrder(mWifiStateMachine);
+        inOrder.verify(mWifiStateMachine).setSupplicantRunning(true);
+        inOrder.verify(mWifiStateMachine).setOperationalMode(WifiStateMachine.CONNECT_MODE);
+        inOrder.verify(mWifiStateMachine).setDriverStart(true);
+        assertEquals("FullLockHeldState", getCurrentState().getName());
+    }
+
+    /**
+     * The command to trigger a WiFi reset should not trigger any action by WifiController if we
+     * are not in STA mode.
+     * WiFi is not in connect mode, so any calls to reset the wifi stack due to connection failures
+     * should be ignored.
+     * Create and start WifiController in ApStaDisabledState, send command to restart WiFi
+     * <p>
+     * Expected: WiFiController should not call WifiStateMachine.setSupplicantRunning(false)
+     */
+    @Test
+    public void testRestartWifiStackInApStaDisabledState() throws Exception {
+        // Start a new WifiController with wifi disabled
+        when(mSettingsStore.isAirplaneModeOn()).thenReturn(false);
+        when(mSettingsStore.isWifiToggleEnabled()).thenReturn(false);
+        when(mSettingsStore.isScanAlwaysAvailable()).thenReturn(false);
+
+        when(mContext.getContentResolver()).thenReturn(mock(ContentResolver.class));
+
+        mWifiController = new WifiController(mContext, mWifiStateMachine,
+                mSettingsStore, mWifiLockManager, mLooper.getLooper(), mFacade);
+
+        mWifiController.start();
+        mLooper.dispatchAll();
+
+        reset(mWifiStateMachine);
+        assertEquals("ApStaDisabledState", getCurrentState().getName());
+        mWifiController.sendMessage(CMD_RESTART_WIFI);
+        mLooper.dispatchAll();
+        verifyZeroInteractions(mWifiStateMachine);
+    }
+
+    /**
+     * The command to trigger a WiFi reset should not trigger any action by WifiController if we
+     * are not in STA mode, even if scans are allowed.
+     * WiFi is not in connect mode, so any calls to reset the wifi stack due to connection failures
+     * should be ignored.
+     * Create and start WifiController in StaDisablediWithScanState, send command to restart WiFi
+     * <p>
+     * Expected: WiFiController should not call WifiStateMachine.setSupplicantRunning(false)
+     */
+    @Test
+    public void testRestartWifiStackInStaDisabledWithScanState() throws Exception {
+        reset(mWifiStateMachine);
+        assertEquals("StaDisabledWithScanState", getCurrentState().getName());
+        mWifiController.sendMessage(CMD_RESTART_WIFI);
+        mLooper.dispatchAll();
+        verifyZeroInteractions(mWifiStateMachine);
+    }
+
+    /**
+     * The command to trigger a WiFi reset should trigger a wifi reset in WifiStateMachine through
+     * the WifiStateMachine.setSupplicantRunning(false) call when in STA mode.
+     * WiFi is in connect mode, calls to reset the wifi stack due to connection failures
+     * should trigger a supplicant stop, and subsequently, a driver reload.
+     * Create and start WifiController in DeviceActiveState, send command to restart WiFi
+     * <p>
+     * Expected: WiFiController should call WifiStateMachine.setSupplicantRunning(false),
+     * WifiStateMachine should enter CONNECT_MODE and the wifi driver should be started.
+     */
+    @Test
+    public void testRestartWifiStackInStaEnabledState() throws Exception {
+        enableWifi();
+
+        reset(mWifiStateMachine);
+        assertEquals("DeviceActiveState", getCurrentState().getName());
+        mWifiController.sendMessage(CMD_RESTART_WIFI);
+        mLooper.dispatchAll();
+        InOrder inOrder = inOrder(mWifiStateMachine);
+        inOrder.verify(mWifiStateMachine).setSupplicantRunning(false);
+        inOrder.verify(mWifiStateMachine).setSupplicantRunning(true);
+        inOrder.verify(mWifiStateMachine).setOperationalMode(WifiStateMachine.CONNECT_MODE);
+        inOrder.verify(mWifiStateMachine).setDriverStart(true);
+        assertEquals("DeviceActiveState", getCurrentState().getName());
+    }
+
+    /**
+     * The command to trigger a WiFi reset should not trigger a reset when in ECM mode.
+     * Enable wifi and enter ECM state, send command to restart wifi.
+     * <p>
+     * Expected: The command to trigger a wifi reset should be ignored and we should remain in ECM
+     * mode.
+     */
+    @Test
+    public void testRestartWifiStackDoesNotExitECMMode() throws Exception {
+        enableWifi();
+        assertEquals("DeviceActiveState", getCurrentState().getName());
+        when(mFacade.getConfigWiFiDisableInECBM(mContext)).thenReturn(true);
+
+        mWifiController.sendMessage(CMD_EMERGENCY_CALL_STATE_CHANGED, 1);
+        mLooper.dispatchAll();
+        assertInEcm(true);
+
+        reset(mWifiStateMachine);
+        mWifiController.sendMessage(CMD_RESTART_WIFI);
+        mLooper.dispatchAll();
+        assertInEcm(true);
+        verifyZeroInteractions(mWifiStateMachine);
+    }
+
+    /**
+     * The command to trigger a WiFi reset should not trigger a reset when in AP mode.
+     * Enter AP mode, send command to restart wifi.
+     * <p>
+     * Expected: The command to trigger a wifi reset should be ignored and we should remain in AP
+     * mode.
+     */
+    @Test
+    public void testRestartWifiStackDoesNotExitAPMode() throws Exception {
+        mWifiController.obtainMessage(CMD_SET_AP, 1).sendToTarget();
+        mLooper.dispatchAll();
+        assertEquals("ApEnabledState", getCurrentState().getName());
+
+        reset(mWifiStateMachine);
+        mWifiController.sendMessage(CMD_RESTART_WIFI);
+        mLooper.dispatchAll();
+        verifyZeroInteractions(mWifiStateMachine);
     }
 }

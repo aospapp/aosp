@@ -36,6 +36,7 @@ import com.android.server.telecom.Call;
 import com.android.server.telecom.Constants;
 import com.android.server.telecom.MissedCallNotifier;
 import com.android.server.telecom.PhoneAccountRegistrar;
+import com.android.server.telecom.PhoneNumberUtilsAdapterImpl;
 import com.android.server.telecom.TelecomBroadcastIntentProcessor;
 import com.android.server.telecom.components.TelecomBroadcastReceiver;
 import com.android.server.telecom.ui.MissedCallNotifierImpl;
@@ -166,7 +167,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
                 makeNotificationBuilderFactory(builders);
 
         MissedCallNotifier missedCallNotifier = new MissedCallNotifierImpl(mContext,
-                mPhoneAccountRegistrar, fakeBuilderFactory);
+                mPhoneAccountRegistrar, new PhoneNumberUtilsAdapterImpl(), fakeBuilderFactory);
 
         missedCallNotifier.showMissedCallNotification(fakeCall);
         missedCallNotifier.showMissedCallNotification(fakeCall);
@@ -315,7 +316,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
                 makeNotificationBuilderFactory(builder1);
 
         MissedCallNotifier missedCallNotifier = new MissedCallNotifierImpl(mContext,
-                mPhoneAccountRegistrar, fakeBuilderFactory);
+                mPhoneAccountRegistrar, new PhoneNumberUtilsAdapterImpl(), fakeBuilderFactory);
         PhoneAccount phoneAccount = makePhoneAccount(PRIMARY_USER, NO_CAPABILITY);
 
         Call fakeCall =
@@ -374,7 +375,7 @@ public class MissedCallNotifierImplTest extends TelecomTestCase {
     private MissedCallNotifier makeMissedCallNotifier(
             NotificationBuilderFactory fakeBuilderFactory, UserHandle currentUser) {
         MissedCallNotifier missedCallNotifier = new MissedCallNotifierImpl(mContext,
-                mPhoneAccountRegistrar, fakeBuilderFactory);
+                mPhoneAccountRegistrar, new PhoneNumberUtilsAdapterImpl(), fakeBuilderFactory);
         missedCallNotifier.setCurrentUserHandle(currentUser);
         return missedCallNotifier;
     }

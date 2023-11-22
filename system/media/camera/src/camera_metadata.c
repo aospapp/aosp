@@ -25,9 +25,10 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#define OK         0
-#define ERROR      1
-#define NOT_FOUND -ENOENT
+#define OK              0
+#define ERROR           1
+#define NOT_FOUND       -ENOENT
+#define SN_EVENT_LOG_ID 0x534e4554
 
 #define ALIGN_TO(val, alignment) \
     (((uintptr_t)(val) + ((alignment) - 1)) & ~((alignment) - 1))
@@ -299,6 +300,38 @@ camera_metadata_t* copy_camera_metadata(void *dst, size_t dst_size,
     return metadata;
 }
 
+// This method should be used when the camera metadata cannot be trusted. For example, when it's
+// read from Parcel.
+static int validate_and_calculate_camera_metadata_entry_data_size(size_t *data_size, uint8_t type,
+        size_t data_count) {
+    if (type >= NUM_TYPES) return ERROR;
+
+    // Check for overflow
+    if (data_count != 0 &&
+            camera_metadata_type_size[type] > (SIZE_MAX - DATA_ALIGNMENT + 1) / data_count) {
+        android_errorWriteLog(SN_EVENT_LOG_ID, "30741779");
+        return ERROR;
+    }
+
+    size_t data_bytes = data_count * camera_metadata_type_size[type];
+
+    if (data_size) {
+        *data_size = data_bytes <= 4 ? 0 : ALIGN_TO(data_bytes, DATA_ALIGNMENT);
+    }
+
+    return OK;
+}
+
+size_t calculate_camera_metadata_entry_data_size(uint8_t type,
+        size_t data_count) {
+    if (type >= NUM_TYPES) return 0;
+
+    size_t data_bytes = data_count *
+            camera_metadata_type_size[type];
+
+    return data_bytes <= 4 ? 0 : ALIGN_TO(data_bytes, DATA_ALIGNMENT);
+}
+
 int validate_camera_metadata_structure(const camera_metadata_t *metadata,
                                        const size_t *expected_size) {
 
@@ -354,6 +387,14 @@ int validate_camera_metadata_structure(const camera_metadata_t *metadata,
         ALOGE("%s: Entry count (%" PRIu32 ") should be <= entry capacity "
               "(%" PRIu32 ")",
               __FUNCTION__, metadata->entry_count, metadata->entry_capacity);
+        return ERROR;
+    }
+
+    if (metadata->data_count > metadata->data_capacity) {
+        ALOGE("%s: Data count (%" PRIu32 ") should be <= data capacity "
+              "(%" PRIu32 ")",
+              __FUNCTION__, metadata->data_count, metadata->data_capacity);
+        android_errorWriteLog(SN_EVENT_LOG_ID, "30591838");
         return ERROR;
     }
 
@@ -414,9 +455,13 @@ int validate_camera_metadata_structure(const camera_metadata_t *metadata,
             return ERROR;
         }
 
-        size_t data_size =
-                calculate_camera_metadata_entry_data_size(entry.type,
-                                                          entry.count);
+        size_t data_size;
+        if (validate_and_calculate_camera_metadata_entry_data_size(&data_size, entry.type,
+                entry.count) != OK) {
+            ALOGE("%s: Entry data size is invalid. type: %u count: %u", __FUNCTION__, entry.type,
+                    entry.count);
+            return ERROR;
+        }
 
         if (data_size != 0) {
             camera_metadata_data_t *data =
@@ -459,6 +504,10 @@ int append_camera_metadata(camera_metadata_t *dst,
         const camera_metadata_t *src) {
     if (dst == NULL || src == NULL ) return ERROR;
 
+    // Check for overflow
+    if (src->entry_count + dst->entry_count < src->entry_count) return ERROR;
+    if (src->data_count + dst->data_count < src->data_count) return ERROR;
+    // Check for space
     if (dst->entry_capacity < src->entry_count + dst->entry_count) return ERROR;
     if (dst->data_capacity < src->data_count + dst->data_count) return ERROR;
 
@@ -506,14 +555,6 @@ camera_metadata_t *clone_camera_metadata(const camera_metadata_t *src) {
     }
     assert(validate_camera_metadata_structure(clone, NULL) == OK);
     return clone;
-}
-
-size_t calculate_camera_metadata_entry_data_size(uint8_t type,
-        size_t data_count) {
-    if (type >= NUM_TYPES) return 0;
-    size_t data_bytes = data_count *
-            camera_metadata_type_size[type];
-    return data_bytes <= 4 ? 0 : ALIGN_TO(data_bytes, DATA_ALIGNMENT);
 }
 
 static int add_camera_metadata_entry_raw(camera_metadata_t *dst,

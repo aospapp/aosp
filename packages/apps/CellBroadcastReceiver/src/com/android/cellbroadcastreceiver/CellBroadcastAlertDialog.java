@@ -45,7 +45,8 @@ public class CellBroadcastAlertDialog extends CellBroadcastAlertFullScreen {
 
         // Listen for the screen turning off so that when the screen comes back
         // on, the user does not need to unlock the phone to dismiss the alert.
-        if (CellBroadcastConfigService.isEmergencyAlertMessage(getLatestMessage())) {
+        CellBroadcastMessage msg = getLatestMessage();
+        if (msg != null && msg.isEmergencyAlertMessage()) {
             mScreenOffReceiver = new ScreenOffReceiver();
             registerReceiver(mScreenOffReceiver,
                     new IntentFilter(Intent.ACTION_SCREEN_OFF));

@@ -148,7 +148,7 @@ public class CallIntentProcessor {
             // process will be running throughout the duration of the phone call and should never
             // be killed.
             NewOutgoingCallIntentBroadcaster broadcaster = new NewOutgoingCallIntentBroadcaster(
-                    context, callsManager, call, intent, new PhoneNumberUtilsAdapterImpl(),
+                    context, callsManager, call, intent, callsManager.getPhoneNumberUtilsAdapter(),
                     isPrivilegedDialer);
             final int result = broadcaster.processIntent();
             final boolean success = result == DisconnectCause.NOT_DISCONNECTED;

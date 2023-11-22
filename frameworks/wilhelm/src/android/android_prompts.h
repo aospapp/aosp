@@ -69,3 +69,7 @@
         "Configuration error: value size too low to store valid value"
 #define ERROR_CONFIG_NULL_PARAM \
         "Configuration error: invalid NULL parameter"
+#define ERROR_CONFIG_PERF_MODE_UNKNOWN \
+        "Cannot set performance mode: unknown or invalid mode"
+#define ERROR_CONFIG_PERF_MODE_REALIZED \
+        "Cannot set performance mode in: player/recorder realized"

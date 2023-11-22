@@ -333,6 +333,8 @@ public class TelephonyUtils {
                 return TelephonyConstants.RAT_IWLAN;
             case TelephonyManager.NETWORK_TYPE_IDEN:
                 return TelephonyConstants.RAT_IDEN;
+            case TelephonyManager.NETWORK_TYPE_LTE_CA:
+                return TelephonyConstants.RAT_LTE_CA;
         }
         return TelephonyConstants.RAT_UNKNOWN;
     }

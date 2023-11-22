@@ -17,6 +17,7 @@
 #include <Hwcomposer.h>
 #include <Drm.h>
 #include <PhysicalDevice.h>
+#include <cutils/properties.h>
 
 namespace android {
 namespace intel {
@@ -32,7 +33,8 @@ PhysicalDevice::PhysicalDevice(uint32_t type, Hwcomposer& hwc, DeviceControlFact
       mConnected(false),
       mBlank(false),
       mDisplayState(DEVICE_DISPLAY_ON),
-      mInitialized(false)
+      mInitialized(false),
+      mFpsDivider(1)
 {
     CTRACE();
 
@@ -341,7 +343,8 @@ bool PhysicalDevice::updateDisplayConfigs()
         // don't bail out as it is not a fatal error
     }
     // use active fb dimension as config width/height
-    DisplayConfig *config = new DisplayConfig(mode.vrefresh,
+    // add display config vfresh/mFpsDivider to lower FPS
+    DisplayConfig *config = new DisplayConfig(mode.vrefresh/mFpsDivider,
                                               mode.hdisplay,
                                               mode.vdisplay,
                                               dpiX, dpiY);
@@ -395,6 +398,16 @@ bool PhysicalDevice::updateDisplayConfigs()
 bool PhysicalDevice::initialize()
 {
     CTRACE();
+    char prop[PROPERTY_VALUE_MAX];
+    char *retptr;
+
+    if (property_get("hwc.fps_divider", prop, "1") > 0) {
+        uint32_t divider = strtoul(prop, &retptr, 10);
+        if (*retptr == '\0' && divider > 1 && divider < 60) {
+            mFpsDivider = divider;
+            ALOGI("%s display, setting HWC FPS divider to %d", mName, mFpsDivider);
+        }
+    }
 
     if (mType != DEVICE_PRIMARY && mType != DEVICE_EXTERNAL) {
         ETRACE("invalid device type");
@@ -507,6 +520,11 @@ void PhysicalDevice::dump(Dump& d)
     // dump layer list
     if (mLayerList)
         mLayerList->dump(d);
+}
+
+uint32_t PhysicalDevice::getFpsDivider()
+{
+    return mFpsDivider;
 }
 
 bool PhysicalDevice::setPowerMode(int mode)

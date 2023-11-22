@@ -103,10 +103,6 @@ ADDITIONAL_DEFAULT_PROPERTIES += \
     ro.hwui.texture_cache_flushrate = 0.4 \
     ro.hwui.texture_cache_size = 48.0 \
 
-# Temporary to workaround b/28521732 & b/27903668
-ADDITIONAL_DEFAULT_PROPERTIES += \
-    debug.hwui.use_buffer_age = 0
-
 MAX_EGL_CACHE_ENTRY_SIZE := 65536
 MAX_EGL_CACHE_SIZE := 1048576
 

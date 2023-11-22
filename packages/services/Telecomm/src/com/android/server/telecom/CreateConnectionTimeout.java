@@ -40,7 +40,7 @@ final class CreateConnectionTimeout extends Runnable {
 
     CreateConnectionTimeout(Context context, PhoneAccountRegistrar phoneAccountRegistrar,
             ConnectionServiceWrapper service, Call call) {
-        super("CCT");
+        super("CCT", null /*lock*/);
         mContext = context;
         mPhoneAccountRegistrar = phoneAccountRegistrar;
         mConnectionService = service;
@@ -114,7 +114,8 @@ final class CreateConnectionTimeout extends Runnable {
         int state = call.getState();
         return state == CallState.NEW
             || state == CallState.CONNECTING
-            || state == CallState.DIALING;
+            || state == CallState.DIALING
+            || state == CallState.PULLING;
     }
 
     private long getTimeoutLengthMillis() {

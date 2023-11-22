@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"ಅಮಾನ್ಯ ಸಂಖ್ಯೆ"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"ಅಪರಿಚಿತ ಧ್ವನಿಮೇಲ್ ಸಂಖ್ಯೆ."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY ಸಕ್ರಿಯಗೊಂಡಿರುವಾಗ ವೀಡಿಯೊ ಕರೆಗಳನ್ನು ಮಾಡಲಾಗುವುದಿಲ್ಲ."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"ಕರೆಯನ್ನು ಮತ್ತೊಂದು ಸಾಧನಕ್ಕೆ ವರ್ಗಾಯಿಸಲಾಗಿದೆ."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"ಯಾವುದೂ ಇಲ್ಲ"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"ಅಜ್ಞಾತ ರಿಂಗ್‌ಟೋನ್"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"ಲಭ್ಯವಿರುವ ಎಲ್ಲ ಮಾರ್ಗಗಳು ಬಳಕೆಯಲ್ಲಿವೆ. ಕರೆ ಮಾಡಲು ಈ ಸಾಧನದಲ್ಲಿರುವ ಕರೆಗಳಲ್ಲಿನ ಒಂದು ಕರೆಯನ್ನು ಅಥವಾ ನಿಮ್ಮ ಇತರೆ ಸಾಧನಗಳಲ್ಲಿನ ಒಂದರ ಸಂಪರ್ಕವನ್ನು ಕಡಿತಗೊಳಿಸಿ."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

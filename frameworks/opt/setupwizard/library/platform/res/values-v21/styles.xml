@@ -41,6 +41,7 @@
         <item name="android:windowSoftInputMode">adjustResize</item>
 
         <item name="suwCardBackground">@drawable/suw_card_bg</item>
+        <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_dark</item>
         <item name="suwMarginSides">@dimen/suw_layout_margin_sides</item>
         <item name="suwNavBarTheme">@style/SuwNavBarThemeDark</item>
@@ -63,6 +64,7 @@
         <item name="android:windowSoftInputMode">adjustResize</item>
 
         <item name="suwCardBackground">@drawable/suw_card_bg</item>
+        <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_light</item>
         <item name="suwMarginSides">@dimen/suw_layout_margin_sides</item>
         <item name="suwNavBarTheme">@style/SuwNavBarThemeLight</item>
@@ -70,8 +72,8 @@
 
     <!-- Placeholder for GLIF dark theme, colors are not updated yet -->
     <style name="SuwThemeGlif" parent="android:Theme.Material.NoActionBar">
-        <item name="android:colorAccent">@color/suw_color_accent_light</item>
-        <item name="android:colorPrimary">@color/suw_color_accent_light</item>
+        <item name="android:colorAccent">@color/suw_color_accent_glif_dark</item>
+        <item name="android:colorPrimary">@color/suw_color_accent_glif_light</item>
         <item name="android:indeterminateTint">?android:attr/colorPrimary</item>
         <!-- Specify the indeterminateTintMode to work around a bug in Lollipop -->
         <item name="android:indeterminateTintMode">src_in</item>
@@ -87,13 +89,14 @@
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
 
+        <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description.Glif</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_dark</item>
         <item name="suwMarginSides">@dimen/suw_glif_margin_sides</item>
     </style>
 
     <style name="SuwThemeGlif.Light" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:colorAccent">@color/suw_color_accent_light</item>
-        <item name="android:colorPrimary">@color/suw_color_accent_light</item>
+        <item name="android:colorAccent">@color/suw_color_accent_glif_dark</item>
+        <item name="android:colorPrimary">@color/suw_color_accent_glif_light</item>
         <item name="android:indeterminateTint">?android:attr/colorPrimary</item>
         <!-- Specify the indeterminateTintMode to work around a bug in Lollipop -->
         <item name="android:indeterminateTintMode">src_in</item>
@@ -109,6 +112,7 @@
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
 
+        <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description.Glif</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_light</item>
         <item name="suwMarginSides">@dimen/suw_glif_margin_sides</item>
     </style>

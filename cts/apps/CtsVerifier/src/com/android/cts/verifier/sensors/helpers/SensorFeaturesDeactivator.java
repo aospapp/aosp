@@ -20,6 +20,7 @@ import com.android.cts.verifier.R;
 import com.android.cts.verifier.sensors.base.ISensorTestStateContainer;
 
 import android.content.ContentResolver;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.provider.Settings;
 
@@ -91,7 +92,7 @@ public class SensorFeaturesDeactivator {
 
     private class AirplaneModeSettingContainer extends SensorSettingContainer {
         public AirplaneModeSettingContainer() {
-            super(Settings.ACTION_WIRELESS_SETTINGS, R.string.snsr_setting_airplane_mode);
+            super(Settings.ACTION_AIRPLANE_MODE_SETTINGS, R.string.snsr_setting_airplane_mode);
         }
 
         @Override
@@ -105,6 +106,13 @@ public class SensorFeaturesDeactivator {
                 return Settings.Global
                         .getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, defaultValue);
             }
+        }
+
+        @Override
+        protected boolean isSettingAvailable() {
+            // call base first, lean back UI device does not have airplane mode
+            return super.isSettingAvailable() &&
+                    !(mStateContainer.hasSystemFeature(PackageManager.FEATURE_LEANBACK));
         }
     }
 

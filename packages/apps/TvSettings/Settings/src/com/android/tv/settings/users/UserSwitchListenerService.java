@@ -17,8 +17,8 @@
 package com.android.tv.settings.users;
 
 import android.app.ActivityManagerNative;
-import android.app.IUserSwitchObserver;
 import android.app.Service;
+import android.app.SynchronousUserSwitchObserver;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -26,7 +26,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
-import android.os.IRemoteCallback;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -110,9 +109,9 @@ public class UserSwitchListenerService extends Service {
         super.onCreate();
         try {
             ActivityManagerNative.getDefault().registerUserSwitchObserver(
-                    new IUserSwitchObserver.Stub() {
+                    new SynchronousUserSwitchObserver() {
                         @Override
-                        public void onUserSwitching(int newUserId, IRemoteCallback reply) {
+                        public void onUserSwitching(int newUserId) throws RemoteException {
                         }
 
                         @Override
@@ -127,7 +126,7 @@ public class UserSwitchListenerService extends Service {
                         public void onForegroundProfileSwitch(int profileId)
                             throws RemoteException {
                         }
-                    });
+                    }, UserSwitchListenerService.class.getName());
         } catch (RemoteException e) {
         }
     }

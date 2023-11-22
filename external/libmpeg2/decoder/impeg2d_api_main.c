@@ -296,6 +296,55 @@ IV_API_CALL_STATUS_T impeg2d_api_set_num_cores(iv_obj_t *ps_dechdl,
     return IV_SUCCESS;
 }
 
+IV_API_CALL_STATUS_T impeg2d_api_get_seq_info(iv_obj_t *ps_dechdl,
+                                               void *pv_api_ip,
+                                               void *pv_api_op)
+{
+    impeg2d_ctl_get_seq_info_ip_t *ps_ip;
+    impeg2d_ctl_get_seq_info_op_t *ps_op;
+    dec_state_t *ps_codec;
+    dec_state_multi_core_t *ps_dec_state_multi_core;
+
+    ps_ip  = (impeg2d_ctl_get_seq_info_ip_t *)pv_api_ip;
+    ps_op =  (impeg2d_ctl_get_seq_info_op_t *)pv_api_op;
+
+    ps_dec_state_multi_core = (dec_state_multi_core_t *) (ps_dechdl->pv_codec_handle);
+    ps_codec = ps_dec_state_multi_core->ps_dec_state[0];
+    UNUSED(ps_ip);
+    if(ps_codec->u2_header_done == 1)
+    {
+        ps_op->u1_aspect_ratio_information = ps_codec->u2_aspect_ratio_info;
+        ps_op->u1_frame_rate_code = ps_codec->u2_frame_rate_code;
+        ps_op->u1_frame_rate_extension_n = ps_codec->u2_frame_rate_extension_n;
+        ps_op->u1_frame_rate_extension_d = ps_codec->u2_frame_rate_extension_d;
+        if(ps_codec->u1_seq_disp_extn_present == 1)
+        {
+            ps_op->u1_video_format = ps_codec->u1_video_format;
+            ps_op->u1_colour_primaries = ps_codec->u1_colour_primaries;
+            ps_op->u1_transfer_characteristics = ps_codec->u1_transfer_characteristics;
+            ps_op->u1_matrix_coefficients = ps_codec->u1_matrix_coefficients;
+            ps_op->u2_display_horizontal_size = ps_codec->u2_display_horizontal_size;
+            ps_op->u2_display_vertical_size = ps_codec->u2_display_vertical_size;
+        }
+        else
+        {
+            ps_op->u1_video_format = 5;
+            ps_op->u1_colour_primaries = 2;
+            ps_op->u1_transfer_characteristics = 2;
+            ps_op->u1_matrix_coefficients = 2;
+            ps_op->u2_display_horizontal_size = ps_codec->u2_horizontal_size;
+            ps_op->u2_display_vertical_size = ps_codec->u2_vertical_size;
+        }
+        ps_op->u4_error_code = IV_SUCCESS;
+        return IV_SUCCESS;
+    }
+    else
+    {
+        ps_op->u4_error_code = IV_FAIL;
+        return IV_FAIL;
+    }
+}
+
 /**
 *******************************************************************************
 *
@@ -2015,6 +2064,12 @@ IV_API_CALL_STATUS_T impeg2d_api_ctl(iv_obj_t *ps_dechdl,
                                                        (void *)pv_api_op);
             break;
 
+        case IMPEG2D_CMD_CTL_GET_SEQ_INFO:
+            u4_error_code = impeg2d_api_get_seq_info(ps_dechdl,
+                                                         (void *)pv_api_ip,
+                                                         (void *)pv_api_op);
+            break;
+
         case IMPEG2D_CMD_CTL_SET_PROCESSOR:
             u4_error_code = impeg2d_set_processor(ps_dechdl, (void *)pv_api_ip,
                                                 (void *)pv_api_op);
@@ -2874,7 +2929,36 @@ IV_API_CALL_STATUS_T impeg2d_api_check_struct_sanity(iv_obj_t *ps_handle,
 
                         break;
                     }
+                    case IMPEG2D_CMD_CTL_GET_SEQ_INFO:
+                    {
+                        impeg2d_ctl_get_seq_info_ip_t *ps_ip;
+                        impeg2d_ctl_get_seq_info_op_t *ps_op;
 
+                        ps_ip =
+                                        (impeg2d_ctl_get_seq_info_ip_t *)pv_api_ip;
+                        ps_op =
+                                        (impeg2d_ctl_get_seq_info_op_t *)pv_api_op;
+
+                        if(ps_ip->u4_size
+                                        != sizeof(impeg2d_ctl_get_seq_info_ip_t))
+                        {
+                            ps_op->u4_error_code |= 1 << IVD_UNSUPPORTEDPARAM;
+                            ps_op->u4_error_code |=
+                                            IVD_IP_API_STRUCT_SIZE_INCORRECT;
+                            return IV_FAIL;
+                        }
+
+                        if(ps_op->u4_size
+                                        != sizeof(impeg2d_ctl_get_seq_info_op_t))
+                        {
+                            ps_op->u4_error_code |= 1 << IVD_UNSUPPORTEDPARAM;
+                            ps_op->u4_error_code |=
+                                            IVD_OP_API_STRUCT_SIZE_INCORRECT;
+                            return IV_FAIL;
+                        }
+
+                        break;
+                    }
                     case IMPEG2D_CMD_CTL_SET_NUM_CORES:
                     {
                         impeg2d_ctl_set_num_cores_ip_t *ps_ip;

@@ -30,6 +30,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.telecom.Connection;
 import android.telecom.Response;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.SubscriptionManager;
@@ -131,8 +132,7 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
     public void onIncomingCallRejected(Call call, boolean rejectWithMessage, String textMessage) {
         if (rejectWithMessage
                 && call.getHandle() != null
-                && !call.can(
-                        android.telecom.Call.Details.CAPABILITY_CAN_SEND_RESPONSE_VIA_CONNECTION)) {
+                && !call.can(Connection.CAPABILITY_CAN_SEND_RESPONSE_VIA_CONNECTION)) {
             int subId = mCallsManager.getPhoneAccountRegistrar().getSubscriptionIdForPhoneAccount(
                     call.getTargetPhoneAccount());
             rejectCallWithMessage(call.getContext(), call.getHandle().getSchemeSpecificPart(),

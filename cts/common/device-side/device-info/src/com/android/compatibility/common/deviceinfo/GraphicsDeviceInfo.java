@@ -19,12 +19,45 @@ import android.os.Bundle;
 
 import com.android.compatibility.common.util.DeviceInfoStore;
 
+import java.io.IOException;
+
+import java.util.List;
+import java.util.Set;
+
 /**
  * Graphics device info collector.
  */
 public final class GraphicsDeviceInfo extends DeviceInfo {
 
     private static final String LOG_TAG = "GraphicsDeviceInfo";
+
+    // Java generics won't handle basic types, can't simplify
+    private static void storeValue(DeviceInfoStore store, String name, float[] valueArray,
+                                   boolean dynamicArray) throws IOException {
+        if (valueArray.length == 1 && !dynamicArray) {
+            store.addResult(name, valueArray[0]);
+        } else {
+            store.addArrayResult(name, valueArray);
+        }
+    }
+
+    private static void storeValue(DeviceInfoStore store, String name, int[] valueArray,
+                                   boolean dynamicArray) throws IOException {
+        if (valueArray.length == 1 && !dynamicArray) {
+            store.addResult(name, valueArray[0]);
+        } else {
+            store.addArrayResult(name, valueArray);
+        }
+    }
+
+    private static void storeValue(DeviceInfoStore store, String name, long[] valueArray,
+                                   boolean dynamicArray) throws IOException {
+        if (valueArray.length == 1 && !dynamicArray) {
+            store.addResult(name, valueArray[0]);
+        } else {
+            store.addArrayResult(name, valueArray);
+        }
+    }
 
     @Override
     protected void collectDeviceInfo(DeviceInfoStore store) throws Exception {
@@ -40,5 +73,27 @@ public final class GraphicsDeviceInfo extends DeviceInfo {
 
         store.addListResult("gl_texture", stubActivity.getCompressedTextureFormats());
         store.addListResult("gl_extension", stubActivity.getOpenGlExtensions());
+
+        Set<String> variables = stubActivity.getImplementationVariableNames();
+        for (String name : variables) {
+            Object value = stubActivity.getImplementationVariable(name);
+            String lowerCaseName = name.toLowerCase();
+            if (lowerCaseName.equals("gl_version")) {
+                lowerCaseName = "gl_version_real";
+            }
+
+            if (value != null) {
+                boolean dynamicArray = stubActivity.isDynamicArrayVariable(name);
+                if (value instanceof String) {
+                    store.addResult(lowerCaseName, (String)value);
+                } else if (value instanceof float[]) {
+                    storeValue(store, lowerCaseName, (float[])value, dynamicArray);
+                } else if (value instanceof long[]) {
+                    storeValue(store, lowerCaseName, (long[])value, dynamicArray);
+                } else {
+                    storeValue(store, lowerCaseName, (int[])value, dynamicArray);
+                }
+            }
+        }
     }
 }

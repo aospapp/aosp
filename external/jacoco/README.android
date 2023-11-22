@@ -13,3 +13,4 @@ compilation. The changes are surrounded by "BEGIN android-change" and "END andro
 is the list of the changes:
 
 1) Remove the creation of JmxRegistration in org.jacoco.agent.rt.internal.Agent.
+2) Change default OutputMode to none in org.jacoco.core.runtime.AgentOptions

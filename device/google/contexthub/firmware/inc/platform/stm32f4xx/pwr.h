@@ -125,6 +125,8 @@ extern "C" {
 #define TIM4_BASE                     0x40000800UL
 #define TIM5_BASE                     0x40000C00UL
 #define RTC_BASE                      0x40002800UL
+#define WWDG_BASE                     0x40002C00UL
+#define IWDG_BASE                     0x40003000UL
 #define SPI2_BASE                     0x40003800UL
 #define SPI3_BASE                     0x40003C00UL
 #define USART2_BASE                   0x40004400UL
@@ -166,8 +168,8 @@ extern "C" {
 
 enum Stm32F4xxSleepType {       //current       power          wkup way       wkup speed   (typ/max)
     stm32f411SleepModeSleep,    //2.7-5.9mA     all-core       interrupt      1 cy
-    stm32f144SleepModeStopMR,   //111uA         RTC,flash,reg  EXTI           13.5/14.5us
-    stm32f144SleepModeStopMRFPD,// 73uA         RTC,reg        EXTI           105/111us
+    stm32f411SleepModeStopMR,   //111uA         RTC,flash,reg  EXTI           13.5/14.5us
+    stm32f411SleepModeStopMRFPD,// 73uA         RTC,reg        EXTI           105/111us
     stm32f411SleepModeStopLPFD, // 42uA         RTC,lpreg      EXTI           113/130us
     stm32f411SleepModeStopLPLV, // 10uA         RTC            EXTT           314/407us (actually lower, but not quoted)
 };
@@ -180,7 +182,6 @@ void pwrUnitReset(uint32_t bus, uint32_t unit, bool on);
 uint32_t pwrGetBusSpeed(uint32_t bus);
 void pwrEnableAndClockRtc(enum RtcClock);
 void pwrEnableWriteBackupDomainRegs(void);
-
 
 /* internal to platform */
 void pwrSetSleepType(enum Stm32F4xxSleepType sleepType);

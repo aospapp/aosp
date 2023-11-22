@@ -21,6 +21,7 @@
 
 #include "apptohostevent.h"
 #include "log.h"
+#include "logevent.h"
 #include "resetreasonevent.h"
 #include "sensorevent.h"
 
@@ -119,6 +120,8 @@ std::unique_ptr<ReadEventResponse> ReadEventResponse::FromBytes(
         return AppToHostEvent::FromBytes(buffer);
     } else if (ReadEventResponse::IsResetReasonEvent(event_type)) {
         return ResetReasonEvent::FromBytes(buffer);
+    } else if (ReadEventResponse::IsLogEvent(event_type)) {
+        return LogEvent::FromBytes(buffer);
     } else {
         LOGW("Received unexpected/unsupported event type %u", event_type);
         return nullptr;
@@ -147,6 +150,10 @@ bool ReadEventResponse::IsResetReasonEvent() const {
     return ReadEventResponse::IsResetReasonEvent(GetEventType());
 }
 
+bool ReadEventResponse::IsLogEvent() const {
+    return ReadEventResponse::IsLogEvent(GetEventType());
+}
+
 uint32_t ReadEventResponse::GetEventType() const {
     return ReadEventResponse::EventTypeFromBuffer(event_data);
 }
@@ -162,6 +169,10 @@ bool ReadEventResponse::IsAppToHostEvent(uint32_t event_type) {
 
 bool ReadEventResponse::IsResetReasonEvent(uint32_t event_type) {
     return (event_type == static_cast<uint32_t>(EventType::ResetReasonEvent));
+}
+
+bool ReadEventResponse::IsLogEvent(uint32_t event_type) {
+    return (event_type == static_cast<uint32_t>(EventType::LogEvent));
 }
 
 uint32_t ReadEventResponse::EventTypeFromBuffer(const std::vector<uint8_t>& buffer) {
@@ -222,6 +233,33 @@ std::string ConfigureSensorRequest::ToString() const {
 
 EventType ConfigureSensorRequest::GetEventType() const {
     return static_cast<EventType>(config.event_type);
+}
+
+/* BridgeVersionInfoRequest ***************************************************/
+
+std::vector<uint8_t> BridgeVersionInfoRequest::GetBytes() const {
+    struct VersionInfoRequestEvent : public Event {
+        struct BrHostEventTx event_data;
+    } __attribute__((packed));
+
+    std::vector<uint8_t> buffer(sizeof(VersionInfoRequestEvent));
+
+    std::fill(buffer.begin(), buffer.end(), 0);
+    auto event = reinterpret_cast<VersionInfoRequestEvent *>(buffer.data());
+    event->event_type = static_cast<uint32_t>(EventType::AppFromHostEvent);
+    event->event_data.hdr.appId   = kAppIdBridge;
+    event->event_data.hdr.dataLen = sizeof(BrHostEventData);
+    event->event_data.data.msgId  = BRIDGE_HOST_EVENT_MSG_VERSION_INFO;
+
+    return buffer;
+}
+
+EventType BridgeVersionInfoRequest::GetEventType() const {
+    return EventType::AppFromHostEvent;
+}
+
+std::string BridgeVersionInfoRequest::ToString() const {
+    return std::string("Bridge version info request\n");
 }
 
 }  // namespace android

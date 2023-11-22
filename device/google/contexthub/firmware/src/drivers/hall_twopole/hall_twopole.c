@@ -222,8 +222,6 @@ static void handleEvent(uint32_t evtType, const void* evtData)
 
 static bool startTask(uint32_t taskId)
 {
-    osLog(LOG_INFO, "HALL: task starting\n");
-
     mTask.id = taskId;
     mTask.sensorHandle = sensorRegister(&mSensorInfo, &mSensorOps, NULL, true);
     mTask.prevReportedState = -1;

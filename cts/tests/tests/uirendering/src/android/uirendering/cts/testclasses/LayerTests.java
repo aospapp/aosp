@@ -28,8 +28,11 @@ import android.test.suitebuilder.annotation.MediumTest;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.ViewInitializer;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.uirendering.cts.R;
+import android.widget.FrameLayout;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -92,5 +95,64 @@ public class LayerTests extends ActivityTestBase {
                     view.setLayerType(View.LAYER_TYPE_HARDWARE, paint);
                 })
                 .runWithVerifier(new ColorVerifier(expectedColor));
+    }
+
+    @Test
+    public void testLayerInitialSizeZero() {
+        createTest()
+                .addLayout(R.layout.frame_layout, view -> {
+                    FrameLayout root = (FrameLayout) view.findViewById(R.id.frame_layout);
+                    // disable clipChildren, to ensure children aren't rejected by bounds
+                    root.setClipChildren(false);
+                    for (int i = 0; i < 2; i++) {
+                        View child = new View(view.getContext());
+                        child.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                        // add rendering content, so View isn't skipped at render time
+                        child.setBackgroundColor(Color.RED);
+
+                        // add one with width=0, one with height=0
+                        root.addView(child, new FrameLayout.LayoutParams(
+                                i == 0 ? 0 : 90,
+                                i == 0 ? 90 : 0,
+                                Gravity.TOP | Gravity.LEFT));
+                    }
+                }, true)
+                .runWithVerifier(new ColorVerifier(Color.WHITE, 0 /* zero tolerance */));
+    }
+
+    @Test
+    public void testLayerResizeZero() {
+        createTest()
+                .addLayout(R.layout.frame_layout, view -> {
+                    FrameLayout root = (FrameLayout) view.findViewById(R.id.frame_layout);
+                    // disable clipChildren, to ensure child isn't rejected by bounds
+                    root.setClipChildren(false);
+                    for (int i = 0; i < 2; i++) {
+                        View child = new View(view.getContext());
+                        child.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                        // add rendering content, so View isn't skipped at render time
+                        child.setBackgroundColor(Color.BLUE);
+                        root.addView(child, new FrameLayout.LayoutParams(90, 90,
+                                Gravity.TOP | Gravity.LEFT));
+                    }
+
+                    // post invalid dimensions a few frames in, so initial layer allocation succeeds
+                    // NOTE: this must execute before capture, or verification will fail
+                    root.getViewTreeObserver().addOnPreDrawListener(
+                            new ViewTreeObserver.OnPreDrawListener() {
+                        int mDrawCount = 0;
+                        @Override
+                        public boolean onPreDraw() {
+                            if (mDrawCount++ == 5) {
+                                root.getChildAt(0).getLayoutParams().width = 0;
+                                root.getChildAt(0).requestLayout();
+                                root.getChildAt(1).getLayoutParams().height = 0;
+                                root.getChildAt(1).requestLayout();
+                            }
+                            return true;
+                        }
+                    });
+                }, true)
+                .runWithVerifier(new ColorVerifier(Color.WHITE, 0 /* zero tolerance */));
     }
 }

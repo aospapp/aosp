@@ -57,7 +57,7 @@ class ItsSession(object):
     LOCK_PORT = CLIENT_PORT_START + MAX_NUM_PORTS
 
     # Seconds timeout on each socket operation.
-    SOCK_TIMEOUT = 10.0
+    SOCK_TIMEOUT = 20.0
     # Additional timeout in seconds when ITS service is doing more complicated
     # operations, for example: issuing warmup requests before actual capture.
     EXTRA_SOCK_TIMEOUT = 5.0

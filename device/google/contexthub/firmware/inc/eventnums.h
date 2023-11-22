@@ -83,6 +83,7 @@ SET_PACKED_STRUCT_MODE_OFF
 #define SENSOR_APP_EVT_STATUS_BUSY       0x02
 
 #define SENSOR_APP_MSG_ID_CAL_RESULT     0x00 // Status of calibration, with resulting biases
+#define SENSOR_APP_MSG_ID_TEST_RESULT    0x01 // Status of self-test
 
 /*
  * These events are in private OS-reserved range, and are sent targettedly
@@ -118,6 +119,7 @@ SET_PACKED_STRUCT_MODE_OFF
 #define EVT_APP_SENSOR_CFG_DATA          0x000000E9
 #define EVT_APP_SENSOR_SEND_ONE_DIR_EVT  0x000000E8
 #define EVT_APP_SENSOR_MARSHALL          0x000000E7    // for external sensors that send events of "user type"
+#define EVT_APP_SENSOR_SELF_TEST         0x000000E6
 
 //for timers
 #define EVT_APP_TIMER                    0x000000DF

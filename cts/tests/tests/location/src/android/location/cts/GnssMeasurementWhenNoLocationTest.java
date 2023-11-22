@@ -55,7 +55,7 @@ import java.util.List;
  */
 public class GnssMeasurementWhenNoLocationTest extends GnssTestCase {
 
-    private static final String TAG = "GnssMeasWhenNoFixTest";
+    private static final String TAG = "GnssMeasBeforeLocTest";
     private TestGnssMeasurementListener mMeasurementListener;
     private TestGpsStatusListener mGpsStatusListener;
     private TestLocationListener mLocationListener;
@@ -88,7 +88,7 @@ public class GnssMeasurementWhenNoLocationTest extends GnssTestCase {
     }
 
     /**
-     * Test GPS measurements without a location fix.
+     * Test for GPS measurements before a location fix.
      */
     public void testGnssMeasurementWhenNoLocation() throws Exception {
         // Checks if GPS hardware feature is present, skips test (pass) if not,
@@ -116,12 +116,13 @@ public class GnssMeasurementWhenNoLocationTest extends GnssTestCase {
         mLocationListener = new TestLocationListener(LOCATIONS_COUNT);
         mTestLocationManager.requestLocationUpdates(mLocationListener);
 
-        if (!mMeasurementListener.verifyState(isMeasurementTestStrict())) {
-            return; // exit peacefully (if not already asserted out inside verifyState)
+        mMeasurementListener.awaitStatus();
+        if (!mMeasurementListener.verifyStatus(isMeasurementTestStrict())) {
+            return; // exit peacefully (if not already asserted out inside verifyStatus)
         }
 
-        // Wait for a few measurements (so as to check later that we've satisified this wait
-        // before getting _any_ locations.)
+        // Wait for two measurement events - this is better than waiting for a location calculation
+        // because the test generally completes much faster.
         mMeasurementListener.await();
 
         Log.i(TAG, "mLocationListener.isLocationReceived(): "
@@ -134,22 +135,23 @@ public class GnssMeasurementWhenNoLocationTest extends GnssTestCase {
         List<GnssMeasurementsEvent> events = mMeasurementListener.getEvents();
         Log.i(TAG, "Number of GPS measurement events received = " + events.size());
 
-        SoftAssert.failOrWarning(isMeasurementTestStrict(),
-                "No GnssMeasurementEvent's found. Device may be indoors.  Retry outdoors?",
-                !events.isEmpty());
-        if (events.isEmpty() && !isMeasurementTestStrict()) {
-            return; // allow a (passing) return, if not strict, otherwise continue
-        }
-
         // Ensure that after getting a few (at least 2) measurements, that we still don't have
         // location (i.e. that we got measurements before location.)  Fail, if strict, warn, if not.
         SoftAssert.failOrWarning(isMeasurementTestStrict(),
-                "Insufficient GnssMeasurementEvent's found before location event.",
+                "Location was received before " + events.size() +
+                        " GnssMeasurementEvents with measurements were reported. " +
+                        "Test expects at least " + EVENTS_COUNT +
+                        " GnssMeasurementEvents before a location, given the cold start start. " +
+                        "Ensure no other active GPS apps (so the cold start command works) " +
+                        "and retry?",
                 !mLocationListener.isLocationReceived());
+        if (mLocationListener.isLocationReceived() && !isMeasurementTestStrict()) {
+            return; // allow a (passing) return, if not strict, otherwise continue
+        }
 
-        // If device is not indoor, verify that we receive GPS measurements before being able to
-        // calculate the position solution and verify that mandatory fields of GnssMeasurement are
-        // in expected ranges.
+        // If device is not indoors, verify
+        // 1) that we receive GPS measurements before being able to calculate the position solution
+        // 2) that mandatory fields of GnssMeasurement are in expected ranges.
         GnssMeasurementsEvent firstEvent = events.get(0);
         Collection<GnssMeasurement> gpsMeasurements = firstEvent.getMeasurements();
         int satelliteCount = gpsMeasurements.size();
@@ -159,8 +161,8 @@ public class GnssMeasurementWhenNoLocationTest extends GnssTestCase {
             gpsPrns[i] = measurement.getSvid();
             ++i;
         }
+        Log.i(TAG, "First GnssMeasurementsEvent with PRNs=" + Arrays.toString(gpsPrns));
 
-        Log.i(TAG, "Gps Measurements 1st Event PRNs=" + Arrays.toString(gpsPrns));
         SoftAssert softAssert = new SoftAssert(TAG);
         long timeInNs = firstEvent.getClock().getTimeNanos();
         softAssert.assertTrue("GPS measurement satellite count check: ",

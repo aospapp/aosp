@@ -206,6 +206,12 @@ NETWORK_CONNECTION_TYPE_UNKNOWN = 'unknown'
 
 TETHERING_MODE_WIFI = 'wifi'
 
+# Tether interface types defined in ConnectivityManager
+TETHERING_INVALID = -1
+TETHERING_WIFI = 0
+TETHERING_USB = 1
+TETHERING_BLUETOOTH = 2
+
 NETWORK_SERVICE_VOICE = 'voice'
 NETWORK_SERVICE_DATA = 'data'
 
@@ -380,6 +386,7 @@ RAT_HSPAP = "HSPAP"
 RAT_GSM = "GSM"
 RAT_TD_SCDMA = "TD_SCDMA"
 RAT_GLOBAL = "GLOBAL"
+RAT_LTE_CA = "LTE_CA" # LTE Carrier Aggregation
 RAT_UNKNOWN = "UNKNOWN"
 
 # Constant for Phone Type

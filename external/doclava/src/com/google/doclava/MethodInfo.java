@@ -793,7 +793,8 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   public boolean isConsistent(MethodInfo mInfo) {
     boolean consistent = true;
     if (this.mReturnType != mInfo.mReturnType && !this.mReturnType.equals(mInfo.mReturnType)) {
-      if (!mReturnType.isPrimitive() && !mInfo.mReturnType.isPrimitive()) {
+      if (!mReturnType.isPrimitive() && !mInfo.mReturnType.isPrimitive()
+          && Objects.equals(mInfo.mReturnType.dimension(),  mReturnType.dimension())) {
         // Check to see if our class extends the old class.
         ApiInfo infoApi = mInfo.containingClass().containingPackage().containingApi();
         ClassInfo infoReturnClass = infoApi.findClass(mInfo.mReturnType.qualifiedTypeName());

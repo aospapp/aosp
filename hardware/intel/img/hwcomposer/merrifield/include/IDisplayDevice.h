@@ -97,6 +97,7 @@ public:
     virtual int getType() const = 0;
     virtual void onVsync(int64_t timestamp) = 0;
     virtual void dump(Dump& d) = 0;
+    virtual uint32_t getFpsDivider() = 0;
 };
 
 }

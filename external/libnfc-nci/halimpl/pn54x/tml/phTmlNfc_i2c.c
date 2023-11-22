@@ -42,6 +42,7 @@
 #define NORMAL_MODE_LEN_OFFSET      2
 #define FRAGMENTSIZE_MAX            PHNFC_I2C_FRAGMENT_SIZE
 static bool_t bFwDnldFlag = FALSE;
+extern phTmlNfc_i2cfragmentation_t fragmentation_enabled;
 
 /*******************************************************************************
 **
@@ -85,7 +86,7 @@ NFCSTATUS phTmlNfc_i2c_open_and_configure(pphTmlNfc_Config_t pConfig, void ** pL
 
     NXPLOG_TML_D("Opening port=%s\n", pConfig->pDevName);
     /* open port */
-    nHandle = open((char const *)pConfig->pDevName, O_RDWR);
+    nHandle = open ((const char *)pConfig->pDevName, O_RDWR);
     if (nHandle < 0)
     {
         NXPLOG_TML_E("_i2c_open() Failed: retval %x",nHandle);
@@ -96,10 +97,8 @@ NFCSTATUS phTmlNfc_i2c_open_and_configure(pphTmlNfc_Config_t pConfig, void ** pL
     *pLinkHandle = (void*) ((intptr_t)nHandle);
 
     /*Reset PN54X*/
-    phTmlNfc_i2c_reset((void *)((intptr_t)nHandle), 1);
-    usleep(100 * 1000);
     phTmlNfc_i2c_reset((void *)((intptr_t)nHandle), 0);
-    usleep(100 * 1000);
+    usleep(10 * 1000);
     phTmlNfc_i2c_reset((void *)((intptr_t)nHandle), 1);
 
     return NFCSTATUS_SUCCESS;
@@ -211,25 +210,32 @@ int phTmlNfc_i2c_read(void *pDevHandle, uint8_t * pBuffer, int nNbBytesToRead)
         {
             totalBtyesToRead = pBuffer[NORMAL_MODE_LEN_OFFSET] + NORMAL_MODE_HEADER_LEN;
         }
-        ret_Read = read((intptr_t)pDevHandle, (pBuffer + numRead), totalBtyesToRead - numRead);
-        if (ret_Read > 0)
+        if ((totalBtyesToRead - numRead) != 0)
         {
-            numRead += ret_Read;
-        }
-        else if (ret_Read == 0)
-        {
-            NXPLOG_TML_E("_i2c_read() [pyld] EOF");
-            return -1;
+           ret_Read = read ((intptr_t)pDevHandle, (pBuffer + numRead), totalBtyesToRead - numRead);
+           if (ret_Read > 0)
+           {
+               numRead += ret_Read;
+           }
+           else if (ret_Read == 0)
+           {
+               NXPLOG_TML_E ("_i2c_read() [pyld] EOF");
+               return -1;
+           }
+           else
+           {
+               if (FALSE == bFwDnldFlag)
+               {
+                   NXPLOG_TML_E ("_i2c_read() [hdr] received");
+                   phNxpNciHal_print_packet ("RECV", pBuffer, NORMAL_MODE_HEADER_LEN);
+               }
+               NXPLOG_TML_E ("_i2c_read() [pyld] errno : %x",errno);
+               return -1;
+           }
         }
         else
         {
-            if(FALSE == bFwDnldFlag)
-            {
-                NXPLOG_TML_E("_i2c_read() [hdr] received");
-                phNxpNciHal_print_packet("RECV",pBuffer, NORMAL_MODE_HEADER_LEN);
-            }
-            NXPLOG_TML_E("_i2c_read() [pyld] errno : %x",errno);
-            return -1;
+            NXPLOG_TML_E ("_>>>>> Empty packet recieved !!");
         }
     }
     return numRead;

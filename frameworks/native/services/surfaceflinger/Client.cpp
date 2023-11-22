@@ -43,10 +43,7 @@ Client::~Client()
 {
     const size_t count = mLayers.size();
     for (size_t i=0 ; i<count ; i++) {
-        sp<Layer> layer(mLayers.valueAt(i).promote());
-        if (layer != 0) {
-            mFlinger->removeLayer(layer);
-        }
+        mFlinger->removeLayer(mLayers.valueAt(i));
     }
 }
 
@@ -170,6 +167,16 @@ status_t Client::getLayerFrameStats(const sp<IBinder>& handle, FrameStats* outSt
         return NAME_NOT_FOUND;
     }
     layer->getFrameStats(outStats);
+    return NO_ERROR;
+}
+
+status_t Client::getTransformToDisplayInverse(const sp<IBinder>& handle,
+        bool* outTransformToDisplayInverse) const {
+    sp<Layer> layer = getLayerUser(handle);
+    if (layer == NULL) {
+        return NAME_NOT_FOUND;
+    }
+    *outTransformToDisplayInverse = layer->getTransformToDisplayInverse();
     return NO_ERROR;
 }
 

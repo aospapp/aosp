@@ -237,7 +237,8 @@ void unmarshallAudioAttributes(const Parcel& parcel, audio_attributes_t *attribu
             // copying array size -1, array for tags was calloc'd, no need to NULL-terminate it
             size_t tagSize = realTagSize > AUDIO_ATTRIBUTES_TAGS_MAX_SIZE - 1 ?
                     AUDIO_ATTRIBUTES_TAGS_MAX_SIZE - 1 : realTagSize;
-            utf16_to_utf8(tags.string(), tagSize, attributes->tags);
+            utf16_to_utf8(tags.string(), tagSize, attributes->tags,
+                    sizeof(attributes->tags) / sizeof(attributes->tags[0]));
         }
     } else {
         ALOGE("unmarshallAudioAttributes() received unflattened tags, ignoring tag values");
@@ -555,6 +556,12 @@ void MediaPlayerService::removeClient(wp<Client> client)
 {
     Mutex::Autolock lock(mLock);
     mClients.remove(client);
+}
+
+bool MediaPlayerService::hasClient(wp<Client> client)
+{
+    Mutex::Autolock lock(mLock);
+    return mClients.indexOf(client) != NAME_NOT_FOUND;
 }
 
 MediaPlayerService::Client::Client(
@@ -1085,6 +1092,10 @@ status_t MediaPlayerService::Client::setNextPlayer(const sp<IMediaPlayer>& playe
     ALOGV("setNextPlayer");
     Mutex::Autolock l(mLock);
     sp<Client> c = static_cast<Client*>(player.get());
+    if (c != NULL && !mService->hasClient(c)) {
+      return BAD_VALUE;
+    }
+
     mNextClient = c;
 
     if (c != NULL) {
@@ -1844,7 +1855,7 @@ status_t MediaPlayerService::AudioOutput::open(
                 mCallbackData->setOutput(this);
             }
             delete newcbd;
-            return OK;
+            return updateTrack();
         }
     }
 
@@ -1866,17 +1877,26 @@ status_t MediaPlayerService::AudioOutput::open(
     mFrameSize = t->frameSize();
     mTrack = t;
 
+    return updateTrack();
+}
+
+status_t MediaPlayerService::AudioOutput::updateTrack() {
+    if (mTrack == NULL) {
+        return NO_ERROR;
+    }
+
     status_t res = NO_ERROR;
     // Note some output devices may give us a direct track even though we don't specify it.
     // Example: Line application b/17459982.
-    if ((t->getFlags() & (AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD | AUDIO_OUTPUT_FLAG_DIRECT)) == 0) {
-        res = t->setPlaybackRate(mPlaybackRate);
+    if ((mTrack->getFlags()
+            & (AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD | AUDIO_OUTPUT_FLAG_DIRECT)) == 0) {
+        res = mTrack->setPlaybackRate(mPlaybackRate);
         if (res == NO_ERROR) {
-            t->setAuxEffectSendLevel(mSendLevel);
-            res = t->attachAuxEffect(mAuxEffectId);
+            mTrack->setAuxEffectSendLevel(mSendLevel);
+            res = mTrack->attachAuxEffect(mAuxEffectId);
         }
     }
-    ALOGV("open() DONE status %d", res);
+    ALOGV("updateTrack() DONE status %d", res);
     return res;
 }
 
@@ -1928,6 +1948,7 @@ void MediaPlayerService::AudioOutput::switchToNextOutput() {
                     continue;
                 }
                 callbackData->mSwitching = true; // begin track switch
+                callbackData->setOutput(NULL);
 #else
                 // tryBeginTrackSwitch() returns false if the callback has the lock.
                 if (!mCallbackData->tryBeginTrackSwitch()) {

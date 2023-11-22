@@ -40,11 +40,8 @@ private:
     int setDelay(int handle, int64_t delayNs);
     int poll(sensors_event_t *data, int count);
 
-    int batch(
-            int handle,
-            int flags,
-            int64_t sampling_period_ns,
-            int64_t max_report_latency_ns);
+    int batch(int handle, int64_t sampling_period_ns,
+              int64_t max_report_latency_ns);
 
     int flush(int handle);
 

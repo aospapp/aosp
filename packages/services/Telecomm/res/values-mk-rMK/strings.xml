@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Недостасува број на говорна пошта"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Нема мемориран број на говорна пошта на СИМ картичката."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Додај број"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Смени ја стандардната апликација Бирач?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Користи <xliff:g id="NEW_APP">%1$s</xliff:g> наместо <xliff:g id="CURRENT_APP">%2$s</xliff:g> како стандардна апликација за бирање?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Користи <xliff:g id="NEW_APP">%s</xliff:g> како стандардна апликација за бирање?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Да се направи <xliff:g id="NEW_APP">%s</xliff:g> ваша стандардна апликација Телефон?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Поставете стандардна"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Откажете"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> ќе може да ги поставува и контролира сите аспекти на повикувањето. Само апликации на кои им веруваш треба да се поставуваат како стандардната апликација Телефон."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Блокирани броеви"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Нема да добивате повици или SMS од блокирани броеви."</string>
     <string name="block_number" msgid="1101252256321306179">"Додај број"</string>

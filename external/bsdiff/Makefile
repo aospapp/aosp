@@ -34,11 +34,13 @@ BSPATCH_OBJS = \
   bspatch.o \
   extents.o \
   extents_file.o \
-  file.o
+  file.o \
+  memory_file.o
 
-UNITTEST_LIBS = -lgmock -lgtest
+UNITTEST_LIBS = -lgmock -lgtest -lpthread
 UNITTEST_OBJS = \
   bsdiff_unittest.o \
+  bspatch_unittest.o \
   extents_file_unittest.o \
   extents_unittest.o \
   test_utils.o \
@@ -63,6 +65,7 @@ bsdiff_unittest.o: bsdiff_unittest.cc bsdiff.h test_utils.h
 bspatch.o: bspatch.cc bspatch.h extents.h extents_file.h file_interface.h \
  file.h
 bspatch_main.o: bspatch_main.cc bspatch.h
+bspatch_unittest.o: bspatch_unittest.cc bspatch.h test_utils.h
 extents.o: extents.cc extents.h extents_file.h file_interface.h
 extents_file.o: extents_file.cc extents_file.h file_interface.h
 extents_file_unittest.o: extents_file_unittest.cc extents_file.h \
@@ -70,6 +73,7 @@ extents_file_unittest.o: extents_file_unittest.cc extents_file.h \
 extents_unittest.o: extents_unittest.cc extents.h extents_file.h \
  file_interface.h
 file.o: file.cc file.h file_interface.h
+memory_file.o: memory_file.cc memory_file.h file_interface.h
 testrunner.o: testrunner.cc
 test_utils.o: test_utils.cc test_utils.h
 

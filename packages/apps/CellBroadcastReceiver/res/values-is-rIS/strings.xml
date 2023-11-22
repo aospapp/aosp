@@ -48,7 +48,6 @@
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Stillingar neyðarviðvarana"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Kveikja á tilkynningum"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Sýna neyðarviðvaranir"</string>
-    <string name="alert_sound_duration_title" msgid="4712853569849108005">"Lengd áminningarhljóðs"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Áminning"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Lesa upp viðvörunarskilaboð"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"Nota talgervil til að lesa skilaboð neyðarviðvarana upphátt"</string>
@@ -108,17 +107,11 @@
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Þú færð núna neyðarviðvaranir. Viltu halda áfram að fá neyðarviðvaranir?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Já"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Nei"</string>
-  <string-array name="alert_sound_duration_entries">
-    <item msgid="5353482200312892037">"2 sekúndur"</item>
-    <item msgid="5656092384277009212">"4 sekúndur"</item>
-    <item msgid="253564899252909788">"6 sekúndur"</item>
-    <item msgid="7514102744524534421">"8 sekúndur"</item>
-    <item msgid="6062562309271376642">"10 sekúndur"</item>
-  </string-array>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"Einu sinni"</item>
     <item msgid="9097229303902157183">"Á 2 mínútna fresti"</item>
-    <item msgid="5676933700148002666">"Á 15 mínútna fresti"</item>
-    <item msgid="694355015442188708">"Slökkt"</item>
+    <item msgid="5718214950343391480">"Á 5 mínútna fresti"</item>
+    <item msgid="3863339891188103437">"Á 15 mínútna fresti"</item>
+    <item msgid="6868848414437854609">"Slökkt"</item>
   </string-array>
 </resources>

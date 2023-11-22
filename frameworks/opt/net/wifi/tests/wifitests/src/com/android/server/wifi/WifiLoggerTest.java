@@ -16,7 +16,10 @@
 
 package com.android.server.wifi;
 
+import android.content.Context;
 import android.test.suitebuilder.annotation.SmallTest;
+import com.android.internal.R;
+import android.util.LocalLog;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -52,11 +55,16 @@ public class WifiLoggerTest {
     @Mock WifiStateMachine mWsm;
     @Mock WifiNative mWifiNative;
     @Mock BuildProperties mBuildProperties;
+    @Mock Context mContext;
     WifiLogger mWifiLogger;
 
     private static final String FAKE_RING_BUFFER_NAME = "fake-ring-buffer";
-    private WifiNative.RingBufferStatus mFakeRbs;
+    private static final int SMALL_RING_BUFFER_SIZE_KB = 32;
+    private static final int LARGE_RING_BUFFER_SIZE_KB = 1024;
+    private static final int BYTES_PER_KBYTE = 1024;
+    private LocalLog mWifiNativeLocalLog;
 
+    private WifiNative.RingBufferStatus mFakeRbs;
     /**
      * Returns the data that we would dump in a bug report, for our ring buffer.
      * @return a 2-D byte array, where the first dimension is the record number, and the second
@@ -72,20 +80,29 @@ public class WifiLoggerTest {
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
+
         mFakeRbs = new WifiNative.RingBufferStatus();
         mFakeRbs.name = FAKE_RING_BUFFER_NAME;
-
         WifiNative.RingBufferStatus[] ringBufferStatuses = new WifiNative.RingBufferStatus[] {
                 mFakeRbs
         };
+        mWifiNativeLocalLog = new LocalLog(8192);
 
         when(mWifiNative.getRingBufferStatus()).thenReturn(ringBufferStatuses);
         when(mWifiNative.readKernelLog()).thenReturn("");
+        when(mWifiNative.getLocalLog()).thenReturn(mWifiNativeLocalLog);
         when(mBuildProperties.isEngBuild()).thenReturn(false);
         when(mBuildProperties.isUserdebugBuild()).thenReturn(false);
         when(mBuildProperties.isUserBuild()).thenReturn(true);
 
-        mWifiLogger = new WifiLogger(mWsm, mWifiNative, mBuildProperties);
+        MockResources resources = new MockResources();
+        resources.setInteger(R.integer.config_wifi_logger_ring_buffer_default_size_limit_kb,
+                SMALL_RING_BUFFER_SIZE_KB);
+        resources.setInteger(R.integer.config_wifi_logger_ring_buffer_verbose_size_limit_kb,
+                LARGE_RING_BUFFER_SIZE_KB);
+        when(mContext.getResources()).thenReturn(resources);
+
+        mWifiLogger = new WifiLogger(mContext, mWsm, mWifiNative, mBuildProperties);
         mWifiNative.enableVerboseLogging(0);
     }
 
@@ -197,7 +214,7 @@ public class WifiLoggerTest {
         final boolean verbosityToggle = false;
         mWifiLogger.startLogging(verbosityToggle);
 
-        final byte[] data = new byte[WifiLogger.RING_BUFFER_BYTE_LIMIT_SMALL];
+        final byte[] data = new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE];
         mWifiLogger.onRingBufferData(mFakeRbs, data);
         mWifiLogger.captureBugReportData(WifiLogger.REPORT_REASON_NONE);
 
@@ -214,7 +231,7 @@ public class WifiLoggerTest {
         final boolean verbosityToggle = false;
         mWifiLogger.startLogging(verbosityToggle);
 
-        final byte[] data1 = new byte[WifiLogger.RING_BUFFER_BYTE_LIMIT_SMALL];
+        final byte[] data1 = new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE];
         final byte[] data2 = {1, 2, 3};
         mWifiLogger.onRingBufferData(mFakeRbs, data1);
         mWifiLogger.onRingBufferData(mFakeRbs, data2);
@@ -526,7 +543,7 @@ public class WifiLoggerTest {
         final boolean verbosityToggle = false;
         mWifiLogger.startLogging(verbosityToggle);
         mWifiLogger.onRingBufferData(
-                mFakeRbs, new byte[WifiLogger.RING_BUFFER_BYTE_LIMIT_SMALL + 1]);
+                mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
         mWifiLogger.captureBugReportData(WifiLogger.REPORT_REASON_NONE);
         assertEquals(0, getLoggerRingBufferData().length);
     }
@@ -540,7 +557,7 @@ public class WifiLoggerTest {
         when(mBuildProperties.isUserBuild()).thenReturn(false);
         mWifiLogger.startLogging(verbosityToggle);
         mWifiLogger.onRingBufferData(
-                mFakeRbs, new byte[WifiLogger.RING_BUFFER_BYTE_LIMIT_SMALL + 1]);
+                mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
         mWifiLogger.captureBugReportData(WifiLogger.REPORT_REASON_NONE);
         assertEquals(0, getLoggerRingBufferData().length);
     }
@@ -554,7 +571,7 @@ public class WifiLoggerTest {
         when(mBuildProperties.isUserBuild()).thenReturn(false);
         mWifiLogger.startLogging(verbosityToggle);
         mWifiLogger.onRingBufferData(
-                mFakeRbs, new byte[WifiLogger.RING_BUFFER_BYTE_LIMIT_SMALL + 1]);
+                mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
         mWifiLogger.captureBugReportData(WifiLogger.REPORT_REASON_NONE);
         assertEquals(0, getLoggerRingBufferData().length);
     }
@@ -564,7 +581,8 @@ public class WifiLoggerTest {
     public void ringBufferSizeIsLargeInVerboseMode() throws Exception {
         final boolean verbosityToggle = true;
         mWifiLogger.startLogging(verbosityToggle);
-        mWifiLogger.onRingBufferData(mFakeRbs, new byte[WifiLogger.RING_BUFFER_BYTE_LIMIT_LARGE]);
+        mWifiLogger.onRingBufferData(
+                mFakeRbs, new byte[LARGE_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE]);
         mWifiLogger.captureBugReportData(WifiLogger.REPORT_REASON_NONE);
         assertEquals(1, getLoggerRingBufferData().length);
     }
@@ -574,7 +592,8 @@ public class WifiLoggerTest {
     public void startLoggingGrowsRingBuffersIfNeeded() throws Exception {
         mWifiLogger.startLogging(false  /* verbose disabled */);
         mWifiLogger.startLogging(true  /* verbose enabled */);
-        mWifiLogger.onRingBufferData(mFakeRbs, new byte[WifiLogger.RING_BUFFER_BYTE_LIMIT_LARGE]);
+        mWifiLogger.onRingBufferData(
+                mFakeRbs, new byte[LARGE_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE]);
         mWifiLogger.captureBugReportData(WifiLogger.REPORT_REASON_NONE);
         assertEquals(1, getLoggerRingBufferData().length);
     }
@@ -584,7 +603,7 @@ public class WifiLoggerTest {
     public void startLoggingShrinksRingBuffersIfNeeded() throws Exception {
         mWifiLogger.startLogging(true  /* verbose enabled */);
         mWifiLogger.onRingBufferData(
-                mFakeRbs, new byte[WifiLogger.RING_BUFFER_BYTE_LIMIT_SMALL + 1]);
+                mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
 
         // Existing data is nuked (too large).
         mWifiLogger.startLogging(false  /* verbose disabled */);
@@ -593,7 +612,7 @@ public class WifiLoggerTest {
 
         // New data must obey limit as well.
         mWifiLogger.onRingBufferData(
-                mFakeRbs, new byte[WifiLogger.RING_BUFFER_BYTE_LIMIT_SMALL + 1]);
+                mFakeRbs, new byte[SMALL_RING_BUFFER_SIZE_KB * BYTES_PER_KBYTE + 1]);
         mWifiLogger.captureBugReportData(WifiLogger.REPORT_REASON_NONE);
         assertEquals(0, getLoggerRingBufferData().length);
     }
@@ -703,5 +722,18 @@ public class WifiLoggerTest {
         PrintWriter pw = new PrintWriter(sw);
         mWifiLogger.dump(new FileDescriptor(), pw, new String[]{});
         assertFalse(sw.toString().contains(WifiLogger.FIRMWARE_DUMP_SECTION_HEADER));
+    }
+
+    /** Verifies that the dump() includes contents of WifiNative's LocalLog. */
+    @Test
+    public void dumpIncludesContentOfWifiNativeLocalLog() {
+        final String wifiNativeLogMessage = "This is a message";
+        mWifiNativeLocalLog.log(wifiNativeLogMessage);
+
+        mWifiLogger.startLogging(false  /* verbose disabled */);
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        mWifiLogger.dump(new FileDescriptor(), pw, new String[]{});
+        assertTrue(sw.toString().contains(wifiNativeLogMessage));
     }
 }

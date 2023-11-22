@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6441943862284988546">"Rasmli ekran lavhalari"</string>
-    <string name="table_screensaver_name" msgid="1150228032617397055">"Rasm jadvali"</string>
-    <string name="flipper_screensaver_name" msgid="6988572107391523141">"Rasm romi"</string>
+    <string name="app_name" msgid="6441943862284988546">"Ekran lavhalari"</string>
+    <string name="table_screensaver_name" msgid="1150228032617397055">"Kollaj"</string>
+    <string name="flipper_screensaver_name" msgid="6988572107391523141">"Hoshiya"</string>
     <string name="posts_album_name" msgid="5628151551239729515">"Post rasmlari"</string>
     <string name="unknown_album_name" msgid="2135521368192091267">"Nomlanmagan albom"</string>
     <string name="stock_photo_album_name" msgid="3150527596227525460">"Ilovadagi rasmlar"</string>

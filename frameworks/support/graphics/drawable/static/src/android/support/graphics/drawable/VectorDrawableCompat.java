@@ -217,6 +217,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         canvas.restoreToCount(saveCount);
     }
 
+    @Override
     public int getAlpha() {
         if (mDelegateDrawable != null) {
             return DrawableCompat.getAlpha(mDelegateDrawable);
@@ -264,6 +265,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         return new PorterDuffColorFilter(color, tintMode);
     }
 
+    @Override
     public void setTint(int tint) {
         if (mDelegateDrawable != null) {
             DrawableCompat.setTint(mDelegateDrawable, tint);
@@ -273,6 +275,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         setTintList(ColorStateList.valueOf(tint));
     }
 
+    @Override
     public void setTintList(ColorStateList tint) {
         if (mDelegateDrawable != null) {
             DrawableCompat.setTintList(mDelegateDrawable, tint);
@@ -287,6 +290,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         }
     }
 
+    @Override
     public void setTintMode(Mode tintMode) {
         if (mDelegateDrawable != null) {
             DrawableCompat.setTintMode(mDelegateDrawable, tintMode);
@@ -354,6 +358,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
     }
 
     // Don't support re-applying themes. The initial theme loading is working.
+    @Override
     public boolean canApplyTheme() {
         if (mDelegateDrawable != null) {
             DrawableCompat.canApplyTheme(mDelegateDrawable);
@@ -455,6 +460,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         inflate(res, parser, attrs, null);
     }
 
+    @Override
     public void inflate(Resources res, XmlPullParser parser, AttributeSet attrs, Theme theme)
             throws XmlPullParserException, IOException {
         if (mDelegateDrawable != null) {
@@ -975,6 +981,9 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
 
             currentGroup.mStackedMatrix.preConcat(currentGroup.mLocalMatrix);
 
+            // Save the current clip information, which is local to this group.
+            canvas.save();
+
             // Draw the group tree in the same order as the XML file.
             for (int i = 0; i < currentGroup.mChildren.size(); i++) {
                 Object child = currentGroup.mChildren.get(i);
@@ -987,10 +996,12 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
                     drawPath(currentGroup, childPath, canvas, w, h, filter);
                 }
             }
+
+            canvas.restore();
         }
 
         public void draw(Canvas canvas, int w, int h, ColorFilter filter) {
-            // Travese the tree in pre-order to draw.
+            // Traverse the tree in pre-order to draw.
             drawGroupTree(mRootGroup, IDENTITY_MATRIX, canvas, w, h, filter);
         }
 
@@ -1017,7 +1028,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
 
             if (vPath.isClipPath()) {
                 mRenderPath.addPath(path, mFinalPathMatrix);
-                canvas.clipPath(mRenderPath, Region.Op.REPLACE);
+                canvas.clipPath(mRenderPath);
             } else {
                 VFullPath fullPath = (VFullPath) vPath;
                 if (fullPath.mTrimPathStart != 0.0f || fullPath.mTrimPathEnd != 1.0f) {

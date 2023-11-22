@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"Numurs nav derīgs."</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"Balss pasta numurs nav zināms."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"Nevar veikt videozvanus, kad ir iespējots teksta tālrunis."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"Zvans tika pāradresēts uz citu ierīci."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"Nav"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Nezināms zvana signāls"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Visas pieejamās līnijas ir aizņemtas. Lai veiktu zvanu, pārtrauciet kādu zvanu šajā ierīcē vai kādā no citām savām ierīcēm."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

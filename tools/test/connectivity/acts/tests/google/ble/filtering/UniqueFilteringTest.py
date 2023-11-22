@@ -28,7 +28,6 @@ from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
 from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
-from acts.test_utils.bt.bt_test_utils import get_advanced_droid_list
 from acts.test_utils.bt.bt_test_utils import batch_scan_result
 from acts.test_utils.bt.bt_test_utils import scan_result
 
@@ -38,12 +37,8 @@ class UniqueFilteringTest(BluetoothBaseTest):
 
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
-        self.droid_list = get_advanced_droid_list(self.android_devices)
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
-        if self.droid_list[1]['max_advertisements'] == 0:
-            self.tests = ()
-            return
 
     def blescan_verify_onfailure_event_handler(self, event):
         self.log.debug("Verifying onFailure event")

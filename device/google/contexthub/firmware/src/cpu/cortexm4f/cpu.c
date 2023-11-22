@@ -16,11 +16,15 @@
 
 #include <plat/inc/cmsis.h>
 #include <plat/inc/plat.h>
+#include <plat/inc/pwr.h>
+#include <plat/inc/wdt.h>
 #include <syscall.h>
 #include <string.h>
 #include <seos.h>
 #include <heap.h>
 #include <cpu.h>
+#include <util.h>
+#include <reset.h>
 
 
 #define HARD_FAULT_DROPBOX_MAGIC_MASK       0xFFFFC000
@@ -33,7 +37,9 @@ struct RamPersistedDataAndDropbox {
     uint32_t r[16];
     uint32_t sr_hfsr_cfsr_lo;
     uint32_t bits;
-    uint32_t RFU;
+    uint16_t tid;
+    uint16_t trig:2;
+    uint16_t RFU:14;
 };
 
 /* //if your device persists ram, you can use this instead:
@@ -98,22 +104,48 @@ static void cpuUnpackSrBits(uint32_t srcLo, uint32_t srcHi, uint32_t *srP, uint3
     *cfsrP = ((srcLo & 0x00FB0000) >> 4) | (srcHi & 0x0FBF) | ((srcHi << 13) & 0x02000000) | ((srcHi << 18) & 0x01000000);
 }
 
-void cpuInitLate(void)
+static void cpuDbxDump(struct RamPersistedDataAndDropbox *dbx)
 {
-    struct RamPersistedDataAndDropbox *dbx = getInitedPersistedData();
+    uint32_t i, hfsr, cfsr, sr, code;
+    const char *trigName;
+    static const char *trigNames[] = { "UNKNOWN", "HARD FAULT", "WDT" };
 
-    /* print and clear dropbox */
-    if (dbx->magic & HARD_FAULT_DROPBOX_MAGIC_HAVE_DROP) {
-        uint32_t i, hfsr, cfsr, sr;
+    if (dbx) {
+        for (i = 0; i < 8; i++)
+            osLog(LOG_INFO, "  R%02lu  = 0x%08lX  R%02lu  = 0x%08lX\n",
+                  i, dbx->r[i], i + 8, dbx->r[i+8]);
 
         cpuUnpackSrBits(dbx->sr_hfsr_cfsr_lo, dbx->magic & HARD_FAULT_DROPBOX_MAGIC_DATA_MASK, &sr, &hfsr, &cfsr);
 
-        osLog(LOG_INFO, "Hard Fault Dropbox not empty. Contents:\n");
-        for (i = 0; i < 16; i++)
-            osLog(LOG_INFO, "  R%02lu  = 0x%08lX\n", i, dbx->r[i]);
-        osLog(LOG_INFO, "  SR   = %08lX\n", sr);
-        osLog(LOG_INFO, "  HFSR = %08lX\n", hfsr);
-        osLog(LOG_INFO, "  CFSR = %08lX\n", cfsr);
+        osLog(LOG_INFO, "  xPSR = 0x%08lX  HFSR = 0x%08lX\n", sr, hfsr);
+        osLog(LOG_INFO, "  CFSR = 0x%08lX  BITS = 0x%08lX\n", cfsr, dbx->bits);
+        // reboot source (if known), reported as TRIG
+        // so far we have 2 reboot sources reported here:
+        // 1 - HARD FAULT
+        // 2 - WDT
+        code = dbx->trig;
+        trigName = trigNames[code < ARRAY_SIZE(trigNames) ? code : 0];
+        osLog(LOG_INFO, "  TID  = 0x%04" PRIX16 "  TRIG = 0x%04" PRIX16 " [%s]\n", dbx->tid, dbx->trig, trigName);
+    }
+}
+
+void cpuInitLate(void)
+{
+    struct RamPersistedDataAndDropbox *dbx = getInitedPersistedData();
+    uint32_t reason = pwrResetReason();
+    const char *reasonDesc = "";
+
+    // if we detected WDT reboot reason, we are likely not having data in dropbox
+    // All we can do is report that WDT reset happened
+    if ((reason & (RESET_WINDOW_WATCHDOG|RESET_INDEPENDENT_WATCHDOG)) != 0)
+        reasonDesc = "; HW WDT RESET";
+
+    osLog(LOG_INFO, "Reboot reason: 0x%08" PRIX32 "%s\n", reason, reasonDesc);
+
+    /* print and clear dropbox */
+    if (dbx->magic & HARD_FAULT_DROPBOX_MAGIC_HAVE_DROP) {
+        osLog(LOG_INFO, "Dropbox not empty. Contents:\n");
+        cpuDbxDump(dbx);
     }
     dbx->magic &=~ HARD_FAULT_DROPBOX_MAGIC_HAVE_DROP;
 }
@@ -172,6 +204,24 @@ void cpuIntsRestore(uint64_t state)
     );
 }
 
+/*
+ * Stack layout for HW interrupt handlers [ARM7-M]
+ * ===============================================
+ * orig_SP[8...25] = FPU state (S0..S15, FPSCR, Reserved) [if enabled]
+ * orig_SP[7] = xPSR
+ * orig_SP[6] = ReturnAddress
+ * orig_SP[5] = LR (R14)
+ * orig_SP[4] = R12
+ * orig_SP[3..0] = R3..R0
+ *
+ * upon entry, new value of LR is calculated as follows:
+ * LR := 0xFFFFFFE0 | <Control.FPCA ? 0 : 0x10> | <Mode_Handler ? 0 : 8> | <SPSEL ? 4 : 0> | 0x01
+ *
+ * upon exit, PC value is interpreted  according to the same rule (see LR above)
+ * if bits 28..31 of PC equal 0xF, return from interrupt is executed
+ * this way, "bx lr" would perform return from interrupt to the previous state
+ */
+
 static void __attribute__((used)) syscallHandler(uintptr_t *excRegs)
 {
     uint16_t *svcPC = ((uint16_t *)(excRegs[6])) - 1;
@@ -202,10 +252,12 @@ void __attribute__((naked)) SVC_Handler(void)
     );
 }
 
-static void __attribute__((used)) logHardFault(uintptr_t *excRegs, uintptr_t* otherRegs, bool tinyStack)
+static void __attribute__((used)) logHardFault(uintptr_t *excRegs, uintptr_t* otherRegs, bool tinyStack, uint32_t code)
 {
     struct RamPersistedDataAndDropbox *dbx = getInitedPersistedData();
     uint32_t i, hi;
+
+    wdtPing();
 
     for (i = 0; i < 4; i++)
         dbx->r[i] = excRegs[i];
@@ -218,39 +270,31 @@ static void __attribute__((used)) logHardFault(uintptr_t *excRegs, uintptr_t* ot
 
     cpuPackSrBits(&dbx->sr_hfsr_cfsr_lo, &hi, excRegs[7], SCB->HFSR, SCB->CFSR);
     dbx->magic |= HARD_FAULT_DROPBOX_MAGIC_HAVE_DROP | (hi & HARD_FAULT_DROPBOX_MAGIC_DATA_MASK);
+    dbx->tid = osGetCurrentTid();
+    dbx->trig = code;
 
     if (!tinyStack) {
-        osLog(LOG_ERROR, "*HARD FAULT* SR  = %08lX\n", (unsigned long)excRegs[7]);
-        osLog(LOG_ERROR, "R0  = %08lX   R8  = %08lX\n", (unsigned long)excRegs[0], (unsigned long)otherRegs[4]);
-        osLog(LOG_ERROR, "R1  = %08lX   R9  = %08lX\n", (unsigned long)excRegs[1], (unsigned long)otherRegs[5]);
-        osLog(LOG_ERROR, "R2  = %08lX   R10 = %08lX\n", (unsigned long)excRegs[2], (unsigned long)otherRegs[6]);
-        osLog(LOG_ERROR, "R3  = %08lX   R11 = %08lX\n", (unsigned long)excRegs[3], (unsigned long)otherRegs[7]);
-        osLog(LOG_ERROR, "R4  = %08lX   R12 = %08lX\n", (unsigned long)otherRegs[0], (unsigned long)excRegs[4]);
-        osLog(LOG_ERROR, "R5  = %08lX   SP  = %08lX\n", (unsigned long)otherRegs[1], (unsigned long)(excRegs + 8));
-        osLog(LOG_ERROR, "R6  = %08lX   LR  = %08lX\n", (unsigned long)otherRegs[2], (unsigned long)excRegs[5]);
-        osLog(LOG_ERROR, "R7  = %08lX   PC  = %08lX\n", (unsigned long)otherRegs[3], (unsigned long)excRegs[6]);
-        osLog(LOG_ERROR, "HFSR= %08lX   CFSR= %08lX\n", (unsigned long)SCB->HFSR, (unsigned long)SCB->CFSR);
+        osLog(LOG_ERROR, "*HARD FAULT*\n");
+        cpuDbxDump(dbx);
     }
 
-    //reset
-    SCB->AIRCR = 0x05FA0004;
-
-    //and in case somehow we do not, loop
-    while(1);
+    NVIC_SystemReset();
 }
 
-void HardFault_Handler(void);
 static uint32_t  __attribute__((used)) hfStack[16];
 
-void __attribute__((naked)) HardFault_Handler(void)
+void cpuCommonFaultCode(void);
+void __attribute__((naked)) cpuCommonFaultCode(void)
 {
+    // r0 contains Fault IRQ code
     asm volatile(
-        "ldr r3, =__stack_bottom   \n"
+        "ldr r3, =__stack_bottom + 64 \n"
         "cmp sp, r3                \n"
         "itte le                   \n"
         "ldrle sp, =hfStack + 64   \n"
         "movle r2, #1              \n"
         "movgt r2, #0              \n"
+        "mov r3, r0                \n"
         "tst lr, #4                \n"
         "ite eq                    \n"
         "mrseq r0, msp             \n"
@@ -261,4 +305,11 @@ void __attribute__((naked)) HardFault_Handler(void)
     );
 }
 
-
+void HardFault_Handler(void);
+void __attribute__((naked)) HardFault_Handler(void)
+{
+    asm volatile(
+        "mov    r0, #1             \n"
+        "b      cpuCommonFaultCode \n"
+    );
+}

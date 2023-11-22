@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Nummer till röstbrevlåda saknas"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Det finns inget nummer till röstbrevlådan sparat på SIM-kortet."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Lägg till nummer"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Vill du byta standardapp för uppringning?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Vill du använda <xliff:g id="NEW_APP">%1$s</xliff:g> i stället för <xliff:g id="CURRENT_APP">%2$s</xliff:g> som standardapp för uppringning?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Vill du använda <xliff:g id="NEW_APP">%s</xliff:g> som standardapp för uppringning?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Gör <xliff:g id="NEW_APP">%s</xliff:g> till standardtelefonapp?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Ange standard"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Avbryt"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> kan ringa och styra allt omkring samtal. Endast appar du litar på bör ställas in som standardtelefonapp."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Blockerade nummer"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Du kommer inte ta emot samtal eller sms från blockerade nummer."</string>
     <string name="block_number" msgid="1101252256321306179">"Lägg till ett telefonnummer"</string>

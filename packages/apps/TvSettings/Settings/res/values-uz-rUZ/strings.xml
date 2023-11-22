@@ -174,7 +174,7 @@
     <string name="wifi_security_type_wep" msgid="3836879161029325671">"WEP"</string>
     <string name="wifi_security_type_wpa" msgid="4948411057925876780">"WPA/WPA2 PSK"</string>
     <string name="wifi_security_type_eap" msgid="1106303698253987745">"802.1x EAP"</string>
-    <string name="title_wifi_no_networks_available" msgid="7127675763248224969">"Tekshirilmoqda…"</string>
+    <string name="title_wifi_no_networks_available" msgid="7127675763248224969">"Qidirilmoqda…"</string>
     <string name="title_wifi_could_not_save" msgid="708638317882707069">"<xliff:g id="SSID">%1$s</xliff:g> uchun konfiguratsiyani saqlab bo\'lmadi"</string>
     <string name="title_wifi_could_not_connect" msgid="9080004548419447580">"<xliff:g id="SSID">%1$s</xliff:g> ga ulanib bo‘lmadi"</string>
     <string name="title_wifi_could_not_connect_timeout" msgid="5158184646985406394">"<xliff:g id="SSID">%1$s</xliff:g> ni topib bo‘lmadi"</string>

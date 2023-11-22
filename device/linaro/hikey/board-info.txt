@@ -1,2 +1,2 @@
-require board=Linaro HiKey
+require board=Hisilicon HiKey
 

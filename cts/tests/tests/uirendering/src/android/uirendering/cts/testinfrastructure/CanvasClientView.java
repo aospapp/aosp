@@ -55,9 +55,9 @@ public class CanvasClientView extends View {
         }
         if (mCanvasClient == null) throw new IllegalStateException("Canvas client missing");
 
-        canvas.save();
+        int saveCount = canvas.save();
         canvas.clipRect(0, 0, ActivityTestBase.TEST_WIDTH, ActivityTestBase.TEST_HEIGHT);
         mCanvasClient.draw(canvas, ActivityTestBase.TEST_WIDTH, ActivityTestBase.TEST_HEIGHT);
-        canvas.restore();
+        canvas.restoreToCount(saveCount);
     }
 }

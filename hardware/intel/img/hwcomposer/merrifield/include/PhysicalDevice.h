@@ -76,6 +76,7 @@ public:
     virtual bool isConnected() const;
     virtual const char* getName() const;
     virtual int getType() const;
+    virtual uint32_t getFpsDivider();
 
     //events
     virtual void onVsync(int64_t timestamp);
@@ -115,6 +116,7 @@ protected:
     // DPMS on (1) or off (0)
     int mDisplayState;
     bool mInitialized;
+    uint32_t mFpsDivider;
 };
 
 

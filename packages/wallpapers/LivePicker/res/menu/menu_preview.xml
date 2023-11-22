@@ -22,4 +22,10 @@
         android:showAsAction="ifRoom"
         android:title="@string/configure_wallpaper"/>
 
+    <item
+        android:id="@+id/set_wallpaper"
+        android:title="@string/set_live_wallpaper"
+        android:showAsAction="always|withText"
+        android:actionLayout="@layout/set_wallpaper_action"/>
+
 </menu>

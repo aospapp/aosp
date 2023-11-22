@@ -331,8 +331,8 @@ public class SecurityFragment extends LeanbackPreferenceFragment
     @Override
     public boolean checkPassword(String password, int userId) {
         try {
-            return getLockSettings().checkPassword(password, userId).getResponseCode()
-                    == VerifyCredentialResponse.RESPONSE_OK;
+            return getLockSettings().checkPassword(password, userId, null /* progressCallback */)
+                    .getResponseCode() == VerifyCredentialResponse.RESPONSE_OK;
         } catch (final RemoteException e) {
             // ignore
         }

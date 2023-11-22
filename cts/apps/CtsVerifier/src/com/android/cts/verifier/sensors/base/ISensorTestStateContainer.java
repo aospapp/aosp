@@ -70,4 +70,16 @@ public interface ISensorTestStateContainer {
      * @return The {@link ContentResolver} associated with the test.
      */
     ContentResolver getContentResolver();
+
+    /**
+     * @param feature the feature being tested
+     * @return true if the specified feature is implemented; false otherwise.
+     */
+    boolean hasSystemFeature(String feature);
+
+    /**
+     * @param action setting in the form of action name
+     * @return true if corresponding setting activity exists; false otherwise.
+     */
+    boolean hasActivity(String action);
 }

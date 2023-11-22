@@ -395,7 +395,6 @@ const char QCameraParameters::KEY_QC_MIN_SCE_FACTOR[] = "min-sce-factor";
 const char QCameraParameters::KEY_QC_MAX_SCE_FACTOR[] = "max-sce-factor";
 const char QCameraParameters::KEY_QC_SCE_FACTOR_STEP[] = "sce-factor-step";
 
-const char QCameraParameters::KEY_QC_SUPPORTED_CAMERA_FEATURES[] = "qc-camera-features";
 const char QCameraParameters::KEY_QC_MAX_NUM_REQUESTED_FACES[] = "qc-max-num-requested-faces";
 
 //Values for DENOISE
@@ -493,12 +492,12 @@ static const char* portrait = "portrait";
 static const char* landscape = "landscape";
 
 const cam_dimension_t QCameraParameters::THUMBNAIL_SIZES_MAP[] = {
-    { 512, 288 }, //1.777778
-    { 480, 288 }, //1.666667
     { 256, 154 }, //1.66233
-    { 432, 288 }, //1.5
+    { 240, 160 }, //1.5
     { 320, 320 }, //1.0
     { 320, 240 }, //1.33333
+    { 256, 144 }, //1.777778
+    { 240, 144 }, //1.666667
     { 176, 144 }, //1.222222
     /*Thumbnail sizes to match portrait picture size aspect ratio*/
     { 240, 320 }, //to match 480X640 & 240X320 picture size
@@ -893,12 +892,14 @@ static inline bool isOEMFeat1PropEnabled()
 QCameraParameters::QCameraParameters()
     : CameraParameters(),
       m_reprocScaleParam(),
+      mCommon(),
       m_pCapability(NULL),
       m_pCamOpsTbl(NULL),
       m_pParamHeap(NULL),
       m_pParamBuf(NULL),
       m_pRelCamSyncHeap(NULL),
       m_pRelCamSyncBuf(NULL),
+      m_bFrameSyncEnabled(false),
       mIsType(IS_TYPE_NONE),
       m_bZslMode(false),
       m_bZslMode_new(false),
@@ -930,6 +931,7 @@ QCameraParameters::QCameraParameters()
       m_bSnapshotFlipChanged(false),
       m_bFixedFrameRateSet(false),
       m_bHDREnabled(false),
+      m_bLocalHDREnabled(false),
       m_bAVTimerEnabled(false),
       m_bDISEnabled(false),
       m_MobiMask(0),
@@ -1033,6 +1035,7 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_pParamBuf(NULL),
     m_pRelCamSyncHeap(NULL),
     m_pRelCamSyncBuf(NULL),
+    m_bFrameSyncEnabled(false),
     m_bZslMode(false),
     m_bZslMode_new(false),
     m_bForceZslMode(false),
@@ -1060,6 +1063,7 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bSnapshotFlipChanged(false),
     m_bFixedFrameRateSet(false),
     m_bHDREnabled(false),
+    m_bLocalHDREnabled(false),
     m_bAVTimerEnabled(false),
     m_AdjustFPS(NULL),
     m_bHDR1xFrameEnabled(false),
@@ -1325,12 +1329,12 @@ String8 QCameraParameters::createHfrSizesString(const cam_hfr_info_t *values, si
 
     if (len > 0) {
         snprintf(buffer, sizeof(buffer), "%dx%d",
-                 values[0].dim.width, values[0].dim.height);
+                 values[0].dim[0].width, values[0].dim[0].height);
         str.append(buffer);
     }
     for (size_t i = 1; i < len; i++) {
         snprintf(buffer, sizeof(buffer), ",%dx%d",
-                 values[i].dim.width, values[i].dim.height);
+                 values[i].dim[0].width, values[i].dim[0].height);
         str.append(buffer);
     }
     return str;
@@ -3566,6 +3570,17 @@ int32_t QCameraParameters::setSceneMode(const QCameraParameters& params)
     const char *prev_str = get(KEY_SCENE_MODE);
     LOGH("str - %s, prev_str - %s", str, prev_str);
 
+    // HDR & Recording are mutually exclusive and so disable HDR if recording hint is set
+    if (m_bRecordingHint_new && m_bHDREnabled) {
+        LOGH("Disable the HDR and set it to Auto");
+        str = SCENE_MODE_AUTO;
+        m_bLocalHDREnabled = true;
+    } else if (!m_bRecordingHint_new && m_bLocalHDREnabled) {
+        LOGH("Restore the HDR from Auto scene mode");
+        str = SCENE_MODE_HDR;
+        m_bLocalHDREnabled = false;
+    }
+
     if (str != NULL) {
         if (prev_str == NULL ||
             strcmp(str, prev_str) != 0) {
@@ -4740,7 +4755,7 @@ int32_t QCameraParameters::setZslAttributes(const QCameraParameters& params)
         memset(prop, 0, sizeof(prop));
         property_get("persist.camera.zsl.backlookcnt", prop, "2");
         uint32_t look_back_cnt = atoi(prop);
-        if (m_relCamSyncInfo.is_frame_sync_enabled) {
+        if (m_bFrameSyncEnabled) {
             look_back_cnt += EXTRA_FRAME_SYNC_BUFFERS;
         }
         set(KEY_QC_ZSL_BURST_LOOKBACK, look_back_cnt);
@@ -4754,7 +4769,7 @@ int32_t QCameraParameters::setZslAttributes(const QCameraParameters& params)
         memset(prop, 0, sizeof(prop));
         property_get("persist.camera.zsl.queuedepth", prop, "2");
         uint32_t queue_depth = atoi(prop);
-        if (m_relCamSyncInfo.is_frame_sync_enabled) {
+        if (m_bFrameSyncEnabled) {
             queue_depth += EXTRA_FRAME_SYNC_BUFFERS;
         }
         set(KEY_QC_ZSL_QUEUE_DEPTH, queue_depth);
@@ -4908,13 +4923,13 @@ int32_t QCameraParameters::setLongshotParam(const QCameraParameters& params)
     if (str != NULL) {
         if (prev_str == NULL || strcmp(str, prev_str) != 0) {
             set(KEY_QC_LONG_SHOT, str);
-            if (!strcmp(str, "off")) {
-                if (m_bLongshotEnabled == true) {
-                    // We restart here, to reset the FPS and no
-                    // of buffers as per the requirement of single snapshot usecase.
-                    m_bNeedRestart = true;
-                }
-                m_bLongshotEnabled = false;
+            if (prev_str && !strcmp(str, "off") && !strcmp(prev_str, "on")) {
+                // We restart here, to reset the FPS and no
+                // of buffers as per the requirement of single snapshot usecase.
+                // Here restart happens when continuous shot is changed to off from on.
+                // In case of continuous shot on, restart is taken care when actual
+                // longshot command is triggered through sendCommand.
+                m_bNeedRestart = true;
             }
         }
     }
@@ -5185,8 +5200,6 @@ int32_t QCameraParameters::initDefaultParameters()
         m_pCapability->auto_exposure_lock_supported? VALUE_TRUE : VALUE_FALSE);
     set(KEY_AUTO_WHITEBALANCE_LOCK_SUPPORTED,
         m_pCapability->auto_wb_lock_supported? VALUE_TRUE : VALUE_FALSE);
-    set(KEY_QC_SUPPORTED_CAMERA_FEATURES,
-            (int)m_pCapability->qcom_supported_feature_mask);
     set(KEY_MAX_NUM_DETECTED_FACES_HW, m_pCapability->max_num_roi);
     set(KEY_MAX_NUM_DETECTED_FACES_SW, m_pCapability->max_num_roi);
     set(KEY_QC_MAX_NUM_REQUESTED_FACES, m_pCapability->max_num_roi);
@@ -5419,7 +5432,7 @@ int32_t QCameraParameters::initDefaultParameters()
     m_pCapability->min_focus_pos[CAM_MANUAL_FOCUS_MODE_DIOPTER] = 0;
     if (m_pCapability->min_focus_distance > 0) {
         m_pCapability->max_focus_pos[CAM_MANUAL_FOCUS_MODE_DIOPTER] =
-                100.0f / m_pCapability->min_focus_distance;
+                m_pCapability->min_focus_distance;
     } else {
         m_pCapability->max_focus_pos[CAM_MANUAL_FOCUS_MODE_DIOPTER] = 0;
     }
@@ -5665,7 +5678,7 @@ int32_t QCameraParameters::initDefaultParameters()
             m_pCapability->hfr_tbl,
             m_pCapability->hfr_tbl_cnt);
     set(KEY_QC_SUPPORTED_HFR_SIZES, hfrSizeValues.string());
-    LOGD("HFR values %s HFR Sizes = %d", hfrValues.string(), hfrSizeValues.string());
+    LOGD("HFR values = %s HFR Sizes = %s", hfrValues.string(), hfrSizeValues.string());
     setHighFrameRate(CAM_HFR_MODE_OFF);
 
     // Set Focus algorithms
@@ -5996,7 +6009,7 @@ int32_t QCameraParameters::initDefaultParameters()
     }
 
     setOfflineRAW();
-    memset(mStreamPpMask, 0, sizeof(uint32_t)*CAM_STREAM_TYPE_MAX);
+    memset(mStreamPpMask, 0, sizeof(cam_feature_mask_t)*CAM_STREAM_TYPE_MAX);
     //Set video buffers as uncached by default
     set(KEY_QC_CACHE_VIDEO_BUFFERS, VALUE_DISABLE);
 
@@ -6128,7 +6141,8 @@ int32_t QCameraParameters::init(cam_capability_t *capabilities,
     rc = QCameraBufferMaps::makeSingletonBufMapList(
             CAM_MAPPING_BUF_TYPE_PARM_BUF, 0 /*stream id*/,
             0 /*buffer index*/, -1 /*plane index*/, 0 /*cookie*/,
-            m_pParamHeap->getFd(0), sizeof(parm_buffer_t), bufMapList);
+            m_pParamHeap->getFd(0), sizeof(parm_buffer_t), bufMapList,
+                    m_pParamHeap->getPtr(0));
 
     if (rc == NO_ERROR) {
         rc = m_pCamOpsTbl->ops->map_bufs(m_pCamOpsTbl->camera_handle,
@@ -6160,7 +6174,8 @@ int32_t QCameraParameters::init(cam_capability_t *capabilities,
         rc = m_pCamOpsTbl->ops->map_buf(m_pCamOpsTbl->camera_handle,
                 CAM_MAPPING_BUF_TYPE_SYNC_RELATED_SENSORS_BUF,
                 m_pRelCamSyncHeap->getFd(0),
-                sizeof(cam_sync_related_sensors_event_info_t));
+                sizeof(cam_sync_related_sensors_event_info_t),
+                (cam_sync_related_sensors_event_info_t*)DATA_PTR(m_pRelCamSyncHeap,0));
         if(rc < 0) {
             LOGE("failed to map Related cam sync buffer");
             rc = FAILED_TRANSACTION;
@@ -6169,9 +6184,8 @@ int32_t QCameraParameters::init(cam_capability_t *capabilities,
         m_pRelCamSyncBuf =
                 (cam_sync_related_sensors_event_info_t*) DATA_PTR(m_pRelCamSyncHeap,0);
     }
-
     initDefaultParameters();
-
+    mCommon.init(capabilities);
     m_bInited = true;
 
     goto TRANS_INIT_DONE;
@@ -6401,7 +6415,10 @@ int32_t QCameraParameters::setPreviewFpsRange(int min_fps,
                  min_fps, max_fps, vid_min_fps, vid_max_fps);
 
     if(fixedFpsValue != 0) {
-      min_fps = max_fps = vid_min_fps = vid_max_fps = (int)fixedFpsValue*1000;
+        min_fps = max_fps = fixedFpsValue*1000;
+        if (!isHfrMode()) {
+             vid_min_fps = vid_max_fps = fixedFpsValue*1000;
+        }
     }
     snprintf(str, sizeof(str), "%d,%d", min_fps, max_fps);
     LOGH("Setting preview fps range %s", str);
@@ -7201,7 +7218,7 @@ int32_t QCameraParameters::setLongshotEnable(bool enable)
         return rc;
     }
 
-    if (enable == true) m_bLongshotEnabled = enable;
+    m_bLongshotEnabled = enable;
 
     return rc;
 }
@@ -9935,13 +9952,28 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
         format = mAppPreviewFormat;
         break;
     case CAM_STREAM_TYPE_ANALYSIS:
-        if (m_pCapability->hw_analysis_supported &&
-                m_pCapability->analysis_recommended_format == CAM_FORMAT_Y_ONLY) {
-            format = m_pCapability->analysis_recommended_format;
+        cam_analysis_info_t analysisInfo;
+        cam_feature_mask_t featureMask;
+
+        featureMask = 0;
+        getStreamPpMask(CAM_STREAM_TYPE_ANALYSIS, featureMask);
+        ret = getAnalysisInfo(
+                ((getRecordingHintValue() == true) && fdModeInVideo()),
+                FALSE,
+                featureMask,
+                &analysisInfo);
+        if (ret != NO_ERROR) {
+            LOGE("getAnalysisInfo failed, ret = %d", ret);
+            return ret;
+        }
+
+        if (analysisInfo.hw_analysis_supported &&
+                analysisInfo.analysis_format == CAM_FORMAT_Y_ONLY) {
+            format = analysisInfo.analysis_format;
         } else {
-            if (m_pCapability->hw_analysis_supported) {
-                LOGW("Invalid analysis_recommended_format %d\n",
-                        m_pCapability->analysis_recommended_format);
+            if (analysisInfo.hw_analysis_supported) {
+                LOGW("Invalid analysis_format %d\n",
+                        analysisInfo.analysis_format);
             }
             format = mAppPreviewFormat;
         }
@@ -10138,15 +10170,23 @@ int32_t QCameraParameters::getStreamDimension(cam_stream_type_t streamType,
         /* Analysis stream need aspect ratio as preview stream */
         getPreviewSize(&prv_dim.width, &prv_dim.height);
 
-        max_dim.width = m_pCapability->analysis_max_res.width;
-        max_dim.height = m_pCapability->analysis_max_res.height;
+        cam_analysis_info_t analysisInfo;
+        cam_feature_mask_t featureMask;
 
-        if ((getRecordingHintValue() == true)
-                && fdModeInVideo()
-                && m_pCapability->hw_analysis_supported) {
-            max_dim.width /= 2;
-            max_dim.height /= 2;
+        featureMask = 0;
+        getStreamPpMask(CAM_STREAM_TYPE_ANALYSIS, featureMask);
+        ret = getAnalysisInfo(
+                ((getRecordingHintValue() == true) && fdModeInVideo()),
+                FALSE,
+                featureMask,
+                &analysisInfo);
+        if (ret != NO_ERROR) {
+            LOGE("getAnalysisInfo failed, ret = %d", ret);
+            return ret;
         }
+
+        max_dim.width = analysisInfo.analysis_max_res.width;
+        max_dim.height = analysisInfo.analysis_max_res.height;
 
         if (prv_dim.width > max_dim.width || prv_dim.height > max_dim.height) {
             double max_ratio, requested_ratio;
@@ -11789,6 +11829,38 @@ const cam_sync_related_sensors_event_info_t*
 }
 
 /*===========================================================================
+ * FUNCTION   : setFrameSyncEnabled
+ *
+ * DESCRIPTION: sets whether frame sync is enabled
+ *
+ * PARAMETERS :
+ *   @enable  : flag whether to enable or disable frame sync
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setFrameSyncEnabled(bool enable)
+{
+    m_bFrameSyncEnabled = enable;
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : isFrameSyncEnabled
+ *
+ * DESCRIPTION: returns whether frame sync is enabled
+ *
+ * PARAMETERS :none
+ *
+ * RETURN     : bool indicating whether frame sync is enabled
+ *==========================================================================*/
+bool QCameraParameters::isFrameSyncEnabled(void)
+{
+    return m_bFrameSyncEnabled;
+}
+
+/*===========================================================================
  * FUNCTION   : bundleRelatedCameras
  *
  * DESCRIPTION: send trigger for bundling related camera sessions in the server
@@ -11904,7 +11976,6 @@ int32_t QCameraParameters::getRelatedCamCalibration(
 int32_t QCameraParameters::initBatchUpdate(parm_buffer_t *p_table)
 {
     m_tempMap.clear();
-
     clear_metadata_buffer(p_table);
     return NO_ERROR;
 }
@@ -12640,12 +12711,9 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
     memset(&stream_config_info, 0, sizeof(stream_config_info));
     stream_config_info.num_streams = 0;
 
-    if (m_bStreamsConfigured) {
+    if (resetConfig) {
         LOGH("Reset stream config!!");
         rc = sendStreamConfigInfo(stream_config_info);
-        m_bStreamsConfigured = false;
-    }
-    if (resetConfig) {
         LOGH("Done Resetting stream config!!");
         return rc;
     }
@@ -12655,12 +12723,6 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
     stream_config_info.min_stride     = m_pCapability->min_stride;
     stream_config_info.min_scanline   = m_pCapability->min_scanline;
     stream_config_info.batch_size = getBufBatchCount();
-    LOGH("buf_alignment=%d stride X scan=%dx%d batch size = %d\n",
-            m_pCapability->buf_alignment,
-            m_pCapability->min_stride,
-            m_pCapability->min_scanline,
-            stream_config_info.batch_size);
-
 
     property_get("persist.camera.raw_yuv", value, "0");
     raw_yuv = atoi(value) > 0 ? true : false;
@@ -12873,7 +12935,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
         stream_config_info.num_streams++;
     }
     for (uint32_t k = 0; k < stream_config_info.num_streams; k++) {
-        LOGI("STREAM INFO : type %d, wxh: %d x %d, pp_mask: 0x%x Format = %d",
+        LOGI("STREAM INFO : type %d, wxh: %d x %d, pp_mask: 0x%llx Format = %d",
                 stream_config_info.type[k],
                 stream_config_info.stream_sizes[k].width,
                 stream_config_info.stream_sizes[k].height,
@@ -12882,8 +12944,6 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
     }
 
     rc = sendStreamConfigInfo(stream_config_info);
-    m_bStreamsConfigured = true;
-
     return rc;
 }
 
@@ -12964,7 +13024,7 @@ int32_t QCameraParameters::addOnlineRotation(uint32_t rotation, uint32_t streamI
  * RETURN     : true: needed
  *              false: no need
  *==========================================================================*/
-bool QCameraParameters::needThumbnailReprocess(uint32_t *pFeatureMask)
+bool QCameraParameters::needThumbnailReprocess(cam_feature_mask_t *pFeatureMask)
 {
     if (isUbiFocusEnabled() || isChromaFlashEnabled() ||
             isOptiZoomEnabled() || isUbiRefocus() ||
@@ -13273,7 +13333,7 @@ void QCameraParameters::setOfflineRAW(bool raw_value)
  *==========================================================================*/
 int32_t QCameraParameters::updatePpFeatureMask(cam_stream_type_t stream_type) {
 
-    uint32_t feature_mask = 0;
+    cam_feature_mask_t feature_mask = 0;
 
     if (stream_type >= CAM_STREAM_TYPE_MAX) {
         LOGE("Error!! stream type: %d not valid", stream_type);
@@ -13378,9 +13438,21 @@ int32_t QCameraParameters::updatePpFeatureMask(cam_stream_type_t stream_type) {
         }
     }
 
+    // Preview assisted autofocus needs to be supported for
+    // callback, preview, or video streams
+    switch (stream_type) {
+    case CAM_STREAM_TYPE_CALLBACK:
+    case CAM_STREAM_TYPE_PREVIEW:
+    case CAM_STREAM_TYPE_VIDEO:
+        feature_mask |= CAM_QCOM_FEATURE_PAAF;
+        break;
+    default:
+        break;
+    }
+
     // Store stream feature mask
     setStreamPpMask(stream_type, feature_mask);
-    LOGH("stream type: %d, pp_mask: 0x%x", stream_type, feature_mask);
+    LOGH("stream type: %d, pp_mask: 0x%llx", stream_type, feature_mask);
 
     return NO_ERROR;
 }
@@ -13398,7 +13470,7 @@ int32_t QCameraParameters::updatePpFeatureMask(cam_stream_type_t stream_type) {
  *              int32_t type of status
  *==========================================================================*/
 int32_t QCameraParameters::setStreamPpMask(cam_stream_type_t stream_type,
-        uint32_t pp_mask) {
+        cam_feature_mask_t pp_mask) {
 
     if(stream_type >= CAM_STREAM_TYPE_MAX) {
         return BAD_TYPE;
@@ -13421,7 +13493,7 @@ int32_t QCameraParameters::setStreamPpMask(cam_stream_type_t stream_type,
  *              int32_t type of status
  *==========================================================================*/
 int32_t QCameraParameters::getStreamPpMask(cam_stream_type_t stream_type,
-        uint32_t &pp_mask) {
+        cam_feature_mask_t &pp_mask) {
 
     if(stream_type >= CAM_STREAM_TYPE_MAX) {
         return BAD_TYPE;
@@ -14026,7 +14098,10 @@ uint8_t QCameraParameters::fdModeInVideo()
     char value[PROPERTY_VALUE_MAX];
     uint8_t fdvideo = 0;
 
-    if (!m_pCapability->hw_analysis_supported) {
+    cam_analysis_info_t *pAnalysisInfo =
+            &m_pCapability->analysis_info[CAM_ANALYSIS_INFO_FD_VIDEO];
+
+    if (!pAnalysisInfo->hw_analysis_supported) {
         return 0;
     }
 
@@ -14235,6 +14310,31 @@ int32_t QCameraParameters::setAdvancedCaptureMode()
         return BAD_VALUE;
     }
     return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : getAnalysisInfo
+ *
+ * DESCRIPTION: Get the Analysis information based on
+ *     current mode and feature mask
+ *
+ * PARAMETERS :
+ *   @fdVideoEnabled : Whether fdVideo enabled currently
+ *   @videoEnabled   : Whether hal3 or hal1
+ *   @featureMask    : Feature mask
+ *   @analysis_info  : Analysis info to be filled
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::getAnalysisInfo(
+        bool fdVideoEnabled,
+        bool hal3,
+        uint32_t featureMask,
+        cam_analysis_info_t *pAnalysisInfo)
+{
+    return mCommon.getAnalysisInfo(fdVideoEnabled, hal3, featureMask, pAnalysisInfo);
 }
 
 }; // namespace qcamera

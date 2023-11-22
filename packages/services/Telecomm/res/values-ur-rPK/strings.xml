@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"صوتی میل نمبر درج نہیں ہے"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"‏SIM کارڈ پر کوئی بھی صوتی میل نمبر اسٹور نہیں ہے۔"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"نمبر شامل کریں"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"ڈیفالٹ ڈائلر ایپ تبدیل کریں"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="CURRENT_APP">%2$s</xliff:g> کی بجائے <xliff:g id="NEW_APP">%1$s</xliff:g> کو بطور اپنی ڈیفالٹ ڈائلر ایپ استعمال کریں؟"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g> کو بطور اپنی ڈیفالٹ ڈائلر ایپ استعمال کریں؟"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g> کو اپنی ڈیفالٹ فون ایپ بنائیں؟"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"ڈیفالٹ سیٹ کریں"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"منسوخ کریں"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> کال کرنے اور اس کے باقی تمام پہلوؤں کو کنٹرول کر پائے گی۔ صرف ان ایپس کو بطور ڈیفالٹ فون ایپ سیٹ کرنا چاہئیے جن پر آپ کو اعتماد ہے۔"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"مسدود کردہ نمبرز"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"آپ مسدود کردہ نمبروں سے کالیں یا متنی پیغامات وصول نہیں کریں گے۔"</string>
     <string name="block_number" msgid="1101252256321306179">"ایک نمبر شامل کریں"</string>

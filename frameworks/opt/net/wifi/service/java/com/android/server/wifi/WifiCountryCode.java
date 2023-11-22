@@ -21,6 +21,9 @@ import android.util.Log;
 
 /**
  * Provide functions for making changes to WiFi country code.
+ * This Country Code is from MCC or phone default setting. This class sends Country Code
+ * to driver through wpa_supplicant when WifiStateMachine marks current state as ready
+ * using setReadyForChange(true).
  */
 public class WifiCountryCode {
     private static final String TAG = "WifiCountryCode";
@@ -149,10 +152,27 @@ public class WifiCountryCode {
     }
 
     /**
-     * @return Get the current country code, returns null if no country code is set.
+     * Method to get the Country Code that was sent to wpa_supplicant.
+     *
+     * @return Returns the local copy of the Country Code that was sent to the driver upon
+     * setReadyForChange(true).
+     * If wpa_supplicant was never started, this may be null even if a SIM reported a valid
+     * country code.
+     * Returns null if no Country Code was sent to driver.
      */
-    public synchronized String getCurrentCountryCode() {
+    public synchronized String getCountryCodeSentToDriver() {
         return mCurrentCountryCode;
+    }
+
+    /**
+     * Method to return the currently reported Country Code from the SIM or phone default setting.
+     *
+     * @return The currently reported Country Code from the SIM. If there is no Country Code
+     * reported from SIM, a phone default Country Code will be returned.
+     * Returns null when there is no Country Code available.
+     */
+    public synchronized String getCountryCode() {
+        return pickCountryCode();
     }
 
     private void updateCountryCode() {
@@ -163,7 +183,7 @@ public class WifiCountryCode {
         // 1. Wpa supplicant may silently modify the country code.
         // 2. If Wifi restarted therefoere wpa_supplicant also restarted,
         // the country code counld be reset to '00' by wpa_supplicant.
-        if (country.length() != 0) {
+        if (country != null) {
             setCountryCodeNative(country);
         }
         // We do not set country code if there is no candidate. This is reasonable
@@ -178,8 +198,8 @@ public class WifiCountryCode {
         if (mDefaultCountryCode != null) {
             return mDefaultCountryCode;
         }
-        // If there is no candidate country code we will return an empty string.
-        return "";
+        // If there is no candidate country code we will return null.
+        return null;
     }
 
     private boolean setCountryCodeNative(String country) {

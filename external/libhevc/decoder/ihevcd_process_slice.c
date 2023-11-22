@@ -189,6 +189,7 @@ void ihevcd_proc_map_check(process_ctxt_t *ps_proc, proc_type_t proc_type, WORD3
                 //NOP(128 * 16);
             }
         }
+        DATA_SYNC();
     }
 }
 
@@ -202,6 +203,7 @@ void ihevcd_proc_map_update(process_ctxt_t *ps_proc, proc_type_t proc_type, WORD
     /* Update the current CTBs processing status */
     if(ps_proc->i4_check_proc_status)
     {
+        DATA_SYNC();
         for(i = 0; i < nctb; i++)
         {
             sps_t *ps_sps = ps_proc->ps_sps;

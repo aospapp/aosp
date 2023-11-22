@@ -41,18 +41,17 @@ import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
+import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.widget.Toast;
-
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.TelephonyCapabilities;
+import com.android.phone.settings.VoicemailNotificationSettingsUtil;
 import com.android.phone.settings.VoicemailSettingsActivity;
 import com.android.phone.vvm.omtp.sync.VoicemailStatusQueryHelper;
-import com.android.phone.settings.VoicemailNotificationSettingsUtil;
-
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -125,6 +124,27 @@ public class NotificationMgr {
 
         mNotificationComponent = notificationComponent != null
                 ? ComponentName.unflattenFromString(notificationComponent) : null;
+
+        mSubscriptionManager.addOnSubscriptionsChangedListener(
+                new OnSubscriptionsChangedListener() {
+                    @Override
+                    public void onSubscriptionsChanged() {
+                        updateActivePhonesMwi();
+                    }
+                });
+    }
+
+    public void updateActivePhonesMwi() {
+        List<SubscriptionInfo> subInfos = mSubscriptionManager.getActiveSubscriptionInfoList();
+
+        if (subInfos == null) {
+            return;
+        }
+
+        for (int i = 0; i < subInfos.size(); i++) {
+            int subId = subInfos.get(i).getSubscriptionId();
+            refreshMwi(subId);
+        }
     }
 
     /**
@@ -209,8 +229,13 @@ public class NotificationMgr {
         if (visible && phone != null) {
             VoicemailStatusQueryHelper queryHelper = new VoicemailStatusQueryHelper(mContext);
             PhoneAccountHandle phoneAccount = PhoneUtils.makePstnPhoneAccountHandle(phone);
-            if (queryHelper.isNotificationsChannelActive(phoneAccount)) {
-                Log.v(LOG_TAG, "Notifications channel active for visual voicemail, hiding mwi.");
+            if (queryHelper.isVoicemailSourceConfigured(phoneAccount)) {
+                Log.v(LOG_TAG, "Source configured for visual voicemail, hiding mwi.");
+                // MWI may not be suppressed if the PIN is not set on VVM3 because it is also a
+                // "Not OK" configuration state. But VVM3 never send a MWI after the service is
+                // activated so this should be fine.
+                // TODO(twyen): once unbundled the client should be able to set a flag to suppress
+                // MWI, instead of letting the NotificationMgr try to interpret the states.
                 visible = false;
             }
         }
@@ -302,12 +327,12 @@ public class NotificationMgr {
             Uri ringtoneUri = null;
 
             if (enableNotificationSound) {
-                ringtoneUri = VoicemailNotificationSettingsUtil.getRingtoneUri(mPhone);
+                ringtoneUri = VoicemailNotificationSettingsUtil.getRingtoneUri(phone);
             }
 
             Resources res = mContext.getResources();
             PersistableBundle carrierConfig = PhoneGlobals.getInstance().getCarrierConfigForSubId(
-                    mPhone.getSubId());
+                    subId);
             Notification.Builder builder = new Notification.Builder(mContext);
             builder.setSmallIcon(resId)
                     .setWhen(System.currentTimeMillis())

@@ -99,6 +99,12 @@ public class Settings_SystemTest extends InstrumentationTestCase {
 
         // first query exist rows
         Cursor c = cr.query(System.CONTENT_URI, null, null, null, null);
+
+        // backup fontScale
+        Configuration cfg = new Configuration();
+        System.getConfiguration(cr, cfg);
+        float store = cfg.fontScale;
+
         try {
             assertNotNull(c);
             int origCount = c.getCount();
@@ -131,25 +137,20 @@ public class Settings_SystemTest extends InstrumentationTestCase {
             assertNotNull(c);
             assertEquals(origCount, c.getCount());
 
-            // backup fontScale
-            Configuration cfg = new Configuration();
-            System.getConfiguration(cr, cfg);
-            float store = cfg.fontScale;
-
             // update fontScale row
             cfg = new Configuration();
-            cfg.fontScale = 10.0f;
+            cfg.fontScale = 1.2f;
             assertTrue(System.putConfiguration(cr, cfg));
 
             System.getConfiguration(cr, cfg);
-            assertEquals(10.0f, cfg.fontScale);
+            assertEquals(1.2f, cfg.fontScale);
+        } finally {
+            // TODO should clean up more better
+            c.close();
 
             // restore the fontScale
             cfg.fontScale = store;
             assertTrue(System.putConfiguration(cr, cfg));
-        } finally {
-            // TODO should clean up more better
-            c.close();
         }
     }
 

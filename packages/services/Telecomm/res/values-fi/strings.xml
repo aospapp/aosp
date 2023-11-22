@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Puhelinvastaajan numero puuttuu"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM-kortille ei ole tallennettu puhelinvastaajan numeroa."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Lisää numero"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Vaihdetaanko oletuspuhelusovellus?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Asetetaanko oletuspuhelusovellukseksi <xliff:g id="NEW_APP">%1$s</xliff:g> sovelluksen <xliff:g id="CURRENT_APP">%2$s</xliff:g> sijaan?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Asetetaanko <xliff:g id="NEW_APP">%s</xliff:g> oletuspuhelusovellukseksi?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Valitaanko <xliff:g id="NEW_APP">%s</xliff:g> oletuspuhelinsovellukseksi?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Aseta oletukseksi"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Peruuta"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> voi hallita kaikkia puhelutoimintoja. Aseta oletuspuhelinsovellukseksi vain luotettava sovellus."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Estetyt numerot"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Et voi vastaanottaa puheluita tai tekstiviestejä estetyistä numeroista."</string>
     <string name="block_number" msgid="1101252256321306179">"Lisää numero"</string>

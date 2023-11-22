@@ -16,6 +16,7 @@
 
 package com.android.server.telecom;
 
+import android.app.AppOpsManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.net.Uri;
@@ -32,6 +33,7 @@ import android.telecom.DisconnectCause;
 import android.telecom.GatewayInfo;
 import android.telecom.ParcelableConference;
 import android.telecom.ParcelableConnection;
+import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
@@ -66,7 +68,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
         @Override
         public void handleCreateConnectionComplete(String callId, ConnectionRequest request,
                 ParcelableConnection connection) {
-            Log.startSession("CSW.hCCC");
+            Log.startSession(Log.Sessions.CSW_HANDLE_CREATE_CONNECTION_COMPLETE);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -82,7 +84,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
 
         @Override
         public void setActive(String callId) {
-            Log.startSession("CSW.sA");
+            Log.startSession(Log.Sessions.CSW_SET_ACTIVE);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -102,7 +104,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
 
         @Override
         public void setRinging(String callId) {
-            Log.startSession("CSW.sR");
+            Log.startSession(Log.Sessions.CSW_SET_RINGING);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -140,7 +142,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
 
         @Override
         public void setDialing(String callId) {
-            Log.startSession("CSW.sD");
+            Log.startSession(Log.Sessions.CSW_SET_DIALING);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -159,8 +161,26 @@ public class ConnectionServiceWrapper extends ServiceBinder {
         }
 
         @Override
+        public void setPulling(String callId) {
+            Log.startSession(Log.Sessions.CSW_SET_PULLING);
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    logIncoming("setPulling %s", callId);
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        mCallsManager.markCallAsPulling(call);
+                    }
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
+                Log.endSession();
+            }
+        }
+
+        @Override
         public void setDisconnected(String callId, DisconnectCause disconnectCause) {
-            Log.startSession("CSW.sD");
+            Log.startSession(Log.Sessions.CSW_SET_DISCONNECTED);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -181,7 +201,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
 
         @Override
         public void setOnHold(String callId) {
-            Log.startSession("CSW.sOH");
+            Log.startSession(Log.Sessions.CSW_SET_ON_HOLD);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -221,7 +241,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
 
         @Override
         public void removeCall(String callId) {
-            Log.startSession("CSW.rC");
+            Log.startSession(Log.Sessions.CSW_REMOVE_CALL);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -283,7 +303,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
 
         @Override
         public void setIsConferenced(String callId, String conferenceCallId) {
-            Log.startSession("CSW.sIC");
+            Log.startSession(Log.Sessions.CSW_SET_IS_CONFERENCED);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -319,15 +339,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
                     // deliver the message anyway that they want. b/20530631.
                     Call call = mCallIdMapper.getCall(callId);
                     if (call != null) {
-                        // Just refresh the connection capabilities so that the UI
-                        // is forced to reenable the merge button as the capability
-                        // is still on the connection. Note when b/20530631 is fixed, we need
-                        // to revisit this fix to remove this hacky way of unhiding the merge
-                        // button (side effect of reprocessing the capabilities) and plumb
-                        // the failure event all the way to InCallUI instead of stopping
-                        // it here. That way we can also handle the UI of notifying that
-                        // the merged has failed.
-                        call.setConnectionCapabilities(call.getConnectionCapabilities(), true);
+                        call.onConnectionEvent(Connection.EVENT_CALL_MERGE_FAILED, null);
                     } else {
                         Log.w(this, "setConferenceMergeFailed, unknown call id: %s", callId);
                     }
@@ -340,7 +352,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
 
         @Override
         public void addConferenceCall(String callId, ParcelableConference parcelableConference) {
-            Log.startSession("CSW.aCC");
+            Log.startSession(Log.Sessions.CSW_ADD_CONFERENCE_CALL);
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
@@ -609,14 +621,39 @@ public class ConnectionServiceWrapper extends ServiceBinder {
         @Override
         public void addExistingConnection(String callId, ParcelableConnection connection) {
             Log.startSession("CSW.aEC");
+            UserHandle userHandle = Binder.getCallingUserHandle();
+            // Check that the Calling Package matches PhoneAccountHandle's Component Package
+            PhoneAccountHandle callingPhoneAccountHandle = connection.getPhoneAccount();
+            if (callingPhoneAccountHandle != null) {
+                mAppOpsManager.checkPackage(Binder.getCallingUid(),
+                        callingPhoneAccountHandle.getComponentName().getPackageName());
+            }
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
-                    logIncoming("addExistingConnection  %s %s", callId, connection);
-                    Call existingCall = mCallsManager
-                            .createCallForExistingConnection(callId, connection);
-                    mCallIdMapper.addCall(existingCall, callId);
-                    existingCall.setConnectionService(ConnectionServiceWrapper.this);
+                    // Make sure that the PhoneAccount associated with the incoming
+                    // ParcelableConnection is in fact registered to Telecom and is being called
+                    // from the correct user.
+                    List<PhoneAccountHandle> accountHandles =
+                            mPhoneAccountRegistrar.getCallCapablePhoneAccounts(null /*uriScheme*/,
+                                    false /*includeDisabledAccounts*/, userHandle);
+                    PhoneAccountHandle phoneAccountHandle = null;
+                    for (PhoneAccountHandle accountHandle : accountHandles) {
+                        if(accountHandle.equals(callingPhoneAccountHandle)) {
+                            phoneAccountHandle = accountHandle;
+                        }
+                    }
+                    if (phoneAccountHandle != null) {
+                        logIncoming("addExistingConnection  %s %s", callId, connection);
+                        Call existingCall = mCallsManager
+                                .createCallForExistingConnection(callId, connection);
+                        mCallIdMapper.addCall(existingCall, callId);
+                        existingCall.setConnectionService(ConnectionServiceWrapper.this);
+                    } else {
+                        Log.e(this, new RemoteException("The PhoneAccount being used is not " +
+                                "currently registered with Telecom."), "Unable to " +
+                                "addExistingConnection.");
+                    }
                 }
             } finally {
                 Binder.restoreCallingIdentity(token);
@@ -644,7 +681,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
     }
 
     private final Adapter mAdapter = new Adapter();
-    private final CallIdMapper mCallIdMapper = new CallIdMapper();
+    private final CallIdMapper mCallIdMapper = new CallIdMapper(Call::getConnectionId);
     private final Map<String, CreateConnectionResponse> mPendingResponses = new HashMap<>();
 
     private Binder2 mBinder = new Binder2();
@@ -652,6 +689,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
     private final ConnectionServiceRepository mConnectionServiceRepository;
     private final PhoneAccountRegistrar mPhoneAccountRegistrar;
     private final CallsManager mCallsManager;
+    private final AppOpsManager mAppOpsManager;
 
     /**
      * Creates a connection service.
@@ -679,6 +717,7 @@ public class ConnectionServiceWrapper extends ServiceBinder {
         });
         mPhoneAccountRegistrar = phoneAccountRegistrar;
         mCallsManager = callsManager;
+        mAppOpsManager = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
     }
 
     /** See {@link IConnectionService#addConnectionServiceAdapter}. */
@@ -687,6 +726,17 @@ public class ConnectionServiceWrapper extends ServiceBinder {
             try {
                 logOutgoing("addConnectionServiceAdapter %s", adapter);
                 mServiceInterface.addConnectionServiceAdapter(adapter);
+            } catch (RemoteException e) {
+            }
+        }
+    }
+
+    /** See {@link IConnectionService#removeConnectionServiceAdapter}. */
+    private void removeConnectionServiceAdapter(IConnectionServiceAdapter adapter) {
+        if (isServiceValid("removeConnectionServiceAdapter")) {
+            try {
+                logOutgoing("removeConnectionServiceAdapter %s", adapter);
+                mServiceInterface.removeConnectionServiceAdapter(adapter);
             } catch (RemoteException e) {
             }
         }
@@ -1011,18 +1061,23 @@ public class ConnectionServiceWrapper extends ServiceBinder {
     /** {@inheritDoc} */
     @Override
     protected void setServiceInterface(IBinder binder) {
-        if (binder == null) {
-            // We have lost our service connection. Notify the world that this service is done.
-            // We must notify the adapter before CallsManager. The adapter will force any pending
-            // outgoing calls to try the next service. This needs to happen before CallsManager
-            // tries to clean up any calls still associated with this service.
-            handleConnectionServiceDeath();
-            mCallsManager.handleConnectionServiceDeath(this);
-            mServiceInterface = null;
-        } else {
-            mServiceInterface = IConnectionService.Stub.asInterface(binder);
-            addConnectionServiceAdapter(mAdapter);
-        }
+        mServiceInterface = IConnectionService.Stub.asInterface(binder);
+        Log.v(this, "Adding Connection Service Adapter.");
+        addConnectionServiceAdapter(mAdapter);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected void removeServiceInterface() {
+        Log.v(this, "Removing Connection Service Adapter.");
+        removeConnectionServiceAdapter(mAdapter);
+        // We have lost our service connection. Notify the world that this service is done.
+        // We must notify the adapter before CallsManager. The adapter will force any pending
+        // outgoing calls to try the next service. This needs to happen before CallsManager
+        // tries to clean up any calls still associated with this service.
+        handleConnectionServiceDeath();
+        mCallsManager.handleConnectionServiceDeath(this);
+        mServiceInterface = null;
     }
 
     private void handleCreateConnectionComplete(

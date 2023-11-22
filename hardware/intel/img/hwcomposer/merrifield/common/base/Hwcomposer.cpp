@@ -81,8 +81,9 @@ bool Hwcomposer::prepare(size_t numDisplays,
             VTRACE("device %d doesn't exist", i);
             continue;
         }
-		if (device->getType() != IDisplayDevice::DEVICE_PRIMARY)
-			continue;
+
+        if (device->getType() == IDisplayDevice::DEVICE_VIRTUAL)
+            continue;
 
         device->prePrepare(displays[i]);
     }
@@ -94,8 +95,8 @@ bool Hwcomposer::prepare(size_t numDisplays,
             continue;
         }
 
-		if (device->getType() != IDisplayDevice::DEVICE_PRIMARY)
-			continue;
+        if (device->getType() == IDisplayDevice::DEVICE_VIRTUAL)
+            continue;
 
         ret = device->prepare(displays[i]);
         if (ret == false) {
@@ -137,8 +138,8 @@ bool Hwcomposer::commit(size_t numDisplays,
             continue;
         }
 
-		if (device->getType() != IDisplayDevice::DEVICE_PRIMARY)
-			continue;
+        if (device->getType() == IDisplayDevice::DEVICE_VIRTUAL)
+            continue;
 
         ret = device->commit(displays[i], mDisplayContext);
         if (ret == false) {

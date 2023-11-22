@@ -28,6 +28,7 @@
 
 #include <base/files/file_util.h>
 #include <base/format_macros.h>
+#include <base/strings/string_number_conversions.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
 #include <brillo/data_encoding.h>
@@ -129,6 +130,35 @@ FileDescriptorPtr OpenFile(const char* path, int mode, int* err) {
   *err = 0;
   return fd;
 }
+
+// Discard the tail of the block device referenced by |fd|, from the offset
+// |data_size| until the end of the block device. Returns whether the data was
+// discarded.
+bool DiscardPartitionTail(FileDescriptorPtr fd, uint64_t data_size) {
+  uint64_t part_size = fd->BlockDevSize();
+  if (!part_size || part_size <= data_size)
+    return false;
+
+  const vector<int> requests = {
+      BLKSECDISCARD,
+      BLKDISCARD,
+#ifdef BLKZEROOUT
+      BLKZEROOUT,
+#endif
+  };
+  for (int request : requests) {
+    int error = 0;
+    if (fd->BlkIoctl(request, data_size, part_size - data_size, &error) &&
+        error == 0) {
+      return true;
+    }
+    LOG(WARNING) << "Error discarding the last "
+                 << (part_size - data_size) / 1024 << " KiB using ioctl("
+                 << request << ")";
+  }
+  return false;
+}
+
 }  // namespace
 
 
@@ -248,9 +278,15 @@ bool DeltaPerformer::HandleOpResult(bool op_result, const char* op_type_name,
   if (op_result)
     return true;
 
+  size_t partition_first_op_num =
+      current_partition_ ? acc_num_operations_[current_partition_ - 1] : 0;
   LOG(ERROR) << "Failed to perform " << op_type_name << " operation "
-             << next_operation_num_;
-  *error = ErrorCode::kDownloadOperationExecutionError;
+             << next_operation_num_ << ", which is the operation "
+             << next_operation_num_ - partition_first_op_num
+             << " in partition \""
+             << partitions_[current_partition_].partition_name() << "\"";
+  if (*error == ErrorCode::kSuccess)
+    *error = ErrorCode::kDownloadOperationExecutionError;
   return false;
 }
 
@@ -319,6 +355,15 @@ bool DeltaPerformer::OpenCurrentPartition() {
                << ", file " << target_path_;
     return false;
   }
+
+  LOG(INFO) << "Applying " << partition.operations().size()
+            << " operations to partition \"" << partition.partition_name()
+            << "\"";
+
+  // Discard the end of the partition, but ignore failures.
+  DiscardPartitionTail(
+      target_fd_, install_plan_->partitions[current_partition_].target_size);
+
   return true;
 }
 
@@ -676,10 +721,10 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode *error) {
         op_result = PerformBsdiffOperation(op);
         break;
       case InstallOperation::SOURCE_COPY:
-        op_result = PerformSourceCopyOperation(op);
+        op_result = PerformSourceCopyOperation(op, error);
         break;
       case InstallOperation::SOURCE_BSDIFF:
-        op_result = PerformSourceBsdiffOperation(op);
+        op_result = PerformSourceBsdiffOperation(op, error);
         break;
       default:
        op_result = false;
@@ -799,6 +844,7 @@ bool DeltaPerformer::ParseManifestPartitions(ErrorCode* error) {
           (partition.has_postinstall_path() ? partition.postinstall_path()
                                             : kPostinstallDefaultScript);
       install_part.filesystem_type = partition.filesystem_type();
+      install_part.postinstall_optional = partition.postinstall_optional();
     }
 
     if (partition.has_old_partition_info()) {
@@ -1004,16 +1050,34 @@ uint64_t GetBlockCount(const RepeatedPtrField<Extent>& extents) {
 }
 
 // Compare |calculated_hash| with source hash in |operation|, return false and
-// dump hash if don't match.
+// dump hash and set |error| if don't match.
 bool ValidateSourceHash(const brillo::Blob& calculated_hash,
-                        const InstallOperation& operation) {
+                        const InstallOperation& operation,
+                        ErrorCode* error) {
   brillo::Blob expected_source_hash(operation.src_sha256_hash().begin(),
                                     operation.src_sha256_hash().end());
   if (calculated_hash != expected_source_hash) {
-    LOG(ERROR) << "Hash verification failed. Expected hash = ";
-    utils::HexDumpVector(expected_source_hash);
-    LOG(ERROR) << "Calculated hash = ";
-    utils::HexDumpVector(calculated_hash);
+    LOG(ERROR) << "The hash of the source data on disk for this operation "
+               << "doesn't match the expected value. This could mean that the "
+               << "delta update payload was targeted for another version, or "
+               << "that the source partition was modified after it was "
+               << "installed, for example, by mounting a filesystem.";
+    LOG(ERROR) << "Expected:   sha256|hex = "
+               << base::HexEncode(expected_source_hash.data(),
+                                  expected_source_hash.size());
+    LOG(ERROR) << "Calculated: sha256|hex = "
+               << base::HexEncode(calculated_hash.data(),
+                                  calculated_hash.size());
+
+    vector<string> source_extents;
+    for (const Extent& ext : operation.src_extents()) {
+      source_extents.push_back(base::StringPrintf(
+          "%" PRIu64 ":%" PRIu64, ext.start_block(), ext.num_blocks()));
+    }
+    LOG(ERROR) << "Operation source (offset:size) in blocks: "
+               << base::JoinString(source_extents, ",");
+
+    *error = ErrorCode::kDownloadStateInitializationError;
     return false;
   }
   return true;
@@ -1022,7 +1086,7 @@ bool ValidateSourceHash(const brillo::Blob& calculated_hash,
 }  // namespace
 
 bool DeltaPerformer::PerformSourceCopyOperation(
-    const InstallOperation& operation) {
+    const InstallOperation& operation, ErrorCode* error) {
   if (operation.has_src_length())
     TEST_AND_RETURN_FALSE(operation.src_length() % block_size_ == 0);
   if (operation.has_dst_length())
@@ -1075,7 +1139,7 @@ bool DeltaPerformer::PerformSourceCopyOperation(
   if (operation.has_src_sha256_hash()) {
     TEST_AND_RETURN_FALSE(source_hasher.Finalize());
     TEST_AND_RETURN_FALSE(
-        ValidateSourceHash(source_hasher.raw_hash(), operation));
+        ValidateSourceHash(source_hasher.raw_hash(), operation, error));
   }
 
   DCHECK_EQ(bytes_read, static_cast<ssize_t>(blocks_to_read * block_size_));
@@ -1163,7 +1227,7 @@ bool DeltaPerformer::PerformBsdiffOperation(const InstallOperation& operation) {
 }
 
 bool DeltaPerformer::PerformSourceBsdiffOperation(
-    const InstallOperation& operation) {
+    const InstallOperation& operation, ErrorCode* error) {
   // Since we delete data off the beginning of the buffer as we use it,
   // the data we need should be exactly at the beginning of the buffer.
   TEST_AND_RETURN_FALSE(buffer_offset_ == operation.data_offset());
@@ -1193,7 +1257,7 @@ bool DeltaPerformer::PerformSourceBsdiffOperation(
     }
     TEST_AND_RETURN_FALSE(source_hasher.Finalize());
     TEST_AND_RETURN_FALSE(
-        ValidateSourceHash(source_hasher.raw_hash(), operation));
+        ValidateSourceHash(source_hasher.raw_hash(), operation, error));
   }
 
   string input_positions;

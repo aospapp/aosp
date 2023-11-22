@@ -64,7 +64,7 @@ static int moc_eigen_test(struct MagCal *moc)
 }
 
 //Kasa sphere fitting with normal equation
-static int moc_fit(struct MagCal *moc, struct Vec3 *bias, float *radius)
+int moc_fit(struct MagCal *moc, struct Vec3 *bias, float *radius)
 {
     //    A    *   out   =    b
     // (4 x 4)   (4 x 1)   (4 x 1)
@@ -109,7 +109,7 @@ static int moc_fit(struct MagCal *moc, struct Vec3 *bias, float *radius)
     return success;
 }
 
-static void moc_reset(struct MagCal *moc)
+void moc_reset(struct MagCal *moc)
 {
     moc->acc_x = moc->acc_y = moc->acc_z = moc->acc_w = 0.0f;
     moc->acc_xx = moc->acc_xy = moc->acc_xz = moc->acc_xw = 0.0f;
@@ -278,4 +278,3 @@ void magCalRemoveSoftiron(struct MagCal *moc, float xi, float yi, float zi,
     *yo = moc->c10 * xi + moc->c11 * yi + moc->c12 * zi;
     *zo = moc->c20 * xi + moc->c21 * yi + moc->c22 * zi;
 }
-

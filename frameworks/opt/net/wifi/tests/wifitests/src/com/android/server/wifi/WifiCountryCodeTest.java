@@ -71,7 +71,7 @@ public class WifiCountryCodeTest {
         // Wifi get L2 connected.
         mWifiCountryCode.setReadyForChange(false);
         verify(mWifiNative).setCountryCode(anyString());
-        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
     }
 
     /**
@@ -81,13 +81,13 @@ public class WifiCountryCodeTest {
     @Test
     public void useTelephonyCountryCode() throws Exception {
         mWifiCountryCode.setCountryCode(mTelephonyCountryCode, false);
-        assertEquals(null, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(null, mWifiCountryCode.getCountryCodeSentToDriver());
         // Supplicant started.
         mWifiCountryCode.setReadyForChange(true);
         // Wifi get L2 connected.
         mWifiCountryCode.setReadyForChange(false);
         verify(mWifiNative).setCountryCode(anyString());
-        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
     }
 
     /**
@@ -98,13 +98,13 @@ public class WifiCountryCodeTest {
     public void setTelephonyCountryCodeAfterSupplicantStarts() throws Exception {
         // Supplicant starts.
         mWifiCountryCode.setReadyForChange(true);
-        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
         // Telephony country code arrives.
         mWifiCountryCode.setCountryCode(mTelephonyCountryCode, false);
         // Wifi get L2 connected.
         mWifiCountryCode.setReadyForChange(false);
         verify(mWifiNative, times(2)).setCountryCode(anyString());
-        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
     }
 
     /**
@@ -120,11 +120,11 @@ public class WifiCountryCodeTest {
         // Telephony country code arrives.
         mWifiCountryCode.setCountryCode(mTelephonyCountryCode, false);
         // Telephony coutry code won't be applied at this time.
-        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
         mWifiCountryCode.setReadyForChange(true);
         // Telephony coutry is applied after supplicant is ready.
         verify(mWifiNative, times(2)).setCountryCode(anyString());
-        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
     }
 
     /**
@@ -138,15 +138,15 @@ public class WifiCountryCodeTest {
         mWifiCountryCode.setReadyForChange(true);
         // Wifi get L2 connected.
         mWifiCountryCode.setReadyForChange(false);
-        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
         // SIM card is removed.
         mWifiCountryCode.simCardRemoved();
         // Country code restting is not applied yet.
-        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
         mWifiCountryCode.setReadyForChange(true);
         // Country code restting is applied when supplicant is ready.
         verify(mWifiNative, times(2)).setCountryCode(anyString());
-        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
     }
 
     /**
@@ -160,15 +160,15 @@ public class WifiCountryCodeTest {
         mWifiCountryCode.setReadyForChange(true);
         // Wifi get L2 connected.
         mWifiCountryCode.setReadyForChange(false);
-        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
         // Airplane mode is enabled.
         mWifiCountryCode.simCardRemoved();
         // Country code restting is not applied yet.
-        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mTelephonyCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
         mWifiCountryCode.setReadyForChange(true);
         // Country code restting is applied when supplicant is ready.
         verify(mWifiNative, times(2)).setCountryCode(anyString());
-        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(mDefaultCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
     }
 
     /**
@@ -188,6 +188,6 @@ public class WifiCountryCodeTest {
         // Wifi get L2 connected.
         mWifiCountryCode.setReadyForChange(false);
         verify(mWifiNative).setCountryCode(anyString());
-        assertEquals(persistentCountryCode, mWifiCountryCode.getCurrentCountryCode());
+        assertEquals(persistentCountryCode, mWifiCountryCode.getCountryCodeSentToDriver());
     }
 }

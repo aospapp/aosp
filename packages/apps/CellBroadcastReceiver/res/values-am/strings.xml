@@ -48,7 +48,6 @@
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"የአደጋ ጊዜ ማንቂያ ቅንብሮች"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"ማሳወቂያዎች አሰነሳ"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"የአደጋ ጊዜ ማስጠንቀቂያ ስርጭቶችን አሳይ"</string>
-    <string name="alert_sound_duration_title" msgid="4712853569849108005">"የማንቂያ ድምፅ ቆይታ"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"የማንቂያ አስታዋሽ"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"የማስጠንቀቂያ መልዕክት ተናገር"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"የአደጋ ጊዜ ማስጠንቀቂያ መልዕክቶችን ለመናገር የፅሁፍ-ወደ- ንግግርን ተጠቀም"</string>
@@ -108,17 +107,11 @@
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"በአሁኑ ጊዜ የአስቸኳይ ጊዜ ማንቂያዎችን እየተቀበሉ ነዎት። የአስቸኳይ ጊዜ ማንቂያዎችን መቀበል መቀጠል ይፈልጋሉ?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"አዎ"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"የለም"</string>
-  <string-array name="alert_sound_duration_entries">
-    <item msgid="5353482200312892037">"2 ሰከንዶች"</item>
-    <item msgid="5656092384277009212">"4 ሰከንዶች"</item>
-    <item msgid="253564899252909788">"6 ሰከንዶች"</item>
-    <item msgid="7514102744524534421">"8 ሰከንዶች"</item>
-    <item msgid="6062562309271376642">"10 ሰከንዶች"</item>
-  </string-array>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"አንዴ"</item>
     <item msgid="9097229303902157183">"በየ2 ደቂቃዎች"</item>
-    <item msgid="5676933700148002666">"በየ15 ደቂቃዎች"</item>
-    <item msgid="694355015442188708">"ጠፍቷል"</item>
+    <item msgid="5718214950343391480">"በየ5 ደቂቃው"</item>
+    <item msgid="3863339891188103437">"በየ15 ደቂቃው"</item>
+    <item msgid="6868848414437854609">"ጠፍቷል"</item>
   </string-array>
 </resources>

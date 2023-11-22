@@ -29,13 +29,13 @@ public class VenueNameElement extends ANQPElement {
         int group = payload.get() & Constants.BYTE_MASK;
         int type = payload.get() & Constants.BYTE_MASK;
 
-        if (group >= VenueGroup.values().length) {
+        if (group >= VenueGroup.Reserved.ordinal()) {
             mGroup = VenueGroup.Reserved;
             mType = VenueType.Reserved;
         } else {
             mGroup = VenueGroup.values()[group];
             type += sGroupBases.get(mGroup);
-            if (type >= VenueType.values().length) {
+            if (type >= VenueType.Reserved.ordinal()) {
                 mType = VenueType.Reserved;
             } else {
                 mType = VenueType.values()[type];
@@ -82,7 +82,7 @@ public class VenueNameElement extends ANQPElement {
         UtilityMiscellaneous,
         Vehicular,
         Outdoor,
-        Reserved
+        Reserved  // Note: this must be the last enum constant
     }
 
     public enum VenueType {
@@ -164,7 +164,7 @@ public class VenueNameElement extends ANQPElement {
         BusStop,
         Kiosk,
 
-        Reserved
+        Reserved  // Note: this must be the last enum constant
     }
 
     private static final VenueType[] PerGroup =

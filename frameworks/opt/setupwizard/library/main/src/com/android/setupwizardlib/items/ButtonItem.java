@@ -114,6 +114,13 @@ public class ButtonItem extends AbstractItem implements View.OnClickListener {
         throw new UnsupportedOperationException("Cannot bind to ButtonItem's view");
     }
 
+    /**
+     * Create a button according to this button item.
+     *
+     * @param parent The parent of the button, used to retrieve the theme and context for this
+     *               button.
+     * @return A button that can be added to the parent.
+     */
     protected Button createButton(ViewGroup parent) {
         if (mButton == null) {
             Context context = parent.getContext();
@@ -122,6 +129,12 @@ public class ButtonItem extends AbstractItem implements View.OnClickListener {
             }
             mButton = new Button(context);
             mButton.setOnClickListener(this);
+        } else {
+            if (mButton.getParent() instanceof ViewGroup) {
+                // A view cannot be added to a different parent if one already exists. Remove this
+                // button from its parent before returning.
+                ((ViewGroup) mButton.getParent()).removeView(mButton);
+            }
         }
         mButton.setEnabled(mEnabled);
         mButton.setText(mText);

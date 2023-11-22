@@ -46,12 +46,11 @@
 #endif
 
 /*
- * This global will be found by the debugger and will have its value flipped.
- * It's independent of the Context class to allow the debugger to do the above
- * without knowing the type makeup. This allows the debugger to be attached at
- * an earlier stage.
+ * This is a pointer to the gDebuggerPresent global from libRS.so. The
+ * debugger will use this to signal that it is attached, and thus the
+ * driver can wait appropriately.
 */
-extern "C" int gDebuggerPresent;
+extern int *gInternalDebuggerPresent;
 
 // ---------------------------------------------------------------------------
 namespace android {

@@ -71,6 +71,16 @@ public class BluetoothAccessoryFragment extends LeanbackPreferenceFragment {
     private Preference mUnpairPref;
     private Preference mBatteryPref;
 
+    private final Handler mHandler = new Handler();
+    private Runnable mBailoutRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (isResumed() && !getFragmentManager().popBackStackImmediate()) {
+                getActivity().onBackPressed();
+            }
+        }
+    };
+
     // Broadcast Receiver for Bluetooth related events
     private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -167,6 +177,12 @@ public class BluetoothAccessoryFragment extends LeanbackPreferenceFragment {
     }
 
     @Override
+    public void onPause() {
+        super.onPause();
+        mHandler.removeCallbacks(mBailoutRunnable);
+    }
+
+    @Override
     public void onSaveInstanceState(@NonNull Bundle savedInstanceState) {
         super.onSaveInstanceState(savedInstanceState);
         savedInstanceState.putBoolean(SAVE_STATE_UNPAIRING, mUnpairing);
@@ -212,12 +228,12 @@ public class BluetoothAccessoryFragment extends LeanbackPreferenceFragment {
     }
 
     private void navigateBack() {
-        if (!getFragmentManager().popBackStackImmediate() && getActivity() != null) {
-            getActivity().onBackPressed();
-        }
+        // need to post this to avoid recursing in the fragment manager.
+        mHandler.removeCallbacks(mBailoutRunnable);
+        mHandler.post(mBailoutRunnable);
     }
 
-    void unpairDevice() {
+    private void unpairDevice() {
         if (mDevice != null) {
             int state = mDevice.getBondState();
 

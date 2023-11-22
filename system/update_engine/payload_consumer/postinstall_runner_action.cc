@@ -56,8 +56,8 @@ void PostinstallRunnerAction::PerformAction() {
   install_plan_ = GetInputObject();
 
   if (install_plan_.powerwash_required) {
-    if (utils::CreatePowerwashMarkerFile(powerwash_marker_file_)) {
-      powerwash_marker_created_ = true;
+    if (hardware_->SchedulePowerwash()) {
+      powerwash_scheduled_ = true;
     } else {
       return CompletePostinstall(ErrorCode::kPostinstallPowerwashError);
     }
@@ -301,7 +301,14 @@ void PostinstallRunnerAction::CompletePartitionPostinstall(
       // to get back to FW A.
       error_code = ErrorCode::kPostinstallFirmwareRONotUpdatable;
     }
-    return CompletePostinstall(error_code);
+
+    // If postinstall script for this partition is optional we can ignore the
+    // result.
+    if (install_plan_.partitions[current_partition_].postinstall_optional) {
+      LOG(INFO) << "Ignoring postinstall failure since it is optional";
+    } else {
+      return CompletePostinstall(error_code);
+    }
   }
   accumulated_weight_ += partition_weight_[current_partition_];
   current_partition_++;
@@ -324,9 +331,9 @@ void PostinstallRunnerAction::CompletePostinstall(ErrorCode error_code) {
   if (error_code != ErrorCode::kSuccess) {
     LOG(ERROR) << "Postinstall action failed.";
 
-    // Undo any changes done to trigger Powerwash using clobber-state.
-    if (powerwash_marker_created_)
-      utils::DeletePowerwashMarkerFile(powerwash_marker_file_);
+    // Undo any changes done to trigger Powerwash.
+    if (powerwash_scheduled_)
+      hardware_->CancelPowerwash();
 
     return;
   }

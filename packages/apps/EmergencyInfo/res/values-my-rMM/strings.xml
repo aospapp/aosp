@@ -80,7 +80,7 @@
     <string name="medical_conditions_hint" msgid="6959152183029062882">"ဥပမာ၊ ပန်းနာရင်ကျပ်ရောပါ"</string>
     <string name="organ_donor" msgid="5953509460007124827">"ကိုယ်လက်အင်္ဂါ အလှူရှင်"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"မသိ"</string>
-    <string name="yes" msgid="5829765567799916128">"ဟုတ်ပါသည်"</string>
+    <string name="yes" msgid="5829765567799916128">"Yes"</string>
     <string name="no" msgid="1681689233660683509">"No"</string>
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
@@ -95,9 +95,9 @@
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="user_emergency_info_title" msgid="7827058167207376581">"အရေးပေါ်အချက်အလက်"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"ဤနေရာတွင် သင်ထည့်သွင်းထားသည့် အချက်အလက်များသည် အရေးပေါ်အခြေအနေတွင် ပထမတုံ့ပြန်သူကို အကူအညီပေးနိုင်ပါမည်။ ၎င်းကို သင့်စက်ပစ္စည်းထဲတွင်သာ သိမ်းဆည်းထားခြင်းဖြစ်ပြီး၊ သင့်ဖုန်းကို လော့ခ်ဖွင့်စရာမလိုဘဲ မည်သူမဆို အရေးပေါ်ခလုတ်မှ ဖတ်နိုင်ပါသည်။"</string>
-    <string name="emergency_info_continue" msgid="5453201508537906087">"ရှေ့ဆက်ပါ"</string>
+    <string name="emergency_info_continue" msgid="5453201508537906087">"ဆက်လုပ်ရန်"</string>
     <string name="no_info_provided" msgid="6775035037534954056">"အရေးပေါ်အချက်အလက်များ ပေးမထားပါ"</string>
     <string name="clear_all" msgid="8899013032870561633">"အားလုံး ဖယ်ပါ"</string>
-    <string name="clear" msgid="3648880442502887163">"ဖယ်ရှားပါ"</string>
+    <string name="clear" msgid="3648880442502887163">"ရှင်းရန်"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"အချက်အလက်များနှင့် အဆက်အသွယ်များအားလုံးကို ဖယ်ရှားမလား။"</string>
 </resources>

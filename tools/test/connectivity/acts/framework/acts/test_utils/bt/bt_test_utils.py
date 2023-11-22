@@ -17,7 +17,7 @@
 import random
 import pprint
 import string
-import queue
+from queue import Empty
 import threading
 import time
 from acts import utils
@@ -60,55 +60,13 @@ bluetooth_on = "BluetoothStateChangedOn"
 rfcomm_secure_uuid = "fa87c0d0-afac-11de-8a39-0800200c9a66"
 rfcomm_insecure_uuid = "8ce255c0-200a-11e0-ac64-0800200c9a66"
 
-advertisements_to_devices = {
-    "Nexus 4": 0,
-    "Nexus 5": 0,
-    "Nexus 5X": 15,
-    "Nexus 7": 0,
-    "Nexus Player": 1,
-    "Nexus 6": 4,
-    "Nexus 6P": 4,
-    "AOSP on Shamu": 4,
-    "Nexus 9": 4,
-    "Sprout": 10,
-    "Micromax AQ4501": 10,
-    "4560MMX": 10,
-    "G Watch R": 1,
-    "Gear Live": 1,
-    "SmartWatch 3": 1,
-    "Zenwatch": 1,
-    "AOSP on Shamu": 4,
-    "MSM8992 for arm64": 9,
-    "LG Watch Urbane": 1,
-    "Pixel C": 4,
-    "angler": 4,
-    "bullhead": 15,
-}
+advertisements_to_devices = {}
 
-batch_scan_supported_list = {
-    "Nexus 4": False,
-    "Nexus 5": False,
-    "Nexus 7": False,
-    "Nexus Player": True,
-    "Nexus 6": True,
-    "Nexus 6P": True,
-    "Nexus 5X": True,
-    "AOSP on Shamu": True,
-    "Nexus 9": True,
-    "Sprout": True,
-    "Micromax AQ4501": True,
-    "4560MMX": True,
-    "Pixel C": True,
-    "G Watch R": True,
-    "Gear Live": True,
-    "SmartWatch 3": True,
-    "Zenwatch": True,
-    "AOSP on Shamu": True,
-    "MSM8992 for arm64": True,
-    "LG Watch Urbane": True,
-    "angler": True,
-    "bullhead": True,
-}
+batch_scan_not_supported_list = ["Nexus 4", "Nexus 5", "Nexus 7", ]
+
+
+class BtTestUtilsError(Exception):
+    pass
 
 
 def generate_ble_scan_objects(droid):
@@ -193,6 +151,24 @@ def setup_multiple_devices_for_bt_test(android_devices):
     return setup_result
 
 
+def bluetooth_enabled_check(ad):
+    if not ad.droid.bluetoothCheckState():
+        ad.droid.bluetoothToggleState(True)
+        expected_bluetooth_on_event_name = bluetooth_on
+        try:
+            ad.ed.pop_event(expected_bluetooth_on_event_name,
+                default_timeout)
+        except Empty:
+            log.info("Failed to toggle Bluetooth on (no broadcast received).")
+            # Try one more time to poke at the actual state.
+            if ad.droid.bluetoothCheckState():
+                log.info(".. actual state is ON")
+                return True
+            log.error(".. actual state is OFF")
+            return False
+    return True
+
+
 def reset_bluetooth(android_devices):
     """Resets bluetooth on the list of android devices passed into the function.
     :param android_devices: list of android devices
@@ -213,19 +189,54 @@ def reset_bluetooth(android_devices):
                 return False
         # temp sleep for b/17723234
         time.sleep(3)
-        droid.bluetoothToggleState(True)
-        expected_bluetooth_on_event_name = bluetooth_on
-        try:
-            ed.pop_event(expected_bluetooth_on_event_name, default_timeout)
-        except Exception:
-            log.info("Failed to toggle Bluetooth on (no broadcast received).")
-            # Try one more time to poke at the actual state.
-            if droid.bluetoothCheckState() is True:
-                log.info(".. actual state is ON")
-                return True
-            log.info(".. actual state is OFF")
+        if not bluetooth_enabled_check(a):
             return False
     return True
+
+
+def determine_max_advertisements(android_device):
+    log.info("Determining number of maximum concurrent advertisements...")
+    advertisement_count = 0
+    bt_enabled = False
+    if not android_device.droid.bluetoothCheckState():
+        android_device.droid.bluetoothToggleState(True)
+    try:
+        android_device.ed.pop_event(expected_bluetooth_on_event_name,
+                                    default_timeout)
+    except Exception:
+        log.info("Failed to toggle Bluetooth on (no broadcast received).")
+        # Try one more time to poke at the actual state.
+        if android_device.droid.bluetoothCheckState() is True:
+            log.info(".. actual state is ON")
+        else:
+            log.error(
+                "Failed to turn Bluetooth on. Setting default advertisements to 1")
+            advertisement_count = -1
+            return advertisement_count
+    advertise_callback_list = []
+    advertise_data = android_device.droid.bleBuildAdvertiseData()
+    advertise_settings = android_device.droid.bleBuildAdvertiseSettings()
+    while (True):
+        advertise_callback = android_device.droid.bleGenBleAdvertiseCallback()
+        advertise_callback_list.append(advertise_callback)
+
+        android_device.droid.bleStartBleAdvertising(
+            advertise_callback, advertise_data, advertise_settings)
+        try:
+            android_device.ed.pop_event(
+                adv_succ.format(advertise_callback), default_timeout)
+            log.info("Advertisement {} started.".format(advertisement_count +
+                                                        1))
+            advertisement_count += 1
+        except Exception as err:
+            log.info(
+                "Advertisement failed to start. Reached max advertisements at {}".format(
+                    advertisement_count))
+            break
+    with suppress(Exception):
+        for adv in advertise_callback_list:
+            android_device.droid.bleStopBleAdvertising(adv)
+    return advertisement_count
 
 
 def get_advanced_droid_list(android_devices):
@@ -237,8 +248,19 @@ def get_advanced_droid_list(android_devices):
         batch_scan_supported = True
         if model in advertisements_to_devices.keys():
             max_advertisements = advertisements_to_devices[model]
-        if model in batch_scan_supported_list.keys():
-            batch_scan_supported = batch_scan_supported_list[model]
+        else:
+            max_advertisements = determine_max_advertisements(a)
+            max_tries = 3
+            #Retry to calculate max advertisements
+            while max_advertisements == -1 and max_tries > 0:
+                log.info(
+                    "Attempts left to determine max advertisements: {}".format(
+                        max_tries))
+                max_advertisements = determine_max_advertisements(a)
+                max_tries -= 1
+            advertisements_to_devices[model] = max_advertisements
+        if model in batch_scan_not_supported_list:
+            batch_scan_supported = False
         role = {
             'droid': d,
             'ed': e,
@@ -292,8 +314,13 @@ def get_mac_address_of_generic_advertisement(scan_ad, adv_ad):
         generate_ble_advertise_objects(adv_ad.droid))
     adv_ad.droid.bleStartBleAdvertising(advertise_callback, advertise_data,
                                         advertise_settings)
-    adv_ad.ed.pop_event("BleAdvertise{}onSuccess".format(advertise_callback),
-                        default_timeout)
+    try:
+        adv_ad.ed.pop_event(
+            "BleAdvertise{}onSuccess".format(advertise_callback),
+            default_timeout)
+    except Empty as err:
+        raise BtTestUtilsError(
+            "Advertiser did not start successfully {}".format(err))
     filter_list = scan_ad.droid.bleGenFilterList()
     scan_settings = scan_ad.droid.bleBuildScanSetting()
     scan_callback = scan_ad.droid.bleGenScanCallback()
@@ -301,8 +328,12 @@ def get_mac_address_of_generic_advertisement(scan_ad, adv_ad):
         adv_ad.droid.bluetoothGetLocalName())
     scan_ad.droid.bleBuildScanFilter(filter_list)
     scan_ad.droid.bleStartBleScan(filter_list, scan_settings, scan_callback)
-    event = scan_ad.ed.pop_event(
-        "BleScan{}onScanResults".format(scan_callback), default_timeout)
+    try:
+        event = scan_ad.ed.pop_event(
+            "BleScan{}onScanResults".format(scan_callback), default_timeout)
+    except Empty as err:
+        raise BtTestUtilsError("Scanner did not find advertisement {}".format(
+            err))
     mac_address = event['data']['Result']['deviceInfo']['address']
     scan_ad.droid.bleStopBleScan(scan_callback)
     return mac_address, advertise_callback
@@ -424,6 +455,69 @@ def pair_pri_to_sec(pri_droid, sec_droid):
     return False
 
 
+def connect_pri_to_sec(log, pri_droid, sec_droid, profiles_set):
+    """Connects pri droid to secondary droid.
+
+    Args:
+        pri_droid: Droid initiating connection
+        sec_droid: Droid accepting connection
+        profiles_set: Set of profiles to be connected
+
+    Returns:
+        Pass if True
+        Fail if False
+    """
+    # Check if we support all profiles.
+    supported_profiles = [i.value for i in BluetoothProfile]
+    for profile in profiles_set:
+        if profile not in supported_profiles:
+            log.info("Profile {} is not supported list {}".format(
+                profile, supported_profiles))
+            return False
+
+    # First check that devices are bonded.
+    paired = False
+    for paired_device in pri_droid.droid.bluetoothGetBondedDevices():
+        if paired_device['address'] == \
+            sec_droid.bluetoothGetLocalAddress():
+            paired = True
+            break
+
+    if not paired:
+        log.info("{} not paired to {}".format(pri_droid.droid.getBuildSerial(),
+                                              sec_droid.getBuildSerial()))
+        return False
+
+    # Now try to connect them, the following call will try to initiate all
+    # connections.
+    pri_droid.droid.bluetoothConnectBonded(sec_droid.bluetoothGetLocalAddress(
+    ))
+
+    profile_connected = set()
+    log.info("Profiles to be connected {}".format(profiles_set))
+    while not profile_connected.issuperset(profiles_set):
+        try:
+            profile_event = pri_droid.ed.pop_event(
+                bluetooth_profile_connection_state_changed, default_timeout)
+            log.info("Got event {}".format(profile_event))
+        except Exception:
+            log.error("Did not get {} profiles left {}".format(
+                bluetooth_profile_connection_state_changed, profile_connected))
+            return False
+
+        profile = profile_event['data']['profile']
+        state = profile_event['data']['state']
+        device_addr = profile_event['data']['addr']
+
+        if state == BluetoothProfileState.STATE_CONNECTED.value and \
+            device_addr == sec_droid.bluetoothGetLocalAddress():
+            profile_connected.add(profile)
+        log.info("Profiles connected until now {}".format(profile_connected))
+    # Failure happens inside the while loop. If we came here then we already
+    # connected.
+    return True
+
+
 def take_btsnoop_logs(android_devices, testcase, testname):
     for a in android_devices:
         take_btsnoop_log(a, testcase, testname)
@@ -460,8 +554,7 @@ def kill_bluetooth_process(ad):
     log.info("Killing Bluetooth process.")
     pid = ad.adb.shell(
         "ps | grep com.android.bluetooth | awk '{print $2}'").decode('ascii')
-    call(["adb -s " + ad.serial + " shell kill " + pid],
-            shell=True)
+    call(["adb -s " + ad.serial + " shell kill " + pid], shell=True)
 
 
 def rfcomm_connect(ad, device_address):
@@ -483,7 +576,7 @@ def rfcomm_accept(ad):
     log.debug("Performing RFCOMM accept")
     try:
         ad.droid.bluetoothRfcommAccept(RfcommUuid.DEFAULT_UUID.value,
-            default_timeout)
+                                       default_timeout)
     except Exception as err:
         log.error("Failed to accept: {}".format(err))
         ad.droid.bluetoothRfcommCloseSocket()
@@ -506,7 +599,8 @@ def write_read_verify_data(client_ad, server_ad, msg, binary=False):
     log.info("Read message.")
     try:
         if binary:
-            read_msg = server_ad.droid.bluetoothRfcommReadBinary().rstrip("\r\n")
+            read_msg = server_ad.droid.bluetoothRfcommReadBinary().rstrip(
+                "\r\n")
         else:
             read_msg = server_ad.droid.bluetoothRfcommRead()
     except Exception as err:
@@ -514,7 +608,6 @@ def write_read_verify_data(client_ad, server_ad, msg, binary=False):
         return False
     log.info("Verify message.")
     if msg != read_msg:
-        log.error("Mismatch! Read: {}, Expected: {}".format(
-            read_msg, msg))
+        log.error("Mismatch! Read: {}, Expected: {}".format(read_msg, msg))
         return False
     return True

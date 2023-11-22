@@ -51,6 +51,7 @@ import android.os.Handler;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
+import android.util.Range;
 import android.view.Display;
 import android.view.Surface;
 import android.view.WindowManager;
@@ -1668,6 +1669,22 @@ public class CameraTestUtils extends Assert {
     }
 
     /**
+     * Get AeAvailableTargetFpsRanges and sort them in descending order by max fps
+     *
+     * @param staticInfo camera static metadata
+     * @return AeAvailableTargetFpsRanges in descending order by max fps
+     */
+    public static Range<Integer>[] getDescendingTargetFpsRanges(StaticMetadata staticInfo) {
+        Range<Integer>[] fpsRanges = staticInfo.getAeAvailableTargetFpsRangesChecked();
+        Arrays.sort(fpsRanges, new Comparator<Range<Integer>>() {
+            public int compare(Range<Integer> r1, Range<Integer> r2) {
+                return r2.getUpper() - r1.getUpper();
+            }
+        });
+        return fpsRanges;
+    }
+
+    /**
      * Calculate output 3A region from the intersection of input 3A region and cropped region.
      *
      * @param requestRegions The input 3A regions
@@ -2179,8 +2196,16 @@ public class CameraTestUtils extends Assert {
 
         // TAG_ISO
         int iso = exif.getAttributeInt(ExifInterface.TAG_ISO, /*defaultValue*/-1);
-        if (staticInfo.areKeysAvailable(CaptureResult.SENSOR_SENSITIVITY)) {
-            int expectedIso = result.get(CaptureResult.SENSOR_SENSITIVITY);
+        if (staticInfo.areKeysAvailable(CaptureResult.SENSOR_SENSITIVITY) ||
+                staticInfo.areKeysAvailable(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST)) {
+            int expectedIso = 100;
+            if (staticInfo.areKeysAvailable(CaptureResult.SENSOR_SENSITIVITY)) {
+                expectedIso = result.get(CaptureResult.SENSOR_SENSITIVITY);
+            }
+            if (staticInfo.areKeysAvailable(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST)) {
+                expectedIso = expectedIso *
+                        result.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST) / 100;
+            }
             collector.expectEquals("Exif TAG_ISO is incorrect", expectedIso, iso);
         }
 

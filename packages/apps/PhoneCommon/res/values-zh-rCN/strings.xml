@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"号码无效"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"语音信箱号码未知。"</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY 处于启用状态时无法进行视频通话。"</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"通话已转接至其他设备。"</string>
     <string name="ringtone_silent" msgid="249805466934178869">"无"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"未知铃声"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"您的通话数量已达上限。如要拨打电话，请在此设备或您的其他设备上中断其中一个通话。"</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

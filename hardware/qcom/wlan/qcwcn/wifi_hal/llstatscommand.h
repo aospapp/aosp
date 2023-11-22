@@ -47,7 +47,6 @@
 #define PRINTF_FORMAT(a,b)
 #define STRUCT_PACKED
 #endif
-#include "qca-vendor.h"
 
 #ifdef __cplusplus
 extern "C"

@@ -43,7 +43,6 @@ public class ReportLogUtil{
             // Delete earlier report logs if present on device.
             String command = String.format("adb -s %s shell rm -rf %s", device.getSerialNumber(),
                     SRC_DIR);
-            CLog.e(command);
             if (device.doesFileExist(SRC_DIR)) {
                 Process process = Runtime.getRuntime().exec(new String[]{"/bin/bash", "-c",
                         command});

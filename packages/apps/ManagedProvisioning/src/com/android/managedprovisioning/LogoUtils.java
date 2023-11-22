@@ -72,8 +72,7 @@ public class LogoUtils {
         // If the app that started ManagedProvisioning didn't specify a logo or we couldn't get a
         // logo from the uri they specified, use the default logo.
         if (bitmap == null) {
-            bitmap = BitmapFactory.decodeResource(context.getResources(),
-                    R.drawable.briefcase_icon);
+            bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_corp_icon);
         }
         return new BitmapDrawable(context.getResources(),
                 resizeBitmap(bitmap, maxWidth, maxHeight));

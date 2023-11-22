@@ -143,6 +143,7 @@ static INLINE UWORD32 CTZ(UWORD32 u4_word)
     }
 }
 
+#define DATA_SYNC()  __sync_synchronize()
 
 /**
 ******************************************************************************

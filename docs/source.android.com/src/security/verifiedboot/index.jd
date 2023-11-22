@@ -24,12 +24,10 @@ page.title=Verified Boot
   </div>
 </div>
 
-<h2 id="introduction">Introduction</h2>
-
 <p>Android 4.4 and later supports verified boot through the optional
 device-mapper-verity (dm-verity) kernel feature, which provides transparent
 integrity checking of block devices. dm-verity helps prevent persistent rootkits
-that can hold onto root privileges and compromise devices. This experimental
+that can hold onto root privileges and compromise devices. This
 feature helps Android users be sure when booting a device it is in the same
 state as when it was last used.</p>
 
@@ -43,7 +41,7 @@ layer of the file system, and determine if it matches its expected
 configuration. It does this using a cryptographic hash tree. For every block
 (typically 4k), there is a SHA256 hash.</p>
 
-<p>Since the hash values are stored in a tree of pages, only the top-level
+<p>Because the hash values are stored in a tree of pages, only the top-level
 "root" hash must be trusted to verify the rest of the tree. The ability to
 modify any of the blocks would be equivalent to breaking the cryptographic hash.
 See the following diagram for a depiction of this structure.</p>
@@ -61,7 +59,7 @@ and confirm the device's system partition is protected and unchanged.</p>
 
 <h3 id="verified-boot">Establishing a verified boot flow</h3>
 <p>To greatly reduce the risk of compromise, verify the kernel using a key
-burned into the device. For details, see <a href="verified-boot.html">Verified
+burned into the device. For details, see <a href="verified-boot.html">Verifying
 boot</a>.</p>
 
 <h3 id="block-otas">Switching to block-oriented OTAs</h3>

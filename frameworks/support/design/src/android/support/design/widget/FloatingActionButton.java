@@ -30,14 +30,15 @@ import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.support.design.R;
 import android.support.design.widget.FloatingActionButtonImpl.InternalVisibilityChangedListener;
 import android.support.v4.content.res.ConfigurationHelper;
 import android.support.v4.view.ViewCompat;
-import android.support.v7.widget.AppCompatDrawableManager;
 import android.support.v7.widget.AppCompatImageHelper;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
@@ -156,7 +157,7 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
                 R.styleable.FloatingActionButton, defStyleAttr,
                 R.style.Widget_Design_FloatingActionButton);
         mBackgroundTint = a.getColorStateList(R.styleable.FloatingActionButton_backgroundTint);
-        mBackgroundTintMode = parseTintMode(a.getInt(
+        mBackgroundTintMode = ViewUtils.parseTintMode(a.getInt(
                 R.styleable.FloatingActionButton_backgroundTintMode, -1), null);
         mRippleColor = a.getColor(R.styleable.FloatingActionButton_rippleColor, 0);
         mSize = a.getInt(R.styleable.FloatingActionButton_fabSize, SIZE_AUTO);
@@ -167,7 +168,7 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
         mCompatPadding = a.getBoolean(R.styleable.FloatingActionButton_useCompatPadding, false);
         a.recycle();
 
-        mImageHelper = new AppCompatImageHelper(this, AppCompatDrawableManager.get());
+        mImageHelper = new AppCompatImageHelper(this);
         mImageHelper.loadFromAttributes(attrs, defStyleAttr);
 
         mMaxImageSize = (int) getResources().getDimension(R.dimen.design_fab_image_size);
@@ -199,13 +200,25 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
     }
 
     /**
-     * Set the ripple color for this {@link FloatingActionButton}.
-     * <p>
-     * When running on devices with KitKat or below, we draw a fill rather than a ripple.
+     * Returns the ripple color for this button.
      *
-     * @param color ARGB color to use for the ripple.
+     * @return the ARGB color used for the ripple
+     * @see #setRippleColor(int)
+     */
+    @ColorInt
+    public int getRippleColor() {
+        return mRippleColor;
+    }
+
+    /**
+     * Sets the ripple color for this button.
      *
+     * <p>When running on devices with KitKat or below, we draw this color as a filled circle
+     * rather than a ripple.</p>
+     *
+     * @param color ARGB color to use for the ripple
      * @attr ref android.support.design.R.styleable#FloatingActionButton_rippleColor
+     * @see #getRippleColor()
      */
     public void setRippleColor(@ColorInt int color) {
         if (mRippleColor != color) {
@@ -215,7 +228,7 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
     }
 
     /**
-     * Return the tint applied to the background drawable, if specified.
+     * Returns the tint applied to the background drawable, if specified.
      *
      * @return the tint applied to the background drawable
      * @see #setBackgroundTintList(ColorStateList)
@@ -240,7 +253,7 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
     }
 
     /**
-     * Return the blending mode used to apply the tint to the background
+     * Returns the blending mode used to apply the tint to the background
      * drawable, if specified.
      *
      * @return the blending mode used to apply the tint to the background
@@ -510,23 +523,6 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
         return result;
     }
 
-    static PorterDuff.Mode parseTintMode(int value, PorterDuff.Mode defaultMode) {
-        switch (value) {
-            case 3:
-                return PorterDuff.Mode.SRC_OVER;
-            case 5:
-                return PorterDuff.Mode.SRC_IN;
-            case 9:
-                return PorterDuff.Mode.SRC_ATOP;
-            case 14:
-                return PorterDuff.Mode.MULTIPLY;
-            case 15:
-                return PorterDuff.Mode.SCREEN;
-            default:
-                return defaultMode;
-        }
-    }
-
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
         if(getContentRect(mTouchArea) && !mTouchArea.contains((int) ev.getX(), (int) ev.getY())) {
@@ -542,62 +538,108 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
      * not cover them.
      */
     public static class Behavior extends CoordinatorLayout.Behavior<FloatingActionButton> {
-        // We only support the FAB <> Snackbar shift movement on Honeycomb and above. This is
-        // because we can use view translation properties which greatly simplifies the code.
-        private static final boolean SNACKBAR_BEHAVIOR_ENABLED = Build.VERSION.SDK_INT >= 11;
+        private static final boolean AUTO_HIDE_DEFAULT = true;
 
-        private ValueAnimatorCompat mFabTranslationYAnimator;
-        private float mFabTranslationY;
         private Rect mTmpRect;
+        private OnVisibilityChangedListener mInternalAutoHideListener;
+        private boolean mAutoHideEnabled;
 
         public Behavior() {
             super();
+            mAutoHideEnabled = AUTO_HIDE_DEFAULT;
         }
 
         public Behavior(Context context, AttributeSet attrs) {
             super(context, attrs);
+            TypedArray a = context.obtainStyledAttributes(attrs,
+                    R.styleable.FloatingActionButton_Behavior_Layout);
+            mAutoHideEnabled = a.getBoolean(
+                    R.styleable.FloatingActionButton_Behavior_Layout_behavior_autoHide,
+                    AUTO_HIDE_DEFAULT);
+            a.recycle();
+        }
+
+        /**
+         * Sets whether the associated FloatingActionButton automatically hides when there is
+         * not enough space to be displayed. This works with {@link AppBarLayout}
+         * and {@link BottomSheetBehavior}.
+         *
+         * @attr ref android.support.design.R.styleable#FloatingActionButton_Behavior_Layout_behavior_autoHide
+         * @param autoHide true to enable automatic hiding
+         */
+        public void setAutoHideEnabled(boolean autoHide) {
+            mAutoHideEnabled = autoHide;
+        }
+
+        /**
+         * Returns whether the associated FloatingActionButton automatically hides when there is
+         * not enough space to be displayed.
+         *
+         * @attr ref android.support.design.R.styleable#FloatingActionButton_Behavior_Layout_behavior_autoHide
+         * @return true if enabled
+         */
+        public boolean isAutoHideEnabled() {
+            return mAutoHideEnabled;
         }
 
         @Override
-        public boolean layoutDependsOn(CoordinatorLayout parent,
-                FloatingActionButton child, View dependency) {
-            // We're dependent on all SnackbarLayouts (if enabled)
-            return SNACKBAR_BEHAVIOR_ENABLED && dependency instanceof Snackbar.SnackbarLayout;
+        public void onAttachedToLayoutParams(@NonNull CoordinatorLayout.LayoutParams lp) {
+            if (lp.dodgeInsetEdges == Gravity.NO_GRAVITY) {
+                // If the developer hasn't set dodgeInsetEdges, lets set it to BOTTOM so that
+                // we dodge any Snackbars
+                lp.dodgeInsetEdges = Gravity.BOTTOM;
+            }
         }
 
         @Override
         public boolean onDependentViewChanged(CoordinatorLayout parent, FloatingActionButton child,
                 View dependency) {
-            if (dependency instanceof Snackbar.SnackbarLayout) {
-                updateFabTranslationForSnackbar(parent, child, true);
-            } else if (dependency instanceof AppBarLayout) {
+            if (dependency instanceof AppBarLayout) {
                 // If we're depending on an AppBarLayout we will show/hide it automatically
                 // if the FAB is anchored to the AppBarLayout
-                updateFabVisibility(parent, (AppBarLayout) dependency, child);
+                updateFabVisibilityForAppBarLayout(parent, (AppBarLayout) dependency, child);
+            } else if (isBottomSheet(dependency)) {
+                updateFabVisibilityForBottomSheet(dependency, child);
             }
             return false;
         }
 
-        @Override
-        public void onDependentViewRemoved(CoordinatorLayout parent, FloatingActionButton child,
-                View dependency) {
-            if (dependency instanceof Snackbar.SnackbarLayout) {
-                updateFabTranslationForSnackbar(parent, child, true);
-            }
+        private static boolean isBottomSheet(View view) {
+            CoordinatorLayout.LayoutParams lp =
+                    (CoordinatorLayout.LayoutParams) view.getLayoutParams();
+            return lp != null && lp.getBehavior() instanceof BottomSheetBehavior;
         }
 
-        private boolean updateFabVisibility(CoordinatorLayout parent,
-                AppBarLayout appBarLayout, FloatingActionButton child) {
+        @VisibleForTesting
+        void setInternalAutoHideListener(OnVisibilityChangedListener listener) {
+            mInternalAutoHideListener = listener;
+        }
+
+        private boolean shouldUpdateVisibility(View dependency, FloatingActionButton child) {
             final CoordinatorLayout.LayoutParams lp =
                     (CoordinatorLayout.LayoutParams) child.getLayoutParams();
-            if (lp.getAnchorId() != appBarLayout.getId()) {
+            if (!mAutoHideEnabled) {
+                return false;
+            }
+
+            if (lp.getAnchorId() != dependency.getId()) {
                 // The anchor ID doesn't match the dependency, so we won't automatically
                 // show/hide the FAB
                 return false;
             }
 
+            //noinspection RedundantIfStatement
             if (child.getUserSetVisibility() != VISIBLE) {
                 // The view isn't set to be visible so skip changing its visibility
+                return false;
+            }
+
+            return true;
+        }
+
+        private boolean updateFabVisibilityForAppBarLayout(CoordinatorLayout parent,
+                AppBarLayout appBarLayout, FloatingActionButton child) {
+            if (!shouldUpdateVisibility(appBarLayout, child)) {
                 return false;
             }
 
@@ -611,69 +653,27 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
 
             if (rect.bottom <= appBarLayout.getMinimumHeightForVisibleOverlappingContent()) {
                 // If the anchor's bottom is below the seam, we'll animate our FAB out
-                child.hide(null, false);
+                child.hide(mInternalAutoHideListener, false);
             } else {
                 // Else, we'll animate our FAB back in
-                child.show(null, false);
+                child.show(mInternalAutoHideListener, false);
             }
             return true;
         }
 
-        private void updateFabTranslationForSnackbar(CoordinatorLayout parent,
-                final FloatingActionButton fab, boolean animationAllowed) {
-            final float targetTransY = getFabTranslationYForSnackbar(parent, fab);
-            if (mFabTranslationY == targetTransY) {
-                // We're already at (or currently animating to) the target value, return...
-                return;
+        private boolean updateFabVisibilityForBottomSheet(View bottomSheet,
+                FloatingActionButton child) {
+            if (!shouldUpdateVisibility(bottomSheet, child)) {
+                return false;
             }
-
-            final float currentTransY = ViewCompat.getTranslationY(fab);
-
-            // Make sure that any current animation is cancelled
-            if (mFabTranslationYAnimator != null && mFabTranslationYAnimator.isRunning()) {
-                mFabTranslationYAnimator.cancel();
-            }
-
-            if (animationAllowed && fab.isShown()
-                    && Math.abs(currentTransY - targetTransY) > (fab.getHeight() * 0.667f)) {
-                // If the FAB will be travelling by more than 2/3 of its height, let's animate
-                // it instead
-                if (mFabTranslationYAnimator == null) {
-                    mFabTranslationYAnimator = ViewUtils.createAnimator();
-                    mFabTranslationYAnimator.setInterpolator(
-                            AnimationUtils.FAST_OUT_SLOW_IN_INTERPOLATOR);
-                    mFabTranslationYAnimator.setUpdateListener(
-                            new ValueAnimatorCompat.AnimatorUpdateListener() {
-                                @Override
-                                public void onAnimationUpdate(ValueAnimatorCompat animator) {
-                                    ViewCompat.setTranslationY(fab,
-                                            animator.getAnimatedFloatValue());
-                                }
-                            });
-                }
-                mFabTranslationYAnimator.setFloatValues(currentTransY, targetTransY);
-                mFabTranslationYAnimator.start();
+            CoordinatorLayout.LayoutParams lp =
+                    (CoordinatorLayout.LayoutParams) child.getLayoutParams();
+            if (bottomSheet.getTop() < child.getHeight() / 2 + lp.topMargin) {
+                child.hide(mInternalAutoHideListener, false);
             } else {
-                // Now update the translation Y
-                ViewCompat.setTranslationY(fab, targetTransY);
+                child.show(mInternalAutoHideListener, false);
             }
-
-            mFabTranslationY = targetTransY;
-        }
-
-        private float getFabTranslationYForSnackbar(CoordinatorLayout parent,
-                FloatingActionButton fab) {
-            float minOffset = 0;
-            final List<View> dependencies = parent.getDependencies(fab);
-            for (int i = 0, z = dependencies.size(); i < z; i++) {
-                final View view = dependencies.get(i);
-                if (view instanceof Snackbar.SnackbarLayout && parent.doViewsOverlap(fab, view)) {
-                    minOffset = Math.min(minOffset,
-                            ViewCompat.getTranslationY(view) - view.getHeight());
-                }
-            }
-
-            return minOffset;
+            return true;
         }
 
         @Override
@@ -683,17 +683,34 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
             final List<View> dependencies = parent.getDependencies(child);
             for (int i = 0, count = dependencies.size(); i < count; i++) {
                 final View dependency = dependencies.get(i);
-                if (dependency instanceof AppBarLayout
-                        && updateFabVisibility(parent, (AppBarLayout) dependency, child)) {
-                    break;
+                if (dependency instanceof AppBarLayout) {
+                    if (updateFabVisibilityForAppBarLayout(
+                            parent, (AppBarLayout) dependency, child)) {
+                        break;
+                    }
+                } else if (isBottomSheet(dependency)) {
+                    if (updateFabVisibilityForBottomSheet(dependency, child)) {
+                        break;
+                    }
                 }
             }
             // Now let the CoordinatorLayout lay out the FAB
             parent.onLayoutChild(child, layoutDirection);
             // Now offset it if needed
             offsetIfNeeded(parent, child);
-            // Make sure we translate the FAB for any displayed Snackbars (without an animation)
-            updateFabTranslationForSnackbar(parent, child, false);
+            return true;
+        }
+
+        @Override
+        public boolean getInsetDodgeRect(@NonNull CoordinatorLayout parent,
+                @NonNull FloatingActionButton child, @NonNull Rect rect) {
+            // Since we offset so that any internal shadow padding isn't shown, we need to make
+            // sure that the shadow isn't used for any dodge inset calculations
+            final Rect shadowPadding = child.mShadowPadding;
+            rect.set(child.getLeft() + shadowPadding.left,
+                    child.getTop() + shadowPadding.top,
+                    child.getRight() - shadowPadding.right,
+                    child.getBottom() - shadowPadding.bottom);
             return true;
         }
 
@@ -712,13 +729,13 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
                 int offsetTB = 0, offsetLR = 0;
 
                 if (fab.getRight() >= parent.getWidth() - lp.rightMargin) {
-                    // If we're on the left edge, shift it the right
+                    // If we're on the right edge, shift it the right
                     offsetLR = padding.right;
                 } else if (fab.getLeft() <= lp.leftMargin) {
                     // If we're on the left edge, shift it the left
                     offsetLR = -padding.left;
                 }
-                if (fab.getBottom() >= parent.getBottom() - lp.bottomMargin) {
+                if (fab.getBottom() >= parent.getHeight() - lp.bottomMargin) {
                     // If we're on the bottom edge, shift it down
                     offsetTB = padding.bottom;
                 } else if (fab.getTop() <= lp.topMargin) {
@@ -726,8 +743,12 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
                     offsetTB = -padding.top;
                 }
 
-                fab.offsetTopAndBottom(offsetTB);
-                fab.offsetLeftAndRight(offsetLR);
+                if (offsetTB != 0) {
+                    ViewCompat.offsetTopAndBottom(fab, offsetTB);
+                }
+                if (offsetLR != 0) {
+                    ViewCompat.offsetLeftAndRight(fab, offsetLR);
+                }
             }
         }
     }
@@ -765,11 +786,14 @@ public class FloatingActionButton extends VisibilityAwareImageButton {
     private FloatingActionButtonImpl createImpl() {
         final int sdk = Build.VERSION.SDK_INT;
         if (sdk >= 21) {
-            return new FloatingActionButtonLollipop(this, new ShadowDelegateImpl());
+            return new FloatingActionButtonLollipop(this, new ShadowDelegateImpl(),
+                    ViewUtils.DEFAULT_ANIMATOR_CREATOR);
         } else if (sdk >= 14) {
-            return new FloatingActionButtonIcs(this, new ShadowDelegateImpl());
+            return new FloatingActionButtonIcs(this, new ShadowDelegateImpl(),
+                    ViewUtils.DEFAULT_ANIMATOR_CREATOR);
         } else {
-            return new FloatingActionButtonEclairMr1(this, new ShadowDelegateImpl());
+            return new FloatingActionButtonGingerbread(this, new ShadowDelegateImpl(),
+                    ViewUtils.DEFAULT_ANIMATOR_CREATOR);
         }
     }
 

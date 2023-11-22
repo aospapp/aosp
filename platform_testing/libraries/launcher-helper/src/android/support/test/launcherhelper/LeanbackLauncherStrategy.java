@@ -292,6 +292,13 @@ public class LeanbackLauncherStrategy implements ILeanbackLauncherStrategy {
 
     @SuppressWarnings("unused")
     @Override
+    public BySelector getAllAppsButtonSelector() {
+        throw new UnsupportedOperationException(
+                "The 'All Apps' button is not available on Leanback Launcher.");
+    }
+
+    @SuppressWarnings("unused")
+    @Override
     public UiObject2 openAllWidgets(boolean reset) {
         throw new UnsupportedOperationException(
                 "All Widgets is not available on Leanback Launcher.");

@@ -56,7 +56,7 @@ def main():
         print "Auto transform:", xform_a
 
         # Manual capture 1: WB
-        req = its.objects.manual_capture_request(sens, exp)
+        req = its.objects.manual_capture_request(sens, exp, focus)
         req["android.colorCorrection.transform"] = xform_rat
         req["android.colorCorrection.gains"] = gains
         cap_man1 = cam.do_capture(req)

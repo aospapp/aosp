@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Įkeliamas judantis darbalaukio fonas..."</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Pagrindinis ekranas"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Pagrindinis ekranas ir užrakinimo ekranas"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"Sutraukti ekrano fono informacijos skydelį"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"Išskleisti ekrano fono informacijos skydelį"</string>
 </resources>

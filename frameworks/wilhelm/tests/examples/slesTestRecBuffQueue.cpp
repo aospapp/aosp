@@ -43,6 +43,10 @@ uint32_t sampleRate = 48000;
 int channelCount = 1;
 bool useIndexChannelMask = false;
 size_t frameSize;
+uint32_t performanceMode = SL_ANDROID_PERFORMANCE_LATENCY;
+bool aec = false;
+bool agc = false;
+bool ns = false;
 
 /* Preset number to use for recording */
 SLuint32 presetValue = SL_ANDROID_RECORDING_PRESET_NONE;
@@ -208,15 +212,20 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
      */
     SLAndroidDataFormat_PCM_EX pcm;
 
-    SLboolean required[NUM_EXPLICIT_INTERFACES_FOR_RECORDER];
-    SLInterfaceID iidArray[NUM_EXPLICIT_INTERFACES_FOR_RECORDER];
+    int numInterfaces = NUM_EXPLICIT_INTERFACES_FOR_RECORDER;
+    if (aec) numInterfaces++;
+    if (agc) numInterfaces++;
+    if (ns) numInterfaces++;
+
+    SLboolean required[numInterfaces];
+    SLInterfaceID iidArray[numInterfaces];
 
     /* Get the SL Engine Interface which is implicit */
     result = (*sl)->GetInterface(sl, SL_IID_ENGINE, (void*)&EngineItf);
     ExitOnError(result);
 
     /* Initialize arrays required[] and iidArray[] */
-    for (int i=0 ; i < NUM_EXPLICIT_INTERFACES_FOR_RECORDER ; i++) {
+    for (int i=0 ; i < numInterfaces ; i++) {
         required[i] = SL_BOOLEAN_FALSE;
         iidArray[i] = SL_IID_NULL;
     }
@@ -226,10 +235,20 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     /* Configuration of the recorder  */
 
     /* Request the AndroidSimpleBufferQueue and AndroidConfiguration interfaces */
-    required[0] = SL_BOOLEAN_TRUE;
-    iidArray[0] = SL_IID_ANDROIDSIMPLEBUFFERQUEUE;
-    required[1] = SL_BOOLEAN_TRUE;
-    iidArray[1] = SL_IID_ANDROIDCONFIGURATION;
+    int index = 0;
+    required[index] = SL_BOOLEAN_TRUE;
+    iidArray[index++] = SL_IID_ANDROIDSIMPLEBUFFERQUEUE;
+    required[index] = SL_BOOLEAN_TRUE;
+    iidArray[index++] = SL_IID_ANDROIDCONFIGURATION;
+    if (aec) {
+        iidArray[index++] = SL_IID_ANDROIDACOUSTICECHOCANCELLATION;
+    }
+    if (agc) {
+        iidArray[index++] = SL_IID_ANDROIDAUTOMATICGAINCONTROL;
+    }
+    if (ns) {
+        iidArray[index++] = SL_IID_ANDROIDNOISESUPPRESSION;
+    }
 
     /* Setup the data source */
     ioDevice.locatorType = SL_DATALOCATOR_IODEVICE;
@@ -294,7 +313,7 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
 
     /* Create the audio recorder */
     result = (*EngineItf)->CreateAudioRecorder(EngineItf, &recorder, &recSource, &recDest,
-            NUM_EXPLICIT_INTERFACES_FOR_RECORDER, iidArray, required);
+                                               numInterfaces, iidArray, required);
     ExitOnError(result);
     printf("Recorder created\n");
 
@@ -310,6 +329,15 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
         printf("Recorder configured with preset %u\n", presetValue);
     } else {
         printf("Using default record preset\n");
+    }
+
+    if (performanceMode != SL_ANDROID_PERFORMANCE_LATENCY) {
+        result = (*configItf)->SetConfiguration(configItf, SL_ANDROID_KEY_PERFORMANCE_MODE,
+                &performanceMode, sizeof(SLuint32));
+        ExitOnError(result);
+        printf("Recorder configured with performance mode %u\n", performanceMode);
+    } else {
+        printf("Using default performance mode\n");
     }
 
     SLuint32 presetRetrieved = SL_ANDROID_RECORDING_PRESET_NONE;
@@ -330,6 +358,14 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     ExitOnError(result);
     printf("Recorder realized\n");
 
+    /* Check actual performance mode granted*/
+    SLuint32 modeRetrieved = SL_ANDROID_PERFORMANCE_NONE;
+    SLuint32 modeSize = sizeof(SLuint32);
+    result = (*configItf)->GetConfiguration(configItf, SL_ANDROID_KEY_PERFORMANCE_MODE,
+            &modeSize, (void*)&modeRetrieved);
+    ExitOnError(result);
+    printf("Actual performance mode is %u\n", modeRetrieved);
+
     /* Get the record interface which is implicit */
     result = (*recorder)->GetInterface(recorder, SL_IID_RECORD, (void*)&recordItf);
     ExitOnError(result);
@@ -345,6 +381,54 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     result = (*recordItf)->RegisterCallback(recordItf, RecCallback, NULL);
     ExitOnError(result);
     printf("Recorder callback registered\n");
+
+    /* Enable AEC if requested */
+    if (aec) {
+        SLAndroidAcousticEchoCancellationItf aecItf;
+        result = (*recorder)->GetInterface(
+                recorder, SL_IID_ANDROIDACOUSTICECHOCANCELLATION, (void*)&aecItf);
+        printf("AEC is %savailable\n", SL_RESULT_SUCCESS == result ? "" : "not ");
+        if (SL_RESULT_SUCCESS == result) {
+            result = (*aecItf)->SetEnabled(aecItf, true);
+            ExitOnError(result);
+            SLboolean enabled;
+            result = (*aecItf)->IsEnabled(aecItf, &enabled);
+            ExitOnError(result);
+            printf("AEC is %s\n", enabled ? "enabled" : "not enabled");
+        }
+    }
+
+    /* Enable AGC if requested */
+    if (agc) {
+        SLAndroidAutomaticGainControlItf agcItf;
+        result = (*recorder)->GetInterface(
+                recorder, SL_IID_ANDROIDAUTOMATICGAINCONTROL, (void*)&agcItf);
+        printf("AGC is %savailable\n", SL_RESULT_SUCCESS == result ? "" : "not ");
+        if (SL_RESULT_SUCCESS == result) {
+            result = (*agcItf)->SetEnabled(agcItf, true);
+            ExitOnError(result);
+            SLboolean enabled;
+            result = (*agcItf)->IsEnabled(agcItf, &enabled);
+            ExitOnError(result);
+            printf("AGC is %s\n", enabled ? "enabled" : "not enabled");
+        }
+    }
+
+    /* Enable NS if requested */
+    if (ns) {
+        SLAndroidNoiseSuppressionItf nsItf;
+        result = (*recorder)->GetInterface(
+                recorder, SL_IID_ANDROIDNOISESUPPRESSION, (void*)&nsItf);
+        printf("NS is %savailable\n", SL_RESULT_SUCCESS == result ? "" : "not ");
+        if (SL_RESULT_SUCCESS == result) {
+            result = (*nsItf)->SetEnabled(nsItf, true);
+            ExitOnError(result);
+            SLboolean enabled;
+            result = (*nsItf)->IsEnabled(nsItf, &enabled);
+            ExitOnError(result);
+            printf("NS is %s\n", enabled ? "enabled" : "not enabled");
+        }
+    }
 
     /* Get the buffer queue interface which was explicitly requested */
     result = (*recorder)->GetInterface(recorder, SL_IID_ANDROIDSIMPLEBUFFERQUEUE,
@@ -443,6 +527,20 @@ int main(int argc, char* const argv[])
         case '4':
             transferFormat = AUDIO_FORMAT_PCM_32_BIT;
             break;
+        case 'm':
+            performanceMode = atoi(&arg[2]);
+            break;
+        case 'x':
+            if (strstr(arg, "e") != NULL) {
+                aec = true;
+            }
+            if (strstr(arg, "a") != NULL) {
+                agc = true;
+            }
+            if (strstr(arg, "n") != NULL) {
+                ns = true;
+            }
+            break;
         default:
             fprintf(stderr, "%s: unknown option %s\n", prog, arg);
             break;
@@ -474,6 +572,21 @@ int main(int argc, char* const argv[])
         printf("  -r# sample rate in Hz, defaults to 48000\n");
         printf("  -[1/2/4/f] sample format: 8-bit unsigned, 16-bit signed, 32-bit signed, float, "
                 "defaults to 16-bit signed\n");
+        printf("  -m# is the performance mode value which defaults to"
+                " SL_ANDROID_PERFORMANCE_LATENCY\n");
+        printf("  possible values are:\n");
+        printf("    -m%d SL_ANDROID_PERFORMANCE_NONE\n",
+               SL_ANDROID_PERFORMANCE_NONE);
+        printf("    -m%d SL_ANDROID_PERFORMANCE_LATENCY\n",
+               SL_ANDROID_PERFORMANCE_LATENCY);
+        printf("    -m%d SL_ANDROID_PERFORMANCE_LATENCY_EFFECTS\n",
+               SL_ANDROID_PERFORMANCE_LATENCY_EFFECTS);
+        printf("    -m%d SL_ANDROID_PERFORMANCE_POWER_SAVING\n",
+               SL_ANDROID_PERFORMANCE_POWER_SAVING);
+        printf("  -x[e][a][n] for pre processing:\n"
+                " - e: Echo canceler\n"
+                " - a: Automatic Gain Control\n"
+                " - n: Noise Suppression\n");
         printf("Example: \"%s /sdcard/myrec.wav\" \n", prog);
         exit(EXIT_FAILURE);
     }

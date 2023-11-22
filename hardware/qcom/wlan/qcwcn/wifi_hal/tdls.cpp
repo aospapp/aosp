@@ -92,9 +92,6 @@ void TdlsCommand::setSubCmd(u32 subcmd)
 int TdlsCommand::handleEvent(WifiEvent &event)
 {
     ALOGV("Got a TDLS message from Driver");
-    unsigned i=0;
-    u32 status;
-    int ret = WIFI_SUCCESS;
     WifiVendorCommand::handleEvent(event);
 
     /* Parse the vendordata and get the attribute */
@@ -102,12 +99,10 @@ int TdlsCommand::handleEvent(WifiEvent &event)
     {
         case QCA_NL80211_VENDOR_SUBCMD_TDLS_STATE:
             {
-                wifi_request_id id;
                 struct nlattr *tb_vendor[QCA_WLAN_VENDOR_ATTR_TDLS_STATE_MAX
                     + 1];
                 mac_addr addr;
                 wifi_tdls_status status;
-                int rem;
 
                 memset(&addr, 0, sizeof(mac_addr));
                 memset(&status, 0, sizeof(wifi_tdls_status));
@@ -187,18 +182,14 @@ int TdlsCommand::handleEvent(WifiEvent &event)
 
 int TdlsCommand::handleResponse(WifiEvent &reply)
 {
-    u32 status;
-    int i = 0;
     WifiVendorCommand::handleResponse(reply);
 
     switch(mSubcmd)
     {
         case QCA_NL80211_VENDOR_SUBCMD_TDLS_GET_STATUS:
             {
-                wifi_request_id id;
                 struct nlattr *tb_vendor[
                     QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_MAX + 1];
-                int rem;
                 nla_parse(tb_vendor, QCA_WLAN_VENDOR_ATTR_TDLS_GET_STATUS_MAX,
                         (struct nlattr *)mVendorData,
                         mDataLen, NULL);

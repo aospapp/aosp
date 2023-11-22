@@ -240,6 +240,36 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
         mRemoteConnectionObject.unregisterCallback(callback);
     }
 
+    public void testRemoteConnectionCallbacks_ConnectionProperties() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        Handler handler = setupRemoteConnectionCallbacksTest();
+
+        final InvokeCounter callbackInvoker =
+                new InvokeCounter("testRemoteConnectionCallbacks_ConnectionCapabilities");
+        RemoteConnection.Callback callback;
+
+        callback = new RemoteConnection.Callback() {
+            @Override
+            public void onConnectionPropertiesChanged(
+                    RemoteConnection connection,
+                    int connectionProperties) {
+                super.onConnectionPropertiesChanged(connection, connectionProperties);
+                callbackInvoker.invoke(connection, connectionProperties);
+            }
+        };
+        mRemoteConnectionObject.registerCallback(callback, handler);
+        int properties = mRemoteConnection.getConnectionCapabilities()
+                | Connection.PROPERTY_IS_EXTERNAL_CALL;
+        mRemoteConnection.setConnectionProperties(properties);
+        callbackInvoker.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        assertEquals(mRemoteConnectionObject, callbackInvoker.getArgs(0)[0]);
+        assertEquals(properties, callbackInvoker.getArgs(0)[1]);
+        mRemoteConnectionObject.unregisterCallback(callback);
+    }
+
     public void testRemoteConnectionCallbacks_PostDialWait() {
         if (!mShouldTestTelecom) {
             return;
@@ -528,6 +558,40 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
         mRemoteConnectionObject.unregisterCallback(callback);
     }
 
+    /**
+     * Verifies that a {@link RemoteConnection} receives a
+     * {@link Connection#sendConnectionEvent(String, Bundle)} notification.
+     */
+    public void testRemoteConnectionCallbacks_ConnectionEvent() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        Handler handler = setupRemoteConnectionCallbacksTest();
+
+        final InvokeCounter callbackInvoker =
+                new InvokeCounter("testRemoteConnectionCallbacks_Extras");
+        RemoteConnection.Callback callback;
+
+        callback = new RemoteConnection.Callback() {
+            @Override
+            public void onConnectionEvent(RemoteConnection connection, String event,
+                    Bundle extras) {
+                super.onConnectionEvent(connection, event, extras);
+                callbackInvoker.invoke(connection, event, extras);
+            }
+        };
+        mRemoteConnectionObject.registerCallback(callback, handler);
+        Bundle extras = new Bundle();
+        extras.putString(TelecomManager.EXTRA_CALL_DISCONNECT_MESSAGE, "Test");
+        mRemoteConnection.sendConnectionEvent(Connection.EVENT_CALL_PULL_FAILED, extras);
+        callbackInvoker.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        assertEquals(mRemoteConnectionObject, callbackInvoker.getArgs(0)[0]);
+        assertEquals(Connection.EVENT_CALL_PULL_FAILED, callbackInvoker.getArgs(0)[1]);
+        assertTrue(areBundlesEqual(extras, (Bundle) callbackInvoker.getArgs(0)[2]));
+        mRemoteConnectionObject.unregisterCallback(callback);
+    }
+
     public void testRemoteConnectionCallbacks_Disconnect() {
         if (!mShouldTestTelecom) {
             return;
@@ -555,6 +619,23 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
         assertEquals(mRemoteConnectionObject, callbackInvoker.getArgs(0)[0]);
         assertEquals(cause, callbackInvoker.getArgs(0)[1]);
         mRemoteConnectionObject.unregisterCallback(callback);
+    }
+
+    /**
+     * Verifies that a call to {@link RemoteConnection#pullExternalCall()} is proxied to
+     * {@link Connection#onPullExternalCall()}.
+     */
+    public void testRemoteConnectionCallbacks_PullExternalCall() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        Handler handler = setupRemoteConnectionCallbacksTest();
+
+        InvokeCounter counter =
+                mRemoteConnection.getInvokeCounter(MockConnection.ON_PULL_EXTERNAL_CALL);
+        mRemoteConnectionObject.pullExternalCall();
+        counter.waitForCount(1);
     }
 
     public void testRemoteConnectionCallbacks_Destroy() {
@@ -1104,6 +1185,8 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
                 remoteConnection.getCallerDisplayNamePresentation());
         assertEquals(connection.getConnectionCapabilities(),
                 remoteConnection.getConnectionCapabilities());
+        assertEquals(connection.getConnectionProperties(),
+                remoteConnection.getConnectionProperties());
         assertEquals(connection.getDisconnectCause(), remoteConnection.getDisconnectCause());
         assertEquals(connection.getExtras(), remoteConnection.getExtras());
         assertEquals(connection.getStatusHints(), remoteConnection.getStatusHints());

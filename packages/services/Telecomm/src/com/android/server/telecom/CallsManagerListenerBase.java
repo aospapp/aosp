@@ -69,7 +69,7 @@ public class CallsManagerListenerBase implements CallsManager.CallsManagerListen
     }
 
     @Override
-    public void onVideoStateChanged(Call call) {
+    public void onVideoStateChanged(Call call, int previousVideoState, int newVideoState) {
     }
 
     @Override

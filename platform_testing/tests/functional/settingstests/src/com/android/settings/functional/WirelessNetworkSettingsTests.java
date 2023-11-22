@@ -192,7 +192,7 @@ public class WirelessNetworkSettingsTests extends InstrumentationTestCase {
         // Check that the SSID field is defaults to the hint.
         assertEquals("Enter the SSID", mDevice.wait(Until.findObject(By
                 .res(SETTINGS_PACKAGE, ADD_NETWORK_MENU_SSID_RES_ID)
-                .clazz(EDIT_TEXT_CLASS)), TIMEOUT)
+                .clazz(EDIT_TEXT_CLASS)), TIMEOUT*2)
                 .getText());
 
         // Check Security defaults to None.
@@ -657,10 +657,7 @@ public class WirelessNetworkSettingsTests extends InstrumentationTestCase {
                 continue;
             }
             // If we get here, we successfully clicked on the Add network button, so we are done.
-            // Adding a sleep and a back press to dismiss the IME, as a workaround for
-            // b/28862652
             Thread.sleep(SLEEP_TIME*5);
-            mDevice.pressBack();
             return;
         }
 

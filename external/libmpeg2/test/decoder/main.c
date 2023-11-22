@@ -2598,6 +2598,30 @@ int main(WORD32 argc, CHAR *argv[])
                s_ctl_get_frame_dimensions_op.u4_y_offset[0]);
 */
     }
+    /*************************************************************************/
+    /* Get Sequence Header/Seq Extn/Seq display extension info               */
+    /*************************************************************************/
+    {
+
+        impeg2d_ctl_get_seq_info_ip_t s_ctl_get_seq_info_ip;
+        impeg2d_ctl_get_seq_info_op_t s_ctl_get_seq_info_op;
+
+        s_ctl_get_seq_info_ip.e_cmd = IVD_CMD_VIDEO_CTL;
+        s_ctl_get_seq_info_ip.e_sub_cmd =
+                        (IVD_CONTROL_API_COMMAND_TYPE_T)IMPEG2D_CMD_CTL_GET_SEQ_INFO;
+        s_ctl_get_seq_info_ip.u4_size =
+                        sizeof(impeg2d_ctl_get_seq_info_ip_t);
+        s_ctl_get_seq_info_op.u4_size =
+                        sizeof(impeg2d_ctl_get_seq_info_op_t);
+
+        ret = ivd_api_function((iv_obj_t *)codec_obj, (void *)&s_ctl_get_seq_info_ip,
+                                   (void *)&s_ctl_get_seq_info_op);
+        if(IV_SUCCESS != ret)
+        {
+            sprintf(ac_error_str, "Error in Get Sequence Info");
+            codec_exit(ac_error_str);
+        }
+    }
 
 
     /*************************************************************************/

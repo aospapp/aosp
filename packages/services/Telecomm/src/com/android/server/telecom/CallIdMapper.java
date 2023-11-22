@@ -77,7 +77,16 @@ public class CallIdMapper {
         }
     }
 
+    public interface ICallInfo {
+        String getCallId(Call call);
+    }
+
     private final BiMap<String, Call> mCalls = new BiMap<>();
+    private ICallInfo mCallInfo;
+
+    public CallIdMapper(ICallInfo callInfo) {
+        mCallInfo = callInfo;
+    }
 
     void replaceCall(Call newCall, Call callToReplace) {
         // Use the old call's ID for the new call.
@@ -93,7 +102,7 @@ public class CallIdMapper {
     }
 
     void addCall(Call call) {
-        addCall(call, call.getId());
+        addCall(call, mCallInfo.getCallId(call));
     }
 
     void removeCall(Call call) {
@@ -111,7 +120,7 @@ public class CallIdMapper {
         if (call == null || mCalls.getKey(call) == null) {
             return null;
         }
-        return call.getId();
+        return mCallInfo.getCallId(call);
     }
 
     Call getCall(Object objId) {

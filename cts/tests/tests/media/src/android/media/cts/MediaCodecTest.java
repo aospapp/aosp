@@ -295,7 +295,7 @@ public class MediaCodecTest extends AndroidTestCase {
      * Tests:
      * <br> calling createInputSurface() before configure() throws exception
      * <br> calling createInputSurface() after start() throws exception
-     * <br> calling createInputSurface() with a non-Surface color format throws exception
+     * <br> calling createInputSurface() with a non-Surface color format is not required to throw exception
      */
     public void testCreateInputSurfaceErrors() {
         if (!supportsCodec(MIME_TYPE, true)) {
@@ -325,16 +325,7 @@ public class MediaCodecTest extends AndroidTestCase {
                 // good
             }
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-
-            try {
-                surface = encoder.createInputSurface();
-                fail("createInputSurface should require COLOR_FormatSurface");
-            } catch (IllegalStateException ise) {
-                // good
-            }
-
             encoder.start();
-
             try {
                 surface = encoder.createInputSurface();
                 fail("createInputSurface should not work post-start");

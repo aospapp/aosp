@@ -41,7 +41,7 @@ def main():
         # Use a manual request with a linear tonemap so that the YUV and JPEG
         # should look the same (once converted by the its.image module).
         e, s = its.target.get_target_exposure_combos(cam)["midExposureTime"]
-        req = its.objects.manual_capture_request(s, e, True, props)
+        req = its.objects.manual_capture_request(s, e, 0.0, True, props)
 
         cap_yuv, cap_jpeg = cam.do_capture(req, [fmt_yuv, fmt_jpeg])
 

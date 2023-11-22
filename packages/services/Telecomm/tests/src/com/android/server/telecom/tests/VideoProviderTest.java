@@ -43,6 +43,7 @@ import android.telecom.TelecomManager;
 import android.telecom.VideoCallImpl;
 import android.telecom.VideoProfile;
 import android.telecom.VideoProfile.CameraCapabilities;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.view.Surface;
 
 import com.google.common.base.Predicate;
@@ -124,6 +125,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * and {@link VideoCall.Callback#onCameraCapabilitiesChanged(CameraCapabilities)}
      * APIS.
      */
+    @MediumTest
     public void testCameraChange() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -157,6 +159,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoCall#setPreviewSurface(Surface)} and
      * {@link VideoProvider#onSetPreviewSurface(Surface)} APIs.
      */
+    @MediumTest
     public void testSetPreviewSurface() throws Exception {
         final Surface surface = new Surface(new SurfaceTexture(1));
         mVideoCall.setPreviewSurface(surface);
@@ -182,6 +185,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoCall#setDisplaySurface(Surface)} and
      * {@link VideoProvider#onSetDisplaySurface(Surface)} APIs.
      */
+    @MediumTest
     public void testSetDisplaySurface() throws Exception {
         final Surface surface = new Surface(new SurfaceTexture(1));
         mVideoCall.setDisplaySurface(surface);
@@ -207,6 +211,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoCall#setDeviceOrientation(int)} and
      * {@link VideoProvider#onSetDeviceOrientation(int)} APIs.
      */
+    @MediumTest
     public void testSetDeviceOrientation() throws Exception {
         mVideoCall.setDeviceOrientation(ORIENTATION_0);
 
@@ -230,6 +235,7 @@ public class VideoProviderTest extends TelecomSystemTest {
     /**
      * Tests the {@link VideoCall#setZoom(float)} and {@link VideoProvider#onSetZoom(float)} APIs.
      */
+    @MediumTest
     public void testSetZoom() throws Exception {
         mVideoCall.setZoom(ZOOM_LEVEL);
 
@@ -251,6 +257,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Emulates a scenario where an InCallService sends a request to upgrade to video, which the
      * peer accepts as-is.
      */
+    @MediumTest
     public void testSessionModifyRequest() throws Exception {
         VideoProfile requestProfile = new VideoProfile(VideoProfile.STATE_BIDIRECTIONAL);
 
@@ -288,6 +295,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoCall#sendSessionModifyResponse(VideoProfile)},
      * and {@link VideoProvider#onSendSessionModifyResponse(VideoProfile)} APIs.
      */
+    @MediumTest
     public void testSessionModifyResponse() throws Exception {
         VideoProfile sessionModifyResponse = new VideoProfile(VideoProfile.STATE_TX_ENABLED);
 
@@ -308,6 +316,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoProvider#onRequestCameraCapabilities()} ()}, and
      * {@link VideoCall.Callback#onCameraCapabilitiesChanged(CameraCapabilities)} APIs.
      */
+    @MediumTest
     public void testRequestCameraCapabilities() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -325,6 +334,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoCall#setPauseImage(Uri)}, and
      * {@link VideoProvider#onSetPauseImage(Uri)} APIs.
      */
+    @MediumTest
     public void testSetPauseImage() throws Exception {
         final Uri testUri = Uri.fromParts("file", "test.jpg", null);
         mVideoCall.setPauseImage(testUri);
@@ -343,6 +353,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * {@link VideoProvider#onRequestConnectionDataUsage()}, and
      * {@link VideoCall.Callback#onCallDataUsageChanged(long)} APIs.
      */
+    @MediumTest
     public void testRequestDataUsage() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -360,6 +371,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoProvider#receiveSessionModifyRequest(VideoProfile)},
      * {@link VideoCall.Callback#onSessionModifyRequestReceived(VideoProfile)} APIs.
      */
+    @MediumTest
     public void testReceiveSessionModifyRequest() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -382,6 +394,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoProvider#handleCallSessionEvent(int)}, and
      * {@link VideoCall.Callback#onCallSessionEvent(int)} APIs.
      */
+    @MediumTest
     public void testSessionEvent() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -400,6 +413,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoProvider#changePeerDimensions(int, int)} and
      * {@link VideoCall.Callback#onPeerDimensionsChanged(int, int)} APIs.
      */
+    @MediumTest
     public void testPeerDimensionChange() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)
@@ -419,6 +433,7 @@ public class VideoProviderTest extends TelecomSystemTest {
      * Tests the {@link VideoProvider#changeVideoQuality(int)} and
      * {@link VideoCall.Callback#onVideoQualityChanged(int)} APIs.
      */
+    @MediumTest
     public void testVideoQualityChange() throws Exception {
         // Wait until the callback has been received before performing verification.
         doAnswer(mVerification).when(mVideoCallCallback)

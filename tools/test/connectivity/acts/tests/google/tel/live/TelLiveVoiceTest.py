@@ -18,7 +18,6 @@
 """
 
 import time
-from acts.utils import load_config
 from acts.test_utils.tel.tel_subscription_utils import \
     get_subid_from_slot_index
 from acts.test_utils.tel.tel_subscription_utils import set_subid_for_data
@@ -43,6 +42,10 @@ from acts.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
 from acts.test_utils.tel.tel_defines import WFC_MODE_DISABLED
 from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_ONLY
 from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
+from acts.test_utils.tel.tel_subscription_utils import \
+    get_incoming_voice_sub_id
+from acts.test_utils.tel.tel_subscription_utils import \
+    get_outgoing_voice_sub_id
 from acts.test_utils.tel.tel_test_utils import call_setup_teardown
 from acts.test_utils.tel.tel_test_utils import \
     call_voicemail_erase_all_pending_voicemail
@@ -51,6 +54,7 @@ from acts.test_utils.tel.tel_test_utils import \
 from acts.test_utils.tel.tel_test_utils import ensure_wifi_connected
 from acts.test_utils.tel.tel_test_utils import get_phone_number
 from acts.test_utils.tel.tel_test_utils import hangup_call
+from acts.test_utils.tel.tel_test_utils import initiate_call
 from acts.test_utils.tel.tel_test_utils import is_droid_in_rat_family
 from acts.test_utils.tel.tel_test_utils import multithread_func
 from acts.test_utils.tel.tel_test_utils import num_active_calls
@@ -61,6 +65,7 @@ from acts.test_utils.tel.tel_test_utils import set_wfc_mode
 from acts.test_utils.tel.tel_test_utils import setup_sim
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import verify_incall_state
+from acts.test_utils.tel.tel_test_utils import wait_for_ringing_call
 from acts.test_utils.tel.tel_test_utils import wait_for_not_network_rat
 from acts.test_utils.tel.tel_test_utils import WifiUtils
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_1x
@@ -89,7 +94,8 @@ from acts.test_utils.tel.tel_voice_utils import two_phone_call_leave_voice_mail
 from acts.test_utils.tel.tel_voice_utils import two_phone_call_long_seq
 from acts.test_utils.tel.tel_voice_utils import two_phone_call_short_seq
 
-DEFAULT_LONG_DURATION_CALL_TOTAL_DURATION = 1 * 60 * 60 # default value 1 hour
+DEFAULT_LONG_DURATION_CALL_TOTAL_DURATION = 1 * 60 * 60  # default value 1 hour
+
 
 class TelLiveVoiceTest(TelephonyBaseTest):
     def __init__(self, controllers):
@@ -184,10 +190,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             # long duration voice call (to measure drop rate)
             "test_call_long_duration_volte",
             "test_call_long_duration_wfc",
-            "test_call_long_duration_3g"
-            )
+            "test_call_long_duration_3g")
 
-        self.simconf = load_config(self.user_params["sim_conf_file"])
         self.stress_test_number = int(self.user_params["stress_test_number"])
         self.wifi_network_ssid = self.user_params["wifi_network_ssid"]
 
@@ -224,8 +228,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
 
-        return two_phone_call_short_seq(
-            self.log, ads[0], None, None, ads[1], None, None)
+        return two_phone_call_short_seq(self.log, ads[0], None, None, ads[1],
+                                        None, None)
 
     @TelephonyBaseTest.tel_test_wrap
     def test_call_mt_voice_general(self):
@@ -247,8 +251,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
 
-        return two_phone_call_short_seq(
-            self.log, ads[1], None, None, ads[0], None, None)
+        return two_phone_call_short_seq(self.log, ads[1], None, None, ads[0],
+                                        None, None)
 
     @TelephonyBaseTest.tel_test_wrap
     def test_call_volte_to_volte(self):
@@ -531,8 +535,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         """
         ads = self.android_devices
 
-        tasks = [(phone_setup_volte, (self.log, ads[0])), (phone_setup_voice_3g,
-                                                           (self.log, ads[1]))]
+        tasks = [(phone_setup_volte, (self.log, ads[0])),
+                 (phone_setup_voice_3g, (self.log, ads[1]))]
         if not multithread_func(self.log, tasks):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
@@ -561,8 +565,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             self.log.error("PhoneB not cdma phone, can not 3g 1x. Stop test.")
             return False
 
-        tasks = [(phone_setup_volte, (self.log, ads[0])), (phone_setup_voice_3g,
-                                                           (self.log, ads[1]))]
+        tasks = [(phone_setup_volte, (self.log, ads[0])),
+                 (phone_setup_voice_3g, (self.log, ads[1]))]
         if not multithread_func(self.log, tasks):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
@@ -592,8 +596,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
                 "PhoneB not gsm phone, can not 3g wcdma. Stop test.")
             return False
 
-        tasks = [(phone_setup_volte, (self.log, ads[0])), (phone_setup_voice_3g,
-                                                           (self.log, ads[1]))]
+        tasks = [(phone_setup_volte, (self.log, ads[0])),
+                 (phone_setup_voice_3g, (self.log, ads[1]))]
         if not multithread_func(self.log, tasks):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
@@ -616,8 +620,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         """
         ads = self.android_devices
 
-        tasks = [(phone_setup_volte, (self.log, ads[0])), (phone_setup_voice_2g,
-                                                           (self.log, ads[1]))]
+        tasks = [(phone_setup_volte, (self.log, ads[0])),
+                 (phone_setup_voice_2g, (self.log, ads[1]))]
         if not multithread_func(self.log, tasks):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
@@ -708,8 +712,9 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             True if pass; False if fail.
         """
         ads = [self.android_devices[0], self.android_devices[1]]
-        tasks = [(phone_setup_iwlan_cellular_preferred, (
-            self.log, ads[0], self.wifi_network_ssid, self.wifi_network_pass)),
+        tasks = [(phone_setup_iwlan_cellular_preferred,
+                  (self.log, ads[0], self.wifi_network_ssid,
+                   self.wifi_network_pass)),
                  (phone_setup_iwlan_cellular_preferred,
                   (self.log, ads[1], self.wifi_network_ssid,
                    self.wifi_network_pass))]
@@ -1123,8 +1128,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         """
         ads = self.android_devices
 
-        tasks = [(phone_setup_voice_3g, (self.log, ads[0])), (phone_setup_voice_3g,
-                                                        (self.log, ads[1]))]
+        tasks = [(phone_setup_voice_3g, (self.log, ads[0])),
+                 (phone_setup_voice_3g, (self.log, ads[1]))]
         if not multithread_func(self.log, tasks):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
@@ -1326,8 +1331,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         """
         ads = self.android_devices
 
-        tasks = [(phone_setup_voice_3g, (self.log, ads[0])), (phone_setup_voice_3g,
-                                                        (self.log, ads[1]))]
+        tasks = [(phone_setup_voice_3g, (self.log, ads[0])),
+                 (phone_setup_voice_3g, (self.log, ads[1]))]
         if not multithread_func(self.log, tasks):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
@@ -1694,8 +1699,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
         MINIMUM_SUCCESS_RATE = .95
         ads = self.android_devices
 
-        tasks = [(phone_setup_voice_3g, (self.log, ads[0])), (phone_setup_voice_3g,
-                                                        (self.log, ads[1]))]
+        tasks = [(phone_setup_voice_3g, (self.log, ads[0])),
+                 (phone_setup_voice_3g, (self.log, ads[1]))]
         if not multithread_func(self.log, tasks):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
@@ -2773,14 +2778,16 @@ class TelLiveVoiceTest(TelephonyBaseTest):
 
         return True
 
-    def _test_call_long_duration(self, dut_incall_check_func,
-                                 total_duration):
+    def _test_call_long_duration(self, dut_incall_check_func, total_duration):
         ads = self.android_devices
-        self.log.info("Long Duration Call Test. Total duration = {}".
-            format(total_duration))
-        return call_setup_teardown(self.log, ads[0], ads[1], ads[0],
-            verify_caller_func=dut_incall_check_func,
-            wait_time_in_call=total_duration)
+        self.log.info("Long Duration Call Test. Total duration = {}".format(
+            total_duration))
+        return call_setup_teardown(self.log,
+                                   ads[0],
+                                   ads[1],
+                                   ads[0],
+                                   verify_caller_func=dut_incall_check_func,
+                                   wait_time_in_call=total_duration)
 
     @TelephonyBaseTest.tel_test_wrap
     def test_call_long_duration_volte(self):
@@ -2806,8 +2813,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
 
-        return self._test_call_long_duration(is_phone_in_call_volte,
-            self.long_duration_call_total_duration)
+        return self._test_call_long_duration(
+            is_phone_in_call_volte, self.long_duration_call_total_duration)
 
     @TelephonyBaseTest.tel_test_wrap
     def test_call_long_duration_wfc(self):
@@ -2835,8 +2842,8 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
 
-        return self._test_call_long_duration(is_phone_in_call_iwlan,
-            self.long_duration_call_total_duration)
+        return self._test_call_long_duration(
+            is_phone_in_call_iwlan, self.long_duration_call_total_duration)
 
     @TelephonyBaseTest.tel_test_wrap
     def test_call_long_duration_3g(self):
@@ -2862,6 +2869,81 @@ class TelLiveVoiceTest(TelephonyBaseTest):
             self.log.error("Phone Failed to Set Up Properly.")
             return False
 
-        return self._test_call_long_duration(is_phone_in_call_3g,
-            self.long_duration_call_total_duration)
+        return self._test_call_long_duration(
+            is_phone_in_call_3g, self.long_duration_call_total_duration)
+
+    def _test_call_hangup_while_ringing(self, ad_caller, ad_callee):
+        """ Call a phone and verify ringing, then hangup from the originator
+
+        1. Setup PhoneA and PhoneB to ensure voice service.
+        2. Call from PhoneA to PhoneB and wait for ringing.
+        3. End the call on PhoneA.
+
+        Returns:
+            True if pass; False if fail.
+        """
+
+        caller_number = ad_caller.cfg['subscription'][
+            get_outgoing_voice_sub_id(ad_caller)]['phone_num']
+        callee_number = ad_callee.cfg['subscription'][
+            get_incoming_voice_sub_id(ad_callee)]['phone_num']
+
+        tasks = [(phone_setup_voice_general, (self.log, ad_caller)),
+                 (phone_setup_voice_general, (self.log, ad_callee))]
+        if not multithread_func(self.log, tasks):
+            self.log.error("Phone Failed to Set Up Properly.")
+            return False
+
+        ad_caller.droid.telecomCallClearCallList()
+        if num_active_calls(self.log, ad_caller) != 0:
+            self.log.error("Phone {} has ongoing calls.".format(
+                ad_caller.serial))
+            return False
+
+        if not initiate_call(self.log, ad_caller, callee_number):
+            self.log.error("Phone was {} unable to initate a call".format(ads[
+                0].serial))
+            return False
+
+        if not wait_for_ringing_call(self.log, ad_callee, caller_number):
+            self.log.error("Phone {} never rang.".format(ad_callee.serial))
+            return False
+
+        if not hangup_call(self.log, ad_caller):
+            self.log.error("Unable to hang up the call")
+            return False
+
+        return True
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mo_hangup_while_ringing(self):
+        """ Call a phone and verify ringing, then hangup from the originator
+
+        1. Setup PhoneA and PhoneB to ensure voice service.
+        2. Call from PhoneA to PhoneB and wait for ringing.
+        3. End the call on PhoneA.
+
+        Returns:
+            True if pass; False if fail.
+        """
+
+        return self._test_call_hangup_while_ringing(self.android_devices[0],
+                                                    self.android_devices[1])
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_mt_hangup_while_ringing(self):
+        """ Call a phone and verify ringing, then hangup from the originator
+
+        1. Setup PhoneA and PhoneB to ensure voice service.
+        2. Call from PhoneB to PhoneA and wait for ringing.
+        3. End the call on PhoneB.
+
+        Returns:
+            True if pass; False if fail.
+        """
+
+        return self._test_call_hangup_while_ringing(self.android_devices[1],
+                                                    self.android_devices[0])
+
+
 """ Tests End """

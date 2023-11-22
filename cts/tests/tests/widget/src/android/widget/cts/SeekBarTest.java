@@ -65,7 +65,7 @@ public class SeekBarTest extends ActivityInstrumentationTestCase2<SeekBarCtsActi
         long downTime = SystemClock.uptimeMillis();
         long eventTime = SystemClock.uptimeMillis();
         int seekBarXY[] = new int[2];
-        mSeekBar.getLocationInWindow(seekBarXY);
+        mSeekBar.getLocationOnScreen(seekBarXY);
         MotionEvent event = MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_DOWN,
                 seekBarXY[0], seekBarXY[1], 0);
         mInstrumentation.sendPointerSync(event);

@@ -72,6 +72,7 @@ public class CallAudioManager extends CallsManagerListenerBase {
             put(CallState.CONNECTING, mActiveDialingOrConnectingCalls);
             put(CallState.ACTIVE, mActiveDialingOrConnectingCalls);
             put(CallState.DIALING, mActiveDialingOrConnectingCalls);
+            put(CallState.PULLING, mActiveDialingOrConnectingCalls);
             put(CallState.RINGING, mRingingCalls);
             put(CallState.ON_HOLD, mHoldingCalls);
         }};
@@ -177,12 +178,20 @@ public class CallAudioManager extends CallsManagerListenerBase {
      */
     @Override
     public void onExternalCallChanged(Call call, boolean isExternalCall) {
-       if (isExternalCall) {
+        if (isExternalCall) {
             Log.d(LOG_TAG, "Removing call which became external ID %s", call.getId());
             removeCall(call);
         } else if (!isExternalCall) {
             Log.d(LOG_TAG, "Adding external call which was pulled with ID %s", call.getId());
             addCall(call);
+
+            if (mCallsManager.isSpeakerphoneAutoEnabledForVideoCalls(call.getVideoState())) {
+                // When pulling a video call, automatically enable the speakerphone.
+                Log.d(LOG_TAG, "Switching to speaker because external video call %s was pulled." +
+                        call.getId());
+                mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
+                        CallAudioRouteStateMachine.SWITCH_SPEAKER);
+            }
         }
     }
 
@@ -312,6 +321,25 @@ public class CallAudioManager extends CallsManagerListenerBase {
             ConnectionServiceWrapper newCs) {
         mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
                 CallAudioRouteStateMachine.UPDATE_SYSTEM_AUDIO_ROUTE);
+    }
+
+    @Override
+    public void onVideoStateChanged(Call call, int previousVideoState, int newVideoState) {
+        if (call != getForegroundCall()) {
+            Log.d(LOG_TAG, "Ignoring video state change from %s to %s for call %s -- not " +
+                    "foreground.", VideoProfile.videoStateToString(previousVideoState),
+                    VideoProfile.videoStateToString(newVideoState), call.getId());
+            return;
+        }
+
+        if (!VideoProfile.isVideo(previousVideoState) &&
+                mCallsManager.isSpeakerphoneAutoEnabledForVideoCalls(newVideoState)) {
+            Log.d(LOG_TAG, "Switching to speaker because call %s transitioned video state from %s" +
+                    " to %s", call.getId(), VideoProfile.videoStateToString(previousVideoState),
+                    VideoProfile.videoStateToString(newVideoState));
+            mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
+                    CallAudioRouteStateMachine.SWITCH_SPEAKER);
+        }
     }
 
     public CallAudioState getCallAudioState() {
@@ -470,9 +498,13 @@ public class CallAudioManager extends CallsManagerListenerBase {
             case CallState.ON_HOLD:
                 onCallLeavingHold();
                 break;
+            case CallState.PULLING:
+                onCallLeavingActiveDialingOrConnecting();
+                break;
             case CallState.DIALING:
                 stopRingbackForCall(call);
                 onCallLeavingActiveDialingOrConnecting();
+                break;
         }
     }
 
@@ -487,6 +519,9 @@ public class CallAudioManager extends CallsManagerListenerBase {
                 break;
             case CallState.ON_HOLD:
                 onCallEnteringHold();
+                break;
+            case CallState.PULLING:
+                onCallEnteringActiveDialingOrConnecting();
                 break;
             case CallState.DIALING:
                 onCallEnteringActiveDialingOrConnecting();
@@ -643,7 +678,7 @@ public class CallAudioManager extends CallsManagerListenerBase {
         if (shouldPlayHoldTone()) {
             if (mHoldTonePlayer == null) {
                 mHoldTonePlayer = mPlayerFactory.createPlayer(InCallTonePlayer.TONE_CALL_WAITING);
-                mHoldTonePlayer.start();
+                mHoldTonePlayer.startTone();
             }
         } else {
             if (mHoldTonePlayer != null) {

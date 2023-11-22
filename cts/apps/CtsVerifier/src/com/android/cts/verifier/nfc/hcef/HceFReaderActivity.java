@@ -98,6 +98,9 @@ public class HceFReaderActivity extends PassFailButtons.Activity implements Read
 
         try {
             felica.connect();
+	    byte[] command =
+		    new byte[]{6, 0x00, (byte)0x40, (byte)0x01, 0x00, 0x00}; // in this case, SC of HCE-F is 4001h
+	    felica.transceive(command);
             for (int i = 0; i < 32; i++) {
                 byte[] payload = new byte[] {0x14, (byte)i};
                 byte[] echo_cmd = createEchoCommand(MyHostFelicaService.NFCID2, payload);

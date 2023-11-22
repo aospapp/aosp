@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"កំពុង​ផ្ទុក​ផ្ទាំង​រូបភាព​មាន​ចលនា..."</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"អេក្រង់ដើម"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"អេក្រង់ដើម និងអេក្រង់ជាប់សោ"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"បង្រួមផ្ទាំងព័ត៌មានផ្ទាំងរូបភាព"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"ពង្រីកផ្ទាំងព័ត៌មានផ្ទាំងរូបភាព"</string>
 </resources>

@@ -39,8 +39,8 @@
 * -------------------------------------------------------------------- */
 
 
-#include "arm_math.h"
-#include "arm_common_tables.h"
+#include <arm_math.h>
+#include <plat/inc/cmsis/arm_common_tables.h>
 
 /**    
  * @ingroup groupTransforms    

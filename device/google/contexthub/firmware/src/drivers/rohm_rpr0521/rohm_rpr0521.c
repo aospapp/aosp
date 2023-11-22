@@ -43,6 +43,8 @@
 #error "PROX_IRQ is not defined; please define in variant.h"
 #endif
 
+#define RPR0521_APP_VERSION 2
+
 #define I2C_BUS_ID                              0
 #define I2C_SPEED                               400000
 #define I2C_ADDR                                0x38
@@ -637,8 +639,6 @@ static void handle_i2c_event(int state)
 
 static bool init_app(uint32_t myTid)
 {
-    INFO_PRINT("task starting\n");
-
     /* Set up driver private data */
     mTask.tid = myTid;
     mTask.alsOn = false;
@@ -703,5 +703,4 @@ static void handle_event(uint32_t evtType, const void* evtData)
     }
 }
 
-INTERNAL_APP_INIT(APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 10), 1, init_app, end_app, handle_event);
-
+INTERNAL_APP_INIT(APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 10), RPR0521_APP_VERSION, init_app, end_app, handle_event);

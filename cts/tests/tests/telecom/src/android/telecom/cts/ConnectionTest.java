@@ -69,6 +69,10 @@ public class ConnectionTest extends AndroidTestCase {
         waitForStateChange(lock);
         assertEquals(Connection.STATE_HOLDING, connection.getState());
 
+        connection.setPulling();
+        waitForStateChange(lock);
+        assertEquals(Connection.STATE_PULLING_CALL, connection.getState());
+
         connection.setDisconnected(
                 new DisconnectCause(DisconnectCause.LOCAL, "Test call"));
         waitForStateChange(lock);
@@ -164,6 +168,22 @@ public class ConnectionTest extends AndroidTestCase {
         assertEquals(capabilities, connection.getConnectionCapabilities());
     }
 
+    public void testSetAndGetConnectionProperties() {
+        if (!shouldTestTelecom(getContext())) {
+            return;
+        }
+
+        final Semaphore lock = new Semaphore(0);
+        Connection connection = createConnection(lock);
+        waitForStateChange(lock);
+
+        final int properties = Connection.PROPERTY_IS_EXTERNAL_CALL;
+
+        connection.setConnectionProperties(properties);
+
+        assertEquals(properties, connection.getConnectionProperties());
+    }
+
     public void testSetAndGetDisconnectCause() {
         if (!shouldTestTelecom(getContext())) {
             return;
@@ -215,6 +235,109 @@ public class ConnectionTest extends AndroidTestCase {
         final Bundle retrieved = connection.getExtras();
         assertNotNull(retrieved);
         assertTrue(extras.getBoolean("test-extra-key"));
+    }
+
+    /**
+     * Basic local test of adding extra keys via {@link Connection#removeExtras(List)}.
+     *
+     * Extended end-to-end passing of extras is verified in
+     * {@link CallDetailsTest#testConnectionPutExtras()} and
+     * @link CallDetailsTest#testConnectionRemoveExtras()}.
+     */
+    public void testPutExtras() {
+        if (!shouldTestTelecom(getContext())) {
+            return;
+        }
+
+        final Semaphore lock = new Semaphore(0);
+        Connection connection = createConnection(lock);
+        waitForStateChange(lock);
+
+        assertEquals(null, connection.getExtras());
+
+        final Bundle extras = new Bundle();
+        extras.putBoolean("test-extra-key", true);
+        connection.putExtras(extras);
+
+        final Bundle retrieved = connection.getExtras();
+        assertNotNull(retrieved);
+        assertTrue(extras.getBoolean("test-extra-key"));
+    }
+
+    /**
+     * Basic local test of removing extra keys via {@link Connection#removeExtras(List)}.
+     *
+     * Extended end-to-end passing of extras is verified in
+     * {@link CallDetailsTest#testConnectionPutExtras()} and
+     * @link CallDetailsTest#testConnectionRemoveExtras()}.
+     */
+    public void testRemoveExtras() {
+        if (!shouldTestTelecom(getContext())) {
+            return;
+        }
+
+        final Semaphore lock = new Semaphore(0);
+        Connection connection = createConnection(lock);
+        waitForStateChange(lock);
+
+        assertEquals(null, connection.getExtras());
+
+        final Bundle extras = new Bundle();
+        extras.putBoolean("test-extra-key", true);
+        connection.putExtras(extras);
+        connection.removeExtras(Arrays.asList("test-extra-key"));
+
+        final Bundle retrieved = connection.getExtras();
+        assertNotNull(retrieved);
+        assertFalse(retrieved.containsKey("test-extra-key"));
+    }
+
+    /**
+     * Basic local test of removing extra keys via {@link Connection#removeExtras(String...)}.
+     *
+     * Extended end-to-end passing of extras is verified in
+     * {@link CallDetailsTest#testConnectionPutExtras()} and
+     * @link CallDetailsTest#testConnectionRemoveExtras()}.
+     */
+    public void testRemoveExtrasVariable() {
+        if (!shouldTestTelecom(getContext())) {
+            return;
+        }
+
+        final Semaphore lock = new Semaphore(0);
+        Connection connection = createConnection(lock);
+        waitForStateChange(lock);
+
+        assertEquals(null, connection.getExtras());
+
+        final Bundle extras = new Bundle();
+        extras.putBoolean("test-extra-key", true);
+        extras.putBoolean("test-extra-key2", true);
+        connection.putExtras(extras);
+        connection.removeExtras("test-extra-key", "test-extra-key2");
+
+        final Bundle retrieved = connection.getExtras();
+        assertNotNull(retrieved);
+        assertFalse(retrieved.containsKey("test-extra-key"));
+        assertFalse(retrieved.containsKey("test-extra-key2"));
+    }
+
+    /**
+     * Tests that the {@link Connection#sendConnectionEvent(String, Bundle)} method exists and can
+     * be called.
+     *
+     * Actual end-to-end tests can be found in {@link CallDetailsTest#testConnectionEvent()}.
+     */
+    public void testSendConnectionEvent() {
+        if (!shouldTestTelecom(getContext())) {
+            return;
+        }
+
+        final Semaphore lock = new Semaphore(0);
+        Connection connection = createConnection(lock);
+        waitForStateChange(lock);
+
+        connection.sendConnectionEvent("test", null);
     }
 
     public void testSetAndGetStatusHints() {
@@ -293,6 +416,18 @@ public class ConnectionTest extends AndroidTestCase {
                 Connection.capabilitiesToString(Connection.CAPABILITY_HOLD
                         | Connection.CAPABILITY_RESPOND_VIA_TEXT
                         | Connection.CAPABILITY_MANAGE_CONFERENCE));
+    }
+
+    /**
+     * Tests the {@link Connection#propertiesToString(int)} method.
+     */
+    public void testPropertiesToString() {
+        if (!shouldTestTelecom(getContext())) {
+            return;
+        }
+
+        assertEquals("[Properties: PROPERTY_IS_EXTERNAL_CALL]",
+                Connection.propertiesToString(Connection.PROPERTY_IS_EXTERNAL_CALL));
     }
 
     private static Connection createConnection(final Semaphore lock) {

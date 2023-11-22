@@ -26,29 +26,46 @@ page.title=OpenGL ES testing
 </div>
 
 
-<p>This page provides an overview of the GPU testing suite
-called deqp (drawElements Quality Program).</p>
+<p>AOSP includes the drawElements Quality Program (deqp) GPU testing suite at
+<a href="https://android.googlesource.com/platform/external/deqp">https://android.googlesource.com/platform/external/deqp</a>.
+</p>
 
-<p>You can access the code for deqp in AOSP at the following location: <a href="https://android.googlesource.com/platform/external/deqp">https://android.googlesource.com/platform/external/deqp</a></p>
-
-<p>To work with the latest submitted code, use the <code>deqp-dev</code> branch. If you want the code that matches the Android 5.0 CTS release, use the <code>lollipop-release</code> branch. </p>
+<p>To work with the latest submitted code, use the
+<code>deqp-dev</code> branch. For code that matches a specific Android CTS
+release, use the <code><em>release-code-name</em>-release</code> branch (e.g.
+for Android 6.0, use the <code>marshmallow-release</code> branch).</p>
 
 <h2 id=deploying_deqp>Deploying deqp</h2>
 
-<p>To deploy the deqp test suite to a new environment, please review the deqp information regarding the following: </p>
-   
+<p>To deploy the deqp test suite to a new environment, review all pages in this
+section:</p>
 <ul>
-  <li>Building test programs
-  <li>Porting the test framework (optional, depending on the target platform)
-  <li>Running the tests 
-  <li>Automating the tests 
-  <li>Using special test groups 
-  <li>Integrating with Android CTS
+<li><a href="{@docRoot}devices/graphics/build-tests.html">Building test
+programs</a>. Discusses build systems such as CMake, targets, and various builds
+(Win32, Android, Linux).</li>
+<li><a href="{@docRoot}devices/graphics/port-tests.html">Porting the test
+framework</a>. Describes adapting base portability libraries, implementing
+test-framework platform-integration interfaces, and porting the
+execution service. Porting is optional (depending on the target platform).</li>
+<li><a href="{@docRoot}devices/graphics/run-tests.html">Running the tests</a>.
+Provides instructions for running deqp tests in Linux and Windows environments,
+command line arguments, and the Android package.</li>
+<li><a href="{@docRoot}devices/graphics/automate-tests.html">Automating the
+tests</a>. Covers test automation options, command line tools, CSV and XML
+exporting, and conversion to JUnit.</li>
+<li><a href="{@docRoot}devices/graphics/test-groups.html">Using special test
+groups</a>. Provides advice for running memory allocation and long-running
+stress tests.</li>
+<li><a href="{@docRoot}devices/graphics/cts-integration.html">Integrating with
+Android CTS</a>. Describes the <code>mustpass</code> list of tests, duplicating
+runs, and mapping CTS results.</li>
 </ul>
 
 <h2 id=source_layout>Source layout</h2>
 
-<p>The source code layout for the deqp test modules and supporting libraries is shown in the table below. The listing is not complete but highlights the most important directories.</p>
+<p>The source code layout for the deqp test modules and supporting libraries is
+shown in the table below (the listing is not comprehensive but highlights the
+most important directories).</p>
 
 <table>
  <tr>
@@ -91,6 +108,12 @@ called deqp (drawElements Quality Program).</p>
     <td><code>
         modules/gles31</code></td>
 <td><p>GLES3.1 module</p>
+</td>
+ </tr>
+  <tr>
+    <td><code>
+        modules/gles32</code></td>
+<td><p>GLES3.2 module</p>
 </td>
  </tr>
  <tr>
@@ -153,6 +176,8 @@ external</code></td>
  </tr>
 </table>
 
-<h3 id=open-source_components>Open Source components</h3>
+<h3 id=open-source_components>Open source components</h3>
 
-<p>The deqp uses <code>libpng</code> and <code>zlib</code>. They can be fetched from the web with the script <code>external/fetch_sources.py </code>or with git pulls from git repositories <code>platform/external/[libpng,zlib]</code>.</p>
+<p>The deqp uses <code>libpng</code> and <code>zlib</code>, which can be fetched
+using the script <code>external/fetch_sources.py </code>or via git from
+<code>platform/external/[libpng,zlib]</code>.</p>

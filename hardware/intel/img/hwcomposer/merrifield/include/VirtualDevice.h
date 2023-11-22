@@ -199,6 +199,7 @@ public:
     virtual int getType() const;
     virtual void onVsync(int64_t timestamp);
     virtual void dump(Dump& d);
+    virtual uint32_t getFpsDivider();
 #ifdef INTEL_WIDI
     // IFrameServer methods
     virtual android::status_t start(sp<IFrameTypeChangeListener> frameTypeChangeListener);
@@ -224,6 +225,7 @@ protected:
     uint32_t mDecWidth;
     uint32_t mDecHeight;
     bool mIsForceCloneMode;
+    uint32_t mFpsDivider;
 };
 
 }

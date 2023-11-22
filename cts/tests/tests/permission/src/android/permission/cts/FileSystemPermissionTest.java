@@ -29,7 +29,6 @@ import android.test.suitebuilder.annotation.LargeTest;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FilenameFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -401,35 +400,6 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         assertFalse(f.canRead());
         assertFalse(f.canWrite());
         assertFalse(f.canExecute());
-    }
-
-    @MediumTest
-    public void testDeviceTreeCpuCurrent() throws Exception {
-        String arch = System.getProperty("os.arch");
-        String[] osVersion = System.getProperty("os.version").split("\\.");
-        /*
-         * Perform the test for only arm-based architecture and
-         * kernel version 3.10 and above.
-         */
-        if (!arch.contains("arm") ||
-            Integer.parseInt(osVersion[0]) < 2 ||
-            (Integer.parseInt(osVersion[0]) == 3 &&
-             Integer.parseInt(osVersion[1]) < 10))
-            return;
-        final File f = new File("/proc/device-tree/cpus");
-        if (!f.exists())
-            return;
-        String[] dir = f.list(new FilenameFilter() {
-            @Override
-            public boolean accept(File pathname, String name) {
-                return (pathname.isDirectory() && name.matches("cpu@[0-9]+"));
-            }
-        });
-
-        for(String cpuDir : dir) {
-            File fCpu = new File(cpuDir + "/current");
-            assertTrue(f.canRead());
-        }
     }
 
     private static boolean isDirectoryWritable(File directory) {

@@ -72,4 +72,43 @@ public class RichTextViewTest extends AndroidTestCase {
         assertTrue("The span should be a TextAppearanceSpan",
                 spans[0] instanceof TextAppearanceSpan);
     }
+
+    @SmallTest
+    public void testTextContaininingLinksAreFocusable() {
+        Annotation testLink = new Annotation("link", "value");
+        SpannableStringBuilder spannableStringBuilder = new SpannableStringBuilder("Linked");
+        spannableStringBuilder.setSpan(testLink, 0, 3, 0);
+
+        RichTextView view = new RichTextView(getContext());
+        view.setText(spannableStringBuilder);
+
+        assertTrue("TextView should be focusable since it contains spans", view.isFocusable());
+    }
+
+
+    @SmallTest
+    public void testTextContainingNoLinksAreNotFocusable() {
+        RichTextView textView = new RichTextView(getContext());
+        textView.setText("Thou shall not be focusable!");
+
+        assertFalse("TextView should not be focusable since it does not contain any span",
+                textView.isFocusable());
+    }
+
+
+    // Based on the text contents of the text view, the "focusable" property of the element
+    // should also be automatically changed.
+    @SmallTest
+    public void testRichTxtViewFocusChangesWithTextChange() {
+        RichTextView textView = new RichTextView(getContext());
+        textView.setText("Thou shall not be focusable!");
+
+        assertFalse(textView.isFocusable());
+
+        SpannableStringBuilder spannableStringBuilder =
+                new SpannableStringBuilder("I am focusable");
+        spannableStringBuilder.setSpan(new Annotation("link", "focus:on_me"), 0, 1, 0);
+        textView.setText(spannableStringBuilder);
+        assertTrue(textView.isFocusable());
+    }
 }

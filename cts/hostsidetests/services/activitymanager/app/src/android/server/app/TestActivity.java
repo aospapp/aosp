@@ -16,9 +16,23 @@
 
 package android.server.app;
 
+import android.content.res.Configuration;
+
 public class TestActivity extends AbstractLifecycleLogActivity {
 
     private static final String TAG = TestActivity.class.getSimpleName();
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        dumpDisplaySize(getResources().getConfiguration());
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        dumpDisplaySize(newConfig);
+    }
 
     @Override
     protected String getTag() {

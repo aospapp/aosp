@@ -244,6 +244,7 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
             new Feature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION, false),
             new Feature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, false),
             new Feature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION_NFCF, false),
+            new Feature(PackageManager.FEATURE_PICTURE_IN_PICTURE, false),
     };
 
     @Override

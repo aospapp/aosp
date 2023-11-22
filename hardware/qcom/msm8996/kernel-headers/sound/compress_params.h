@@ -334,6 +334,13 @@ struct snd_codec {
   union snd_codec_options options;
   __u32 reserved[3];
 } __attribute__((packed, aligned(4)));
-#endif
+struct dsp_effect_param {
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  uint32_t effect_type;
+  uint32_t module_id;
+  uint32_t param_id;
+  uint32_t payload_size;
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+};
+#endif
 

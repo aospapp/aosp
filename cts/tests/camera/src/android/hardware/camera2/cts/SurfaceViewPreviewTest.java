@@ -451,17 +451,17 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
      * validated.
      */
     private void previewFpsRangeTestByCamera() throws Exception {
-        Size maxPreviewSz = mOrderedPreviewSizes.get(0);
-        Range<Integer>[] fpsRanges = mStaticInfo.getAeAvailableTargetFpsRangesChecked();
+        Size maxPreviewSz;
+        Range<Integer>[] fpsRanges = getDescendingTargetFpsRanges(mStaticInfo);
         boolean antiBandingOffIsSupported = mStaticInfo.isAntiBandingOffModeSupported();
         Range<Integer> fpsRange;
         CaptureRequest.Builder requestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
         SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
-        startPreview(requestBuilder, maxPreviewSz, resultListener);
 
         for (int i = 0; i < fpsRanges.length; i += 1) {
             fpsRange = fpsRanges[i];
+            maxPreviewSz = getMaxPreviewSizeForFpsRange(fpsRange);
 
             requestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
             // Turn off auto antibanding to avoid exposure time and frame duration interference
@@ -477,14 +477,15 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
                         " mode");
             }
 
+            startPreview(requestBuilder, maxPreviewSz, resultListener);
             resultListener = new SimpleCaptureCallback();
             mSession.setRepeatingRequest(requestBuilder.build(), resultListener, mHandler);
 
             verifyPreviewTargetFpsRange(resultListener, NUM_FRAMES_VERIFIED, fpsRange,
                     maxPreviewSz);
+            stopPreview();
+            resultListener.drain();
         }
-
-        stopPreview();
     }
 
     private void verifyPreviewTargetFpsRange(SimpleCaptureCallback resultListener,

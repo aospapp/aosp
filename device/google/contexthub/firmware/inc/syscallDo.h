@@ -208,6 +208,13 @@ static inline uint32_t eOsSensorGetCurRate(uint32_t sensorHandle)
     return syscallDo1P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_SENSOR, SYSCALL_OS_MAIN_SENSOR_GET_RATE), sensorHandle);
 }
 
+static inline uint64_t eOsSensorGetTime(void)
+{
+    uint64_t timeNanos;
+    syscallDo1P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_SENSOR, SYSCALL_OS_MAIN_SENSOR_GET_TIME), &timeNanos);
+    return timeNanos;
+}
+
 static inline uint64_t eOsTimGetTime(void)
 {
     uint64_t timeNanos;
@@ -256,6 +263,20 @@ static inline void* eOsSlabAllocatorAlloc(struct SlabAllocator* allocator)
 static inline void eOsSlabAllocatorFree(struct SlabAllocator* allocator, void* ptrP)
 {
     (void)syscallDo2P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_SLAB, SYSCALL_OS_MAIN_SLAB_FREE), allocator, ptrP);
+}
+
+static inline uint64_t eOsHostGetTime(void)
+{
+    uint64_t timeNanos;
+    syscallDo1P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_HOST, SYSCALL_OS_MAIN_HOST_GET_TIME), &timeNanos);
+    return timeNanos;
+}
+
+static inline uint64_t eOsRtcGetTime(void)
+{
+    uint64_t timeNanos;
+    syscallDo1P(SYSCALL_NO(SYSCALL_DOMAIN_OS, SYSCALL_OS_MAIN, SYSCALL_OS_MAIN_RTC, SYSCALL_OS_MAIN_RTC_GET_TIME), &timeNanos);
+    return timeNanos;
 }
 
 static inline struct Gpio* eOsGpioRequest(uint32_t gpioNum)

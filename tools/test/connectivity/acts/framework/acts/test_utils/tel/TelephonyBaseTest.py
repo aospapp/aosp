@@ -19,11 +19,13 @@
 
 import os
 import time
+import inspect
 import traceback
 
 import acts.controllers.diag_logger
 
 from acts.base_test import BaseTestClass
+from acts.keys import Config
 from acts.signals import TestSignal
 from acts import utils
 
@@ -36,6 +38,7 @@ from acts.test_utils.tel.tel_subscription_utils import \
     set_subid_for_message
 from acts.test_utils.tel.tel_subscription_utils import \
     set_subid_for_outgoing_call
+from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import ensure_phones_default_state
 from acts.test_utils.tel.tel_test_utils import \
     reset_preferred_network_type_to_allowable_range
@@ -51,10 +54,38 @@ from acts.test_utils.tel.tel_defines import WIFI_VERBOSE_LOGGING_DISABLED
 from acts.utils import force_airplane_mode
 
 
+class _TelephonyTraceLogger():
+    def __init__(self, logger):
+        self._logger = logger
+
+    @staticmethod
+    def _get_trace_info():
+        # we want the stack frame above this and above the error/warning/info
+        stack_frames = inspect.stack()[2]
+        info = inspect.getframeinfo(stack_frames[0])
+
+        return "{}:{}:{}".format(
+            os.path.basename(info.filename), info.function, info.lineno)
+
+    def error(self, msg, *args, **kwargs):
+        trace_info = _TelephonyTraceLogger._get_trace_info()
+        self._logger.error("{} - {}".format(trace_info, msg), *args, **kwargs)
+
+    def warning(self, msg, *args, **kwargs):
+        trace_info = _TelephonyTraceLogger._get_trace_info()
+        self._logger.error("{} - {}".format(trace_info, msg), *args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._logger, name)
+
+
 class TelephonyBaseTest(BaseTestClass):
     def __init__(self, controllers):
+
         BaseTestClass.__init__(self, controllers)
         self.logger_sessions = []
+
+        self.log = _TelephonyTraceLogger(self.log)
 
     # Use for logging in the test cases to facilitate
     # faster log lookup and reduce ambiguity in logging.
@@ -109,12 +140,33 @@ class TelephonyBaseTest(BaseTestClass):
         return _safe_wrap_test_case
 
     def setup_class(self):
-        setattr(self, "diag_logger",
+
+        if not "sim_conf_file" in self.user_params.keys():
+            self.log.error("Missing mandatory user config \"sim_conf_file\"!")
+            return False
+
+        sim_conf_file = self.user_params["sim_conf_file"]
+        # If the sim_conf_file is not a full path, attempt to find it
+        # relative to the config file.
+        if not os.path.isfile(sim_conf_file):
+            sim_conf_file = os.path.join(
+                self.user_params[Config.key_config_path], sim_conf_file)
+            if not os.path.isfile(sim_conf_file):
+                self.log.error("Unable to load user config " + sim_conf_file +
+                               "from test config file.")
+                return False
+
+        setattr(self,
+                "diag_logger",
                 self.register_controller(acts.controllers.diag_logger,
                                          required=False))
         for ad in self.android_devices:
-            setup_droid_properties(self.log, ad,
-                                   self.user_params["sim_conf_file"])
+            setup_droid_properties(self.log, ad, sim_conf_file)
+
+            # Ensure that a test class starts from a consistent state that
+            # improves chances of valid network selection and facilitates
+            # logging.
+            toggle_airplane_mode(self.log, ad, True)
             if not set_phone_screen_on(self.log, ad):
                 self.log.error("Failed to set phone screen-on time.")
                 return False
@@ -157,7 +209,7 @@ class TelephonyBaseTest(BaseTestClass):
         finally:
             for ad in self.android_devices:
                 try:
-                    ad.droid.connectivityToggleAirplaneMode(True)
+                    toggle_airplane_mode(self.log, ad, True)
                 except BrokenPipeError:
                     # Broken Pipe, can not call SL4A API to turn on Airplane Mode.
                     # Use adb command to turn on Airplane Mode.
@@ -180,20 +232,27 @@ class TelephonyBaseTest(BaseTestClass):
         return ensure_phones_default_state(self.log, self.android_devices)
 
     def teardown_test(self):
+        return True
+
+    def _cleanup_logger_sessions(self):
         for (logger, session) in self.logger_sessions:
             self.log.info("Resetting a diagnostic session {},{}".format(
                 logger, session))
             logger.reset()
         self.logger_sessions = []
-        return True
 
     def on_exception(self, test_name, begin_time):
         self._pull_diag_logs(test_name, begin_time)
-        return self._take_bug_report(test_name, begin_time)
+        self._take_bug_report(test_name, begin_time)
+        self._cleanup_logger_sessions()
 
     def on_fail(self, test_name, begin_time):
         self._pull_diag_logs(test_name, begin_time)
-        return self._take_bug_report(test_name, begin_time)
+        self._take_bug_report(test_name, begin_time)
+        self._cleanup_logger_sessions()
+
+    def on_pass(self, test_name, begin_time):
+        self._cleanup_logger_sessions()
 
     def _pull_diag_logs(self, test_name, begin_time):
         for (logger, session) in self.logger_sessions:

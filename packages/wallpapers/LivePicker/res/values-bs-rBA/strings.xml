@@ -19,16 +19,18 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="application_name" msgid="4119979710394894209">"Izbornik aktivnih pozadina"</string>
-    <string name="live_wallpaper_picker_title" msgid="4811278937634144675">"Odaberite aktivnu pozadinu"</string>
+    <string name="application_name" msgid="4119979710394894209">"Izbornik animiranih pozadinskih slika"</string>
+    <string name="live_wallpaper_picker_title" msgid="4811278937634144675">"Odaberite animiranu pozadinsku sliku"</string>
     <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"Aktivne pozadine"</string>
-    <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Pregled aktivne pozadine"</string>
+    <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Pregled animirane pozadinske slike"</string>
     <string name="configure_wallpaper" msgid="7396598925806288258">"Postavke..."</string>
-    <string name="wallpaper_instructions" msgid="4215640646180727542">"Postavi pozadinu"</string>
+    <string name="wallpaper_instructions" msgid="4215640646180727542">"Postavi pozadinsku sliku"</string>
     <string name="live_wallpaper_empty" msgid="4278728108785853407">"Nema aktivnih pozadina."</string>
-    <string name="set_live_wallpaper" msgid="2381437614949033266">"Postavi pozadinu"</string>
+    <string name="set_live_wallpaper" msgid="2381437614949033266">"Postavi pozadinsku sliku"</string>
     <string name="wallpaper_title_and_author" msgid="8891734217843935304">"<xliff:g id="TITLE">%1$s</xliff:g>, <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
-    <string name="live_wallpaper_loading" msgid="2488371303130330734">"Učitava se aktivna pozadina..."</string>
+    <string name="live_wallpaper_loading" msgid="2488371303130330734">"Učitavanje animirane pozadinske slike..."</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Početni ekran"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Početni ekran i zaključavanje ekrana"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"Skloni podatke o pozadinskoj slici"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"Prikaži podatke o pozadinskoj slici"</string>
 </resources>

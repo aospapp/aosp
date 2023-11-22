@@ -50,6 +50,7 @@ import junit.framework.AssertionFailedError;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.HashMap;
 
@@ -65,6 +66,9 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     private static final int RECORDING_DURATION_MS = 3000;
     private static final float DURATION_MARGIN = 0.2f;
     private static final double FRAME_DURATION_ERROR_TOLERANCE_MS = 3.0;
+    private static final float FRAMEDURATION_MARGIN = 0.2f;
+    private static final float VID_SNPSHT_FRMDRP_RATE_TOLERANCE = 10.0f;
+    private static final float FRMDRP_RATE_TOLERANCE = 5.0f;
     private static final int BIT_RATE_1080P = 16000000;
     private static final int BIT_RATE_MIN = 64000;
     private static final int BIT_RATE_MAX = 40000000;
@@ -417,11 +421,11 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                     // Stop recording and preview
                     stopRecording(/*useMediaRecorder*/true);
                     // Convert number of frames camera produced into the duration in unit of ms.
-                    int durationMs = (int) (resultListener.getTotalNumFrames() * 1000.0f /
-                                    videoFramerate);
+                    float frameDurationMs = 1000.0f / videoFramerate;
+                    float durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
 
                     // Validation.
-                    validateRecording(size, durationMs);
+                    validateRecording(size, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
                 }
 
             } finally {
@@ -484,11 +488,11 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                         // Stop recording and preview
                         stopRecording(/*useMediaRecorder*/true);
                         // Convert number of frames camera produced into the duration in unit of ms.
-                        int durationMs = (int) (resultListener.getTotalNumFrames() * 1000.0f /
-                                        VIDEO_FRAME_RATE);
+                        float frameDurationMs = 1000.0f / VIDEO_FRAME_RATE;
+                        float durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
 
                         // Validation.
-                        validateRecording(size, durationMs);
+                        validateRecording(size, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
                     }
                 }
 
@@ -682,8 +686,8 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             // Stop recording and preview
             stopRecording(/* useMediaRecorder */true);
             // Convert number of frames camera produced into the duration in unit of ms.
-            int durationMs = (int) (resultListener.getTotalNumFrames() * 1000.0f /
-                            profile.videoFrameRate);
+            float frameDurationMs = 1000.0f / profile.videoFrameRate;
+            float durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
 
             if (VERBOSE) {
                 Log.v(TAG, "video frame rate: " + profile.videoFrameRate +
@@ -691,7 +695,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             }
 
             // Validation.
-            validateRecording(videoSz, durationMs);
+            validateRecording(videoSz, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
         }
         if (maxVideoFrameRate != -1) {
             // At least one CamcorderProfile is present, check FPS
@@ -737,11 +741,11 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             // Stop recording and preview
             stopRecording(/* useMediaRecorder */true);
             // Convert number of frames camera produced into the duration in unit of ms.
-            int durationMs = (int) (resultListener.getTotalNumFrames() * 1000.0f /
-                            VIDEO_FRAME_RATE);
+            float frameDurationMs = 1000.0f / VIDEO_FRAME_RATE;
+            float durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
 
             // Validation.
-            validateRecording(sz, durationMs);
+            validateRecording(sz, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
         }
     }
 
@@ -992,17 +996,19 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 SystemClock.sleep(RECORDING_DURATION_MS / 2);
 
                 // Stop recording and preview
-                int durationMs = stopRecording(/* useMediaRecorder */true);
+                float durationMs = (float) stopRecording(/* useMediaRecorder */true);
                 // For non-burst test, use number of frames to also double check video frame rate.
                 // Burst video snapshot is allowed to cause frame rate drop, so do not use number
                 // of frames to estimate duration
                 if (!burstTest) {
-                    durationMs = (int) (resultListener.getTotalNumFrames() * 1000.0f /
-                        profile.videoFrameRate);
+                    durationMs = resultListener.getTotalNumFrames() * 1000.0f /
+                        profile.videoFrameRate;
                 }
 
+                float frameDurationMs = 1000.0f / profile.videoFrameRate;
                 // Validation recorded video
-                validateRecording(videoSz, durationMs);
+                validateRecording(videoSz, durationMs,
+                        frameDurationMs, VID_SNPSHT_FRMDRP_RATE_TOLERANCE);
 
                 if (burstTest) {
                     for (int i = 0; i < BURST_VIDEO_SNAPSHOT_NUM; i++) {
@@ -1235,16 +1241,19 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         }
     }
 
-    private void validateRecording(Size sz, int expectedDurationMs) throws Exception {
+    private void validateRecording(
+            Size sz, float expectedDurationMs, float expectedFrameDurationMs,
+            float frameDropTolerance) throws Exception {
         File outFile = new File(mOutMediaFileName);
         assertTrue("No video is recorded", outFile.exists());
-
+        float maxFrameDuration = expectedFrameDurationMs * (1.0f + FRAMEDURATION_MARGIN);
         MediaExtractor extractor = new MediaExtractor();
         try {
             extractor.setDataSource(mOutMediaFileName);
             long durationUs = 0;
             int width = -1, height = -1;
             int numTracks = extractor.getTrackCount();
+            int selectedTrack = -1;
             final String VIDEO_MIME_TYPE = "video";
             for (int i = 0; i < numTracks; i++) {
                 MediaFormat format = extractor.getTrackFormat(i);
@@ -1254,26 +1263,65 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                     durationUs = format.getLong(MediaFormat.KEY_DURATION);
                     width = format.getInteger(MediaFormat.KEY_WIDTH);
                     height = format.getInteger(MediaFormat.KEY_HEIGHT);
+                    selectedTrack = i;
+                    extractor.selectTrack(i);
                     break;
                 }
             }
+            if (selectedTrack < 0) {
+                throw new AssertionFailedError(
+                        "Cannot find video track!");
+            }
+
             Size videoSz = new Size(width, height);
             assertTrue("Video size doesn't match, expected " + sz.toString() +
                     " got " + videoSz.toString(), videoSz.equals(sz));
-            int duration = (int) (durationUs / 1000);
+            float duration = (float) (durationUs / 1000);
             if (VERBOSE) {
-                Log.v(TAG, String.format("Video duration: recorded %dms, expected %dms",
+                Log.v(TAG, String.format("Video duration: recorded %fms, expected %fms",
                                          duration, expectedDurationMs));
             }
 
             // TODO: Don't skip this for video snapshot
             if (!mStaticInfo.isHardwareLevelLegacy()) {
                 assertTrue(String.format(
-                        "Camera %s: Video duration doesn't match: recorded %dms, expected %dms.",
+                        "Camera %s: Video duration doesn't match: recorded %fms, expected %fms.",
                         mCamera.getId(), duration, expectedDurationMs),
                         Math.abs(duration - expectedDurationMs) <
                         DURATION_MARGIN * expectedDurationMs);
             }
+
+            // Check for framedrop
+            long lastSampleUs = 0;
+            int frameDropCount = 0;
+            int expectedFrameCount = (int) (expectedDurationMs / expectedFrameDurationMs);
+            ArrayList<Long> timestamps = new ArrayList<Long>(expectedFrameCount);
+            while (true) {
+                timestamps.add(extractor.getSampleTime());
+                if (!extractor.advance()) {
+                    break;
+                }
+            }
+            Collections.sort(timestamps);
+            long prevSampleUs = timestamps.get(0);
+            for (int i = 1; i < timestamps.size(); i++) {
+                long currentSampleUs = timestamps.get(i);
+                float frameDurationMs = (float) (currentSampleUs - prevSampleUs) / 1000;
+                if (frameDurationMs > maxFrameDuration) {
+                    Log.w(TAG, String.format(
+                        "Frame drop at %d: expectation %f, observed %f",
+                        i, expectedFrameDurationMs, frameDurationMs));
+                    frameDropCount++;
+                }
+                prevSampleUs = currentSampleUs;
+            }
+            float frameDropRate = 100.f * frameDropCount / expectedFrameCount;
+            Log.i(TAG, String.format("Frame drop rate %d/%d (%f%%)",
+                frameDropCount, expectedFrameCount, frameDropRate));
+            assertTrue(String.format(
+                    "Camera %s: Video frame drop rate too high: %f%%, tolerance %f%%.",
+                    mCamera.getId(), frameDropRate, frameDropTolerance),
+                    frameDropRate < frameDropTolerance);
         } finally {
             extractor.release();
             if (!DEBUG_DUMP) {

@@ -27,6 +27,8 @@
 #include <nanohubPacket.h>
 #include <eventnums.h>
 
+#define  TMD2772_APP_VERSION 1
+
 #define DRIVER_NAME                            "AMS: "
 
 #define I2C_BUS_ID                             0
@@ -608,8 +610,6 @@ static void handle_i2c_event(int state)
 
 static bool init_app(uint32_t myTid)
 {
-    osLog(LOG_INFO, DRIVER_NAME "task starting\n");
-
     /* Set up driver private data */
     mData.tid = myTid;
     mData.alsOn = false;
@@ -673,4 +673,4 @@ static void handle_event(uint32_t evtType, const void* evtData)
     }
 }
 
-INTERNAL_APP_INIT(APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 9), 0, init_app, end_app, handle_event);
+INTERNAL_APP_INIT(APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 9), TMD2772_APP_VERSION, init_app, end_app, handle_event);

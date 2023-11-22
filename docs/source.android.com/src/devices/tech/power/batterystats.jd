@@ -563,14 +563,13 @@ work with their chipset providers to facilitate in-field firmware updates on
 existing chipsets and compatible firmware on new chipsets.</p>
 
 <p>Additionally, OEMs must continue to configure and submit the power profile
-for their devices. However, when the platform detects that Wi-Fi and Bluetooth
-radio power data is available from the chipset, it uses chipset data instead of
-power profile data (cell radio power data is not yet used). For details, see
-<a href="{@docRoot}devices/tech/power/values.html#chipset-data">Devices with
-Bluetooth and Wi-Fi controllers</a>.</p>
+for their devices. However, when the platform detects that Bluetooth, cellular
+(as of Android 7.0), or Wi-Fi radio power data is available from the chipset, it
+uses chipset data instead of power profile data. For details, see
+<a href="{@docRoot}devices/tech/power/values.html#values">Power values</a>.</p>
 
-<p class="note"><strong>Note</strong>: Prior to Android 6.0, power use for Wi-Fi
-radio, Bluetooth radio, and cellular radio was tracked in the <em>m</em> (Misc)
+<p class="note"><strong>Note</strong>: Prior to Android 6.0, power use for
+Bluetooth radio, cellular radio, and Wi-Fi was tracked in the <em>m</em> (Misc)
 section category. In Android 6.0 and higher, power use for these components is
 tracked in the <em>pwi</em> (Power Use Item) section with individual labels
 (<em>wifi</em>, <em>blue</em>, <em>cell</em>) for each component.</p>

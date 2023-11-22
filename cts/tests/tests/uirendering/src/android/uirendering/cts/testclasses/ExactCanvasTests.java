@@ -182,4 +182,27 @@ public class ExactCanvasTests extends ActivityTestBase {
                 .runWithComparer(mExactComparer);
     }
 
+    @Test
+    public void testSaveLayerRounding() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.saveLayerAlpha(10.5f, 10.5f, 79.5f, 79.5f, 255);
+                    canvas.drawRect(20, 20, 70, 70, new Paint());
+                    canvas.restore();
+                })
+                .runWithVerifier(new RectVerifier(Color.WHITE, Color.BLACK,
+                        new Rect(20, 20, 70, 70)));
+    }
+
+    @Test
+    public void testUnclippedSaveLayerRounding() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.saveLayerAlpha(10.5f, 10.5f, 79.5f, 79.5f, 255, 0);
+                    canvas.drawRect(20, 20, 70, 70, new Paint());
+                    canvas.restore();
+                })
+                .runWithVerifier(new RectVerifier(Color.WHITE, Color.BLACK,
+                        new Rect(20, 20, 70, 70)));
+    }
 }

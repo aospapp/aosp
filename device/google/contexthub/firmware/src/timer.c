@@ -29,6 +29,12 @@
 
 #define MAX_INTERNAL_EVENTS       32 //also used for external app timer() calls
 
+#define INFO_PRINT(fmt, ...) do { \
+        osLog(LOG_INFO, "%s " fmt, "[timer]", ##__VA_ARGS__); \
+    } while (0);
+
+#define ERROR_PRINT(fmt, ...) INFO_PRINT("%s" fmt, "ERROR: ", ##__VA_ARGS__)
+
 struct Timer {
     uint64_t      expires; /* time of next expiration */
     uint64_t      period;  /* 0 for oneshot */
@@ -45,7 +51,6 @@ ATOMIC_BITSET_DECL(mTimersValid, MAX_TIMERS, static);
 static struct SlabAllocator *mInternalEvents;
 static struct Timer mTimers[MAX_TIMERS];
 static volatile uint32_t mNextTimerId = 0;
-
 
 uint64_t timGetTime(void)
 {
@@ -81,8 +86,12 @@ static void timCallFunc(struct Timer *tim)
         if ((evt = slabAllocatorAlloc(mInternalEvents)) != 0) {
             evt->timerId = tim->id;
             evt->data = tim->callData;
-            if (!osEnqueuePrivateEvt(EVT_APP_TIMER, evt, timerCallFuncFreeF, tim->tid))
+            if (!osEnqueuePrivateEvt(EVT_APP_TIMER, evt, timerCallFuncFreeF, tim->tid)) {
+                ERROR_PRINT("Could not enqueue private timer event\n");
                 slabAllocatorFree(mInternalEvents, evt);
+            }
+        } else {
+            ERROR_PRINT("Could not allocate an internal event\n");
         }
     }
 }
@@ -109,13 +118,14 @@ static bool timFireAsNeededAndUpdateAlarms(void)
 
             if (tim->expires <= timGetTime()) {
                 somethingDone = true;
-                if (tim->period)
+                if (tim->period) {
                     tim->expires += tim->period;
-                else {
+                    timCallFunc(tim);
+                } else {
+                    timCallFunc(tim);
                     tim->id = 0;
                     atomicBitsetClearBit(mTimersValid, i);
                 }
-                timCallFunc(tim);
             }
             else {
                 if (tim->jitterPpm > maxJitter)
@@ -150,8 +160,10 @@ static uint32_t timTimerSetEx(uint64_t length, uint32_t jitterPpm, uint32_t drif
     struct Timer *t;
     uint16_t timId;
 
-    if (idx < 0) /* no free timers */
+    if (idx < 0) /* no free timers */{
+        ERROR_PRINT("no free timers\n");
         return 0;
+    }
 
     /* generate next timer ID */
     do {

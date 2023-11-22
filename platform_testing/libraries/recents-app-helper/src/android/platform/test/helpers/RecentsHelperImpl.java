@@ -26,8 +26,6 @@ import android.support.test.uiautomator.Until;
 import android.util.Log;
 import android.widget.EditText;
 
-import junit.framework.Assert;
-
 public class RecentsHelperImpl extends AbstractRecentsHelper {
     private static final String LOG_TAG = RecentsHelperImpl.class.getSimpleName();
     private static final String UI_PACKAGE = "com.android.systemui";
@@ -89,13 +87,15 @@ public class RecentsHelperImpl extends AbstractRecentsHelper {
      */
     @Override
     public void flingRecents(Direction dir) {
-        UiObject2 recentsScroller = getRecentsScroller();
-        Assert.assertNotNull("Unable to find scrolling mechanism for Recents", recentsScroller);
-        recentsScroller.setGestureMargin(recentsScroller.getVisibleBounds().height() / 4);
-        recentsScroller.fling(dir);
+        UiObject2 container = getRecentsContainer();
+        if (container == null) {
+            throw new IllegalStateException("The recent apps screen is not open.");
+        }
+        container.setGestureMargin(container.getVisibleBounds().height() / 4);
+        container.fling(dir);
     }
 
-    private UiObject2 getRecentsScroller() {
+    private UiObject2 getRecentsContainer() {
         return mDevice.wait(Until.findObject(By.res(UI_PACKAGE, "recents_view")),
                 RECENTS_SELECTION_TIMEOUT);
     }

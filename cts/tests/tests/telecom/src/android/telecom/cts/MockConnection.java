@@ -163,6 +163,30 @@ public class MockConnection extends Connection {
         }
     }
 
+    @Override
+    public void onCallEvent(String event, Bundle extras) {
+        super.onCallEvent(event, extras);
+        if (mInvokeCounterMap.get(ON_CALL_EVENT) != null) {
+            mInvokeCounterMap.get(ON_CALL_EVENT).invoke(event, extras);
+        }
+    }
+
+    @Override
+    public void onPullExternalCall() {
+        super.onPullExternalCall();
+        if (mInvokeCounterMap.get(ON_PULL_EXTERNAL_CALL) != null) {
+            mInvokeCounterMap.get(ON_PULL_EXTERNAL_CALL).invoke();
+        }
+    }
+
+    @Override
+    public void onExtrasChanged(Bundle extras) {
+        super.onExtrasChanged(extras);
+        if (mInvokeCounterMap.get(ON_EXTRAS_CHANGED) != null) {
+            mInvokeCounterMap.get(ON_EXTRAS_CHANGED).invoke(extras);
+        }
+    }
+
     public int getCurrentState()  {
         return mState;
     }

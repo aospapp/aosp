@@ -29,6 +29,7 @@ import android.support.annotation.XmlRes;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.view.ViewCompat;
+import android.support.v7.preference.internal.AbstractMultiSelectListPreference;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.TypedValue;
@@ -88,14 +89,14 @@ import android.view.ViewGroup;
  * <p>The following sample code shows a simple preference fragment that is
  * populated from a resource.  The resource it loads is:</p>
  *
- * {@sample development/samples/ApiDemos/res/xml/preferences.xml preferences}
+ * {@sample frameworks/support/samples/SupportPreferenceDemos/res/xml/preferences.xml preferences}
  *
  * <p>The fragment implementation itself simply populates the preferences
  * when created.  Note that the preferences framework takes care of loading
  * the current values out of the app preferences and writing them when changed:</p>
  *
- * {@sample development/samples/ApiDemos/src/com/example/android/apis/preference/FragmentPreferences.java
- *      fragment}
+ * {@sample frameworks/support/samples/SupportPreferenceDemos/src/com/example/android/supportpreference/FragmentSupportPreferencesCompat.java
+ *      support_fragment_compat}
  *
  * @see Preference
  * @see PreferenceScreen
@@ -143,6 +144,7 @@ public abstract class PreferenceFragmentCompat extends Fragment implements
     };
 
     final private Runnable mRequestFocus = new Runnable() {
+        @Override
         public void run() {
             mList.focusableViewAvailable(mList);
         }
@@ -456,6 +458,7 @@ public abstract class PreferenceFragmentCompat extends Fragment implements
     /**
      * {@inheritDoc}
      */
+    @Override
     public boolean onPreferenceTreeClick(Preference preference) {
         if (preference.getFragment() != null) {
             boolean handled = false;
@@ -502,6 +505,7 @@ public abstract class PreferenceFragmentCompat extends Fragment implements
      * @return The {@link Preference} with the key, or null.
      * @see android.support.v7.preference.PreferenceGroup#findPreference(CharSequence)
      */
+    @Override
     public Preference findPreference(CharSequence key) {
         if (mPreferenceManager == null) {
             return null;
@@ -628,6 +632,8 @@ public abstract class PreferenceFragmentCompat extends Fragment implements
             f = EditTextPreferenceDialogFragmentCompat.newInstance(preference.getKey());
         } else if (preference instanceof ListPreference) {
             f = ListPreferenceDialogFragmentCompat.newInstance(preference.getKey());
+        } else if (preference instanceof AbstractMultiSelectListPreference) {
+            f = MultiSelectListPreferenceDialogFragmentCompat.newInstance(preference.getKey());
         } else {
             throw new IllegalArgumentException("Tried to display dialog for unknown " +
                     "preference type. Did you forget to override onDisplayPreferenceDialog()?");

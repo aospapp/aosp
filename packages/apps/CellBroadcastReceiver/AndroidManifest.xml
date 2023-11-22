@@ -36,6 +36,7 @@
             android:icon="@mipmap/ic_launcher_cell_broadcast"
             android:backupAgent="CellBroadcastBackupAgent"
             android:defaultToDeviceProtectedStorage="true"
+            android:supportsRtl="true"
             android:directBootAware="true">
 
         <meta-data android:name="com.google.android.backup.api_key"
@@ -59,7 +60,7 @@
 
         <activity android:name="CellBroadcastListActivity"
                   android:label="@string/app_label"
-                  android:theme="@android:style/Theme.Material.Light"
+                  android:theme="@android:style/Theme.DeviceDefault.Light"
                   android:configChanges="orientation|keyboardHidden"
                   android:launchMode="singleTask">
             <intent-filter>
@@ -85,9 +86,10 @@
                   android:exported="true" />
 
         <activity android:name="CellBroadcastAlertDialog"
-                  android:theme="@android:style/Theme.Material.Light.Dialog"
+                  android:theme="@android:style/Theme.DeviceDefault.Light.Dialog"
                   android:launchMode="singleTask"
                   android:exported="false"
+                  android:excludeFromRecents="true"
                   android:configChanges="orientation|keyboardHidden|keyboard|navigation">
             <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_CB_RECEIVED" />
@@ -111,14 +113,8 @@
             android:permission="android.permission.BROADCAST_SMS">
             <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_EMERGENCY_CB_RECEIVED" />
-            </intent-filter>
-            <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_CB_RECEIVED" />
-            </intent-filter>
-            <intent-filter>
                 <action android:name="android.cellbroadcastreceiver.START_CONFIG" />
-            </intent-filter>
-            <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_SERVICE_CATEGORY_PROGRAM_DATA_RECEIVED" />
             </intent-filter>
         </receiver>
@@ -134,12 +130,9 @@
         <receiver android:name="CellBroadcastReceiver">
             <intent-filter>
                  <action android:name="android.intent.action.SERVICE_STATE" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
-            </intent-filter>
-            <intent-filter>
+                 <action android:name="android.intent.action.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
                  <action android:name="android.intent.action.AIRPLANE_MODE" />
+                 <action android:name="android.intent.action.SIM_STATE_CHANGED"/>
             </intent-filter>
         </receiver>
 

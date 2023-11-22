@@ -16,6 +16,10 @@
 
 package com.android.cts.devicepolicy;
 
+import com.android.tradefed.log.LogUtil.CLog;
+
+import java.lang.AssertionError;
+
 /**
  * Set of tests for managed profile owner use cases that also apply to device owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTest.
@@ -69,13 +73,29 @@ public class MixedManagedProfileOwnerTest extends DeviceAndProfileOwnerTest {
         if (!mHasFeature) {
             return;
         }
-        executeDeviceTestMethod(".ScreenCaptureDisabledTest", "testSetScreenCaptureDisabled_true");
-        // start the ScreenCaptureDisabledActivity in the parent
-        installAppAsUser(DEVICE_ADMIN_APK, mParentUserId);
-        String command = "am start -W --user " + mParentUserId + " " + DEVICE_ADMIN_PKG + "/"
-                + DEVICE_ADMIN_PKG + ".ScreenCaptureDisabledActivity";
-        getDevice().executeShellCommand(command);
-        executeDeviceTestMethod(".ScreenCaptureDisabledTest", "testScreenCapturePossible");
+        runDumpsysWindow();
+        try {
+            executeDeviceTestMethod(".ScreenCaptureDisabledTest",
+                    "testSetScreenCaptureDisabled_true");
+            // start the ScreenCaptureDisabledActivity in the parent
+            installAppAsUser(DEVICE_ADMIN_APK, mParentUserId);
+            String command = "am start -W --user " + mParentUserId + " " + DEVICE_ADMIN_PKG + "/"
+                    + DEVICE_ADMIN_PKG + ".ScreenCaptureDisabledActivity";
+            getDevice().executeShellCommand(command);
+            executeDeviceTestMethod(".ScreenCaptureDisabledTest", "testScreenCapturePossible");
+        } catch (AssertionError e) {
+            runDumpsysWindow();
+            CLog.e("testScreenCaptureDisabled_allowedPrimaryUser failed", e);
+            fail("testScreenCaptureDisabled_allowedPrimaryUser failed");
+        }
+    }
+
+    // TODO: Remove this after investigation in b/28995242 is done
+    private void runDumpsysWindow() throws Exception {
+        String command = "dumpsys window displays";
+        CLog.d("Output for command " + command + ": " + getDevice().executeShellCommand(command));
+        command = "dumpsys window policy";
+        CLog.d("Output for command " + command + ": " + getDevice().executeShellCommand(command));
     }
 
     @Override

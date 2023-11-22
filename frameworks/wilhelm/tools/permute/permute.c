@@ -141,6 +141,7 @@ void permute(char *path_in)
         goto out;
     }
 
+#if 0
     // Must be 16-bit signed or 8-bit unsigned PCM
     unsigned subtype = sfinfo_in.format & SF_FORMAT_SUBMASK;
     unsigned sampleSizeIn = 0;
@@ -155,6 +156,7 @@ void permute(char *path_in)
         fprintf(stderr, "%s: unsupported subtype 0x%X\n", path_in, subtype);
         goto out;
     }
+#endif
     // always read shorts
     unsigned sampleSizeRead = 2;
 
@@ -185,12 +187,10 @@ void permute(char *path_in)
     }
 
     // Must be either stereo or mono
-    unsigned frameSizeIn = 0;
     unsigned frameSizeRead = 0;
     switch (sfinfo_in.channels) {
     case 1:
     case 2:
-        frameSizeIn = sampleSizeIn * sfinfo_in.channels;
         frameSizeRead = sampleSizeRead * sfinfo_in.channels;
         break;
     default:

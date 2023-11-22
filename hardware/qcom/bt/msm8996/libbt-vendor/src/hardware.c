@@ -40,25 +40,40 @@
 #include <string.h>
 #include "bt_hci_bdroid.h"
 #include "bt_vendor_qcom.h"
-
+#include <string.h>
 #define MAX_CNT_RETRY 100
 
 int hw_config(int nState)
 {
-    ALOGI("Starting hciattach daemon");
     char *szState[] = {"true", "false"};
     char *szReqSt = NULL;
+    char szBtSocStatus[PROPERTY_VALUE_MAX] = {'\0', };
 
     if(nState == BT_VND_PWR_OFF)
         szReqSt = szState[1];
     else
         szReqSt = szState[0];
 
-    ALOGI("try to set %s", szReqSt);
-
-    if (property_set("bluetooth.hciattach", szReqSt) < 0){
-        ALOGE("Property Setting fail");
-	return -1;
+    if((property_get("bluetooth.status", szBtSocStatus, "") <= 0))
+    {
+       if(nState == BT_VND_PWR_ON ) {
+          ALOGW("Hw_config: First Time BT on after boot.Starting hciattach daemon BTStatus=%s",szBtSocStatus);
+          if (property_set("bluetooth.hciattach", szReqSt) < 0)
+          {
+              ALOGE("Hw_config: Property Setting fail");
+              return -1;
+          }
+       }
+    } else if( !(strncmp(szBtSocStatus, "on", strlen("on")))) {
+          //BTSOC is already on
+          ALOGW("Hw_config: nState = %d", nState);
+    } else {
+          ALOGW("Hw_config: trigerring hciattach");
+          if (property_set("bluetooth.hciattach", szReqSt) < 0)
+          {
+              ALOGE("Hw_config: Property Setting fail");
+              return -1;
+          }
     }
 
     return 0;
@@ -68,12 +83,12 @@ int readTrpState()
 {
     char szBtStatus[PROPERTY_VALUE_MAX] = {0, };
     if(property_get("bluetooth.status", szBtStatus, "") < 0){
-        ALOGE("Fail to get bluetooth satus");
+        ALOGE("Fail to get bluetooth status");
         return FALSE;
     }
 
     if(!strncmp(szBtStatus, "on", strlen("on"))){
-        ALOGI("bluetooth satus is on");
+        ALOGI("bluetooth status is on");
         return TRUE;
     }
     return FALSE;
@@ -85,13 +100,12 @@ int is_hw_ready()
     char szStatus[10] = {0,};
 
     for(i=MAX_CNT_RETRY; i>0; i--){
-       usleep(50*1000);
        //TODO :: checking routine
        if(readTrpState()==TRUE){
            break;
        }
+       usleep(50*1000);
     }
-
     return (i==0)? FALSE:TRUE;
 }
 

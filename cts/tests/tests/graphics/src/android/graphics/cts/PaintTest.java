@@ -1170,12 +1170,20 @@ public class PaintTest extends AndroidTestCase {
             assertTrue(p.hasGlyph("\u182D\u180B"));
         }
 
-        // TODO: when we support variation selectors, add positive tests
+        // Emoji with variation selector support for both text and emoji presentation
+        assertTrue(p.hasGlyph("\u231A\uFE0E"));  // WATCH + VS15
+        assertTrue(p.hasGlyph("\u231A\uFE0F"));  // WATCH + VS16
 
         // Unicode 7.0, 8.0, and 9.0 emoji should be supported.
         assertTrue(p.hasGlyph("\uD83D\uDD75"));  // SLEUTH OR SPY is introduced in Unicode 7.0
         assertTrue(p.hasGlyph("\uD83C\uDF2E"));  // TACO is introduced in Unicode 8.0
         assertTrue(p.hasGlyph("\uD83E\uDD33"));  // SELFIE is introduced in Unicode 9.0
+
+        // We don't require gender-neutral emoji, but if present, results must be consistent
+        // whether VS is present or not.
+        assertTrue(p.hasGlyph("\uD83D\uDC69\u200D\u2695") ==  // WOMAN, ZWJ, STAFF OF AESCULAPIUS
+                p.hasGlyph("\uD83D\uDC69\u200D\u2695\uFE0F"));  // above + VS16
+
     }
 
     public void testGetRunAdvance() {

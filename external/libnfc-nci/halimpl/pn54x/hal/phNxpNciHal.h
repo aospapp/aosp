@@ -129,7 +129,8 @@ typedef struct phNxpNciProfile_Control
 void phNxpNciHal_request_control (void);
 void phNxpNciHal_release_control (void);
 int phNxpNciHal_write_unlocked (uint16_t data_len, const uint8_t *p_data);
+#if(NFC_NXP_CHIP_TYPE == PN548C2)
 NFCSTATUS phNxpNciHal_core_reset_recovery ();
 void phNxpNciHal_discovery_cmd_ext (uint8_t *p_cmd_data, uint16_t cmd_len);
-
+#endif
 #endif /* _PHNXPNCIHAL_H_ */

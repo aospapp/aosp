@@ -29,6 +29,29 @@ struct HostHubRawPacket {
     //raw data in unspecified format here
 } __attribute((packed));
 
+// From brHostEvent.h
+#define BRIDGE_HOST_EVENT_MSG_VERSION_INFO (0)
+
+struct BrHostEventData {
+    uint8_t msgId;
+    uint8_t reserved;
+    uint8_t status;
+    uint8_t payload[];
+} __attribute__((packed));
+
+struct BrHostEventTx {
+    struct HostHubRawPacket hdr;
+    struct BrHostEventData  data;
+} __attribute__((packed));
+
+// From brPkt.h
+struct BrVersionInfoRsp {
+    uint16_t hwType;
+    uint16_t osVer;
+    uint32_t variantVer;
+    uint32_t bridgeVer;
+} __attribute__((packed));
+
 // The u64 appId used in nanohub is 40 bits vendor ID + 24 bits app ID (see seos.h)
 constexpr uint64_t MakeAppId(uint64_t vendorId, uint32_t appId) {
     return (vendorId << 24) | (appId & 0x00FFFFFF);
@@ -41,6 +64,8 @@ constexpr uint64_t kAppIdBoschBmp280       = MakeAppId(kAppIdVendorGoogle, 5);
 constexpr uint64_t kAppIdAmsTmd2772        = MakeAppId(kAppIdVendorGoogle, 9);
 constexpr uint64_t kAppIdRohmRpr0521       = MakeAppId(kAppIdVendorGoogle, 10);
 constexpr uint64_t kAppIdAmsTmd4903        = MakeAppId(kAppIdVendorGoogle, 12);
+
+constexpr uint64_t kAppIdBridge = MakeAppId(kAppIdVendorGoogle, 50);
 
 /*
  * These classes represent events sent with event type EVT_APP_TO_HOST. This is
@@ -67,13 +92,17 @@ class AppToHostEvent : public ReadEventResponse {
     const uint8_t *GetDataPtr() const;
 
     bool IsCalibrationEventForSensor(SensorType sensor_type) const;
+    bool IsTestEventForSensor(SensorType sensor_type) const;
     virtual bool IsValid() const;
 
   protected:
     const HostHubRawPacket *GetTypedData() const;
+    bool CheckAppId(SensorType sensor_type) const;
+    bool CheckEventHeader(SensorType sensor_type) const;
 };
 
 #define SENSOR_APP_MSG_CALIBRATION_RESULT (0)
+#define SENSOR_APP_MSG_TEST_RESULT        (1)
 
 struct SensorAppEventHeader {
     uint8_t msgId;

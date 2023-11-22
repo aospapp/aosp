@@ -41,18 +41,18 @@
 #include <power_manager/dbus-proxies.h>
 #include <update_engine/dbus-constants.h>
 
+#include "update_engine/certificate_checker.h"
 #include "update_engine/common/boot_control_interface.h"
-#include "update_engine/common/certificate_checker.h"
 #include "update_engine/common/clock_interface.h"
 #include "update_engine/common/constants.h"
 #include "update_engine/common/hardware_interface.h"
-#include "update_engine/common/libcurl_http_fetcher.h"
 #include "update_engine/common/multi_range_http_fetcher.h"
 #include "update_engine/common/platform_constants.h"
 #include "update_engine/common/prefs_interface.h"
 #include "update_engine/common/subprocess.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/dbus_service.h"
+#include "update_engine/libcurl_http_fetcher.h"
 #include "update_engine/metrics.h"
 #include "update_engine/omaha_request_action.h"
 #include "update_engine/omaha_request_params.h"
@@ -585,7 +585,8 @@ void UpdateAttempter::GenerateNewWaitingPeriod() {
 void UpdateAttempter::BuildPostInstallActions(
     InstallPlanAction* previous_action) {
   shared_ptr<PostinstallRunnerAction> postinstall_runner_action(
-      new PostinstallRunnerAction(system_state_->boot_control()));
+      new PostinstallRunnerAction(system_state_->boot_control(),
+                                  system_state_->hardware()));
   postinstall_runner_action->set_delegate(this);
   actions_.push_back(shared_ptr<AbstractAction>(postinstall_runner_action));
   BondActions(previous_action,

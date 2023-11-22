@@ -16,15 +16,21 @@
 
 package android.support.design.testutils;
 
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.ColorInt;
 import android.support.design.widget.FloatingActionButton;
 import android.support.test.espresso.matcher.BoundedMatcher;
+import android.support.v4.view.GravityCompat;
 import android.support.v4.view.ViewCompat;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewParent;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import org.hamcrest.Description;
@@ -186,6 +192,46 @@ public class TestUtilsMatchers {
     }
 
     /**
+     * Returns a matcher that matches <code>ImageView</code>s which have drawable flat-filled
+     * with the specific color.
+     */
+    public static Matcher drawable(@ColorInt final int color, final int allowedComponentVariance) {
+        return new BoundedMatcher<View, ImageView>(ImageView.class) {
+            private String mFailedComparisonDescription;
+
+            @Override
+            public void describeTo(final Description description) {
+                description.appendText("with drawable of color: ");
+
+                description.appendText(mFailedComparisonDescription);
+            }
+
+            @Override
+            public boolean matchesSafely(final ImageView view) {
+                Drawable drawable = view.getDrawable();
+                if (drawable == null) {
+                    return false;
+                }
+
+                // One option is to check if we have a ColorDrawable and then call getColor
+                // but that API is v11+. Instead, we call our helper method that checks whether
+                // all pixels in a Drawable are of the same specified color.
+                try {
+                    TestUtils.assertAllPixelsOfColor("", drawable, view.getWidth(),
+                            view.getHeight(), true, color, allowedComponentVariance, true);
+                    // If we are here, the color comparison has passed.
+                    mFailedComparisonDescription = null;
+                    return true;
+                } catch (Throwable t) {
+                    // If we are here, the color comparison has failed.
+                    mFailedComparisonDescription = t.getMessage();
+                    return false;
+                }
+            }
+        };
+    }
+
+    /**
      * Returns a matcher that matches Views with the specified background fill color.
      */
     public static Matcher withBackgroundFill(final @ColorInt int fillColor) {
@@ -313,4 +359,60 @@ public class TestUtilsMatchers {
         };
     }
 
+    /**
+     * Returns a matcher that matches FloatingActionButtons with the specified gravity.
+     */
+    public static Matcher withFabContentAreaOnMargins(final int gravity) {
+        return new BoundedMatcher<View, View>(View.class) {
+            private String failedCheckDescription;
+
+            @Override
+            public void describeTo(final Description description) {
+                description.appendText(failedCheckDescription);
+            }
+
+            @Override
+            public boolean matchesSafely(final View view) {
+                if (!(view instanceof FloatingActionButton)) {
+                    return false;
+                }
+
+                final FloatingActionButton fab = (FloatingActionButton) view;
+                final ViewGroup.MarginLayoutParams lp =
+                        (ViewGroup.MarginLayoutParams) fab.getLayoutParams();
+                final ViewGroup parent = (ViewGroup) view.getParent();
+
+                final Rect area = new Rect();
+                fab.getContentRect(area);
+
+                final int absGravity = GravityCompat.getAbsoluteGravity(gravity,
+                        ViewCompat.getLayoutDirection(view));
+
+                try {
+                    switch (absGravity & Gravity.VERTICAL_GRAVITY_MASK) {
+                        case Gravity.TOP:
+                            assertEquals(lp.topMargin, fab.getTop() + area.top);
+                            break;
+                        case Gravity.BOTTOM:
+                            assertEquals(parent.getHeight() - lp.bottomMargin,
+                                    fab.getTop() + area.bottom);
+                            break;
+                    }
+                    switch (absGravity & Gravity.HORIZONTAL_GRAVITY_MASK) {
+                        case Gravity.LEFT:
+                            assertEquals(lp.leftMargin, fab.getLeft() + area.left);
+                            break;
+                        case Gravity.RIGHT:
+                            assertEquals(parent.getWidth() - lp.rightMargin,
+                                    fab.getLeft() + area.right);
+                            break;
+                    }
+                    return true;
+                } catch (Throwable t) {
+                    failedCheckDescription = t.getMessage();
+                    return false;
+                }
+            }
+        };
+    }
 }

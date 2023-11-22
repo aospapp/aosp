@@ -26,7 +26,6 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.StringRes;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.view.GravityCompat;
 import android.support.v7.appcompat.R;
@@ -604,12 +603,6 @@ public abstract class ActionBar {
      * Create and return a new {@link Tab}.
      * This tab will not be included in the action bar until it is added.
      *
-     * <p>Very often tabs will be used to switch between {@link Fragment}
-     * objects.  Here is a typical implementation of such tabs:</p>
-     *
-     * {@sample development/samples/ApiDemos/src/com/example/android/apis/app/FragmentTabs.java
-     *      complete}
-     *
      * @return A new Tab
      *
      * @see #addTab(Tab)
@@ -667,7 +660,7 @@ public abstract class ActionBar {
     public abstract void addTab(Tab tab, int position);
 
     /**
-     * Add a tab for use in tabbed navigation mode. The tab will be insterted at
+     * Add a tab for use in tabbed navigation mode. The tab will be inserted at
      * <code>position</code>.
      *
      * @param tab The tab to add
@@ -833,7 +826,7 @@ public abstract class ActionBar {
 
     /**
      * Enable or disable the "home" button in the corner of the action bar. (Note that this
-     * is the application home/up affordance on the action bar, not the systemwide home
+     * is the application home/up affordance on the action bar, not the system wide home
      * button.)
      *
      * <p>This defaults to true for packages targeting &lt; API 14. For packages targeting

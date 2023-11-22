@@ -1359,8 +1359,20 @@ public class WifiP2pServiceImpl extends IWifiP2pManager.Stub {
                     WifiP2pDevice owner = group.getOwner();
 
                     if (owner == null) {
-                        loge("Ignored invitation from null owner");
-                        break;
+                        int id = group.getNetworkId();
+                        if (id < 0) {
+                            loge("Ignored invitation from null owner");
+                            break;
+                        }
+
+                        String addr = mGroups.getOwnerAddr(id);
+                        if (addr != null) {
+                            group.setOwner(new WifiP2pDevice(addr));
+                            owner = group.getOwner();
+                        } else {
+                            loge("Ignored invitation from null owner");
+                            break;
+                        }
                     }
 
                     config = new WifiP2pConfig();

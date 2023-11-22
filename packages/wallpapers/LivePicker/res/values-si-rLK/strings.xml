@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"සජීවී වෝල්පේපරය පූරණය වේ…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"මුල් පිටු තිරය"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"මුල් පිටු තිරය සහ අගුලු තිරය"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"වෝල්පේපර තතු පැනලය හකුළුවන්න"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"වෝල්පේපර තතු පැනලය දිග හරින්න"</string>
 </resources>

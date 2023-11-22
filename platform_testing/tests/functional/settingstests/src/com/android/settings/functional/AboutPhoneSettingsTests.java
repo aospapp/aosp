@@ -46,7 +46,7 @@ public class AboutPhoneSettingsTests extends InstrumentationTestCase {
     private static final String[] sResourceTexts = {
         "Status",
         "Legal information",
-        "Regulatory information",
+        "Regulatory labels",
         "Model number",
         "Android version",
         "Android security patch level",
@@ -56,7 +56,7 @@ public class AboutPhoneSettingsTests extends InstrumentationTestCase {
     };
 
     private static final String[] sClickableResourceTexts = {
-        "Status", "Legal information", "Regulatory information",
+        "Status", "Legal information", "Regulatory labels",
     };
 
     @Override

@@ -25,9 +25,21 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.support.annotation.Nullable;
 import android.support.design.R;
+import android.view.View;
 import android.view.ViewTreeObserver;
+import android.view.animation.Interpolator;
 
 abstract class FloatingActionButtonImpl {
+
+    static final Interpolator ANIM_INTERPOLATOR = AnimationUtils.FAST_OUT_LINEAR_IN_INTERPOLATOR;
+    static final long PRESSED_ANIM_DURATION = 100;
+    static final long PRESSED_ANIM_DELAY = 100;
+
+    static final int ANIM_STATE_NONE = 0;
+    static final int ANIM_STATE_HIDING = 1;
+    static final int ANIM_STATE_SHOWING = 2;
+
+    int mAnimState = ANIM_STATE_NONE;
 
     Drawable mShapeDrawable;
     Drawable mRippleDrawable;
@@ -48,18 +60,21 @@ abstract class FloatingActionButtonImpl {
             android.R.attr.state_enabled};
     static final int[] FOCUSED_ENABLED_STATE_SET = {android.R.attr.state_focused,
             android.R.attr.state_enabled};
+    static final int[] ENABLED_STATE_SET = {android.R.attr.state_enabled};
     static final int[] EMPTY_STATE_SET = new int[0];
 
     final VisibilityAwareImageButton mView;
     final ShadowViewDelegate mShadowViewDelegate;
+    final ValueAnimatorCompat.Creator mAnimatorCreator;
 
     private final Rect mTmpRect = new Rect();
     private ViewTreeObserver.OnPreDrawListener mPreDrawListener;
 
     FloatingActionButtonImpl(VisibilityAwareImageButton view,
-            ShadowViewDelegate shadowViewDelegate) {
+            ShadowViewDelegate shadowViewDelegate, ValueAnimatorCompat.Creator animatorCreator) {
         mView = view;
         mShadowViewDelegate = shadowViewDelegate;
+        mAnimatorCreator = animatorCreator;
     }
 
     abstract void setBackgroundDrawable(ColorStateList backgroundTint,
@@ -74,7 +89,7 @@ abstract class FloatingActionButtonImpl {
     final void setElevation(float elevation) {
         if (mElevation != elevation) {
             mElevation = elevation;
-            onElevationChanged(elevation);
+            onElevationsChanged(elevation, mPressedTranslationZ);
         }
     }
 
@@ -83,13 +98,11 @@ abstract class FloatingActionButtonImpl {
     final void setPressedTranslationZ(float translationZ) {
         if (mPressedTranslationZ != translationZ) {
             mPressedTranslationZ = translationZ;
-            onTranslationZChanged(translationZ);
+            onElevationsChanged(mElevation, translationZ);
         }
     }
 
-    abstract void onElevationChanged(float elevation);
-
-    abstract void onTranslationZChanged(float translationZ);
+    abstract void onElevationsChanged(float elevation, float pressedTranslationZ);
 
     abstract void onDrawableStateChanged(int[] state);
 
@@ -171,5 +184,25 @@ abstract class FloatingActionButtonImpl {
         d.setShape(GradientDrawable.OVAL);
         d.setColor(Color.WHITE);
         return d;
+    }
+
+    boolean isOrWillBeShown() {
+        if (mView.getVisibility() != View.VISIBLE) {
+            // If we not currently visible, return true if we're animating to be shown
+            return mAnimState == ANIM_STATE_SHOWING;
+        } else {
+            // Otherwise if we're visible, return true if we're not animating to be hidden
+            return mAnimState != ANIM_STATE_HIDING;
+        }
+    }
+
+    boolean isOrWillBeHidden() {
+        if (mView.getVisibility() == View.VISIBLE) {
+            // If we currently visible, return true if we're animating to be hidden
+            return mAnimState == ANIM_STATE_HIDING;
+        } else {
+            // Otherwise if we're not visible, return true if we're not animating to be shown
+            return mAnimState != ANIM_STATE_SHOWING;
+        }
     }
 }

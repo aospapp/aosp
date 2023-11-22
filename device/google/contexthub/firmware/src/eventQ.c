@@ -24,6 +24,7 @@
 #include <cpu.h>
 #include <util.h>
 #include <plat/inc/plat.h>
+#include <plat/inc/taggedPtr.h>
 
 
 struct EvtRecord {
@@ -31,7 +32,7 @@ struct EvtRecord {
     struct EvtRecord *prev;
     uint32_t evtType;
     void* evtData;
-    uintptr_t evtFreeData;
+    TaggedPtr evtFreeData;
 };
 
 struct EvtQueue {
@@ -79,7 +80,7 @@ void evtQueueFree(struct EvtQueue* q)
     heapFree(q);
 }
 
-bool evtQueueEnqueue(struct EvtQueue* q, uint32_t evtType, void *evtData, uintptr_t evtFreeData, bool atFront)
+bool evtQueueEnqueue(struct EvtQueue* q, uint32_t evtType, void *evtData, TaggedPtr evtFreeData, bool atFront)
 {
     struct EvtRecord *rec;
     uint64_t intSta;
@@ -143,7 +144,7 @@ bool evtQueueEnqueue(struct EvtQueue* q, uint32_t evtType, void *evtData, uintpt
     return true;
 }
 
-bool evtQueueDequeue(struct EvtQueue* q, uint32_t *evtTypeP, void **evtDataP, uintptr_t *evtFreeDataP, bool sleepIfNone)
+bool evtQueueDequeue(struct EvtQueue* q, uint32_t *evtTypeP, void **evtDataP, TaggedPtr *evtFreeDataP, bool sleepIfNone)
 {
     struct EvtRecord *rec = NULL;
     uint64_t intSta;

@@ -103,7 +103,7 @@ public class Call implements CreateConnectionResponse {
         void onExtrasRemoved(Call c, int source, List<String> keys);
         void onHandleChanged(Call call);
         void onCallerDisplayNameChanged(Call call);
-        void onVideoStateChanged(Call call);
+        void onVideoStateChanged(Call call, int previousVideoState, int newVideoState);
         void onTargetPhoneAccountChanged(Call call);
         void onConnectionManagerPhoneAccountChanged(Call call);
         void onPhoneAccountChanged(Call call);
@@ -160,7 +160,7 @@ public class Call implements CreateConnectionResponse {
         @Override
         public void onCallerDisplayNameChanged(Call call) {}
         @Override
-        public void onVideoStateChanged(Call call) {}
+        public void onVideoStateChanged(Call call, int previousVideoState, int newVideoState) {}
         @Override
         public void onTargetPhoneAccountChanged(Call call) {}
         @Override
@@ -343,6 +343,7 @@ public class Call implements CreateConnectionResponse {
     private final CallsManager mCallsManager;
     private final TelecomSystem.SyncRoot mLock;
     private final String mId;
+    private String mConnectionId;
     private Analytics.CallInfo mAnalytics;
 
     private boolean mWasConferencePreviouslyMerged = false;
@@ -379,6 +380,8 @@ public class Call implements CreateConnectionResponse {
      */
     private boolean mIsVideoCallingSupported = false;
 
+    private PhoneNumberUtilsAdapter mPhoneNumberUtilsAdapter;
+
     /**
      * Persists the specified parameters and initializes the new instance.
      *
@@ -404,6 +407,7 @@ public class Call implements CreateConnectionResponse {
             ConnectionServiceRepository repository,
             ContactsAsyncHelper contactsAsyncHelper,
             CallerInfoAsyncQueryFactory callerInfoAsyncQueryFactory,
+            PhoneNumberUtilsAdapter phoneNumberUtilsAdapter,
             Uri handle,
             GatewayInfo gatewayInfo,
             PhoneAccountHandle connectionManagerPhoneAccountHandle,
@@ -412,11 +416,13 @@ public class Call implements CreateConnectionResponse {
             boolean shouldAttachToExistingConnection,
             boolean isConference) {
         mId = callId;
+        mConnectionId = callId;
         mState = isConference ? CallState.ACTIVE : CallState.NEW;
         mContext = context;
         mCallsManager = callsManager;
         mLock = lock;
         mRepository = repository;
+        mPhoneNumberUtilsAdapter = phoneNumberUtilsAdapter;
         setHandle(handle);
         mPostDialDigits = handle != null
                 ? PhoneNumberUtils.extractPostDialPortion(handle.getSchemeSpecificPart()) : "";
@@ -430,7 +436,6 @@ public class Call implements CreateConnectionResponse {
         maybeLoadCannedSmsResponses();
         mAnalytics = new Analytics.CallInfo();
 
-        Log.event(this, Log.Events.CREATED);
     }
 
     /**
@@ -459,6 +464,7 @@ public class Call implements CreateConnectionResponse {
             ConnectionServiceRepository repository,
             ContactsAsyncHelper contactsAsyncHelper,
             CallerInfoAsyncQueryFactory callerInfoAsyncQueryFactory,
+            PhoneNumberUtilsAdapter phoneNumberUtilsAdapter,
             Uri handle,
             GatewayInfo gatewayInfo,
             PhoneAccountHandle connectionManagerPhoneAccountHandle,
@@ -468,7 +474,7 @@ public class Call implements CreateConnectionResponse {
             boolean isConference,
             long connectTimeMillis) {
         this(callId, context, callsManager, lock, repository, contactsAsyncHelper,
-                callerInfoAsyncQueryFactory, handle, gatewayInfo,
+                callerInfoAsyncQueryFactory, phoneNumberUtilsAdapter, handle, gatewayInfo,
                 connectionManagerPhoneAccountHandle, targetPhoneAccountHandle, callDirection,
                 shouldAttachToExistingConnection, isConference);
 
@@ -501,6 +507,7 @@ public class Call implements CreateConnectionResponse {
                 analyticsDirection = Analytics.UNKNOWN_DIRECTION;
         }
         mAnalytics = Analytics.initiateCallAnalytics(mId, analyticsDirection);
+        Log.event(this, Log.Events.CREATED);
     }
 
     public Analytics.CallInfo getAnalytics() {
@@ -570,6 +577,11 @@ public class Call implements CreateConnectionResponse {
             return false;
         }
 
+        // Only Redial a Call in the case of it being an Emergency Call.
+        if(!isEmergencyCall()) {
+            return false;
+        }
+
         // Make sure that there are additional connection services to process.
         if (mCreateConnectionProcessor == null
             || !mCreateConnectionProcessor.isProcessingComplete()
@@ -592,6 +604,21 @@ public class Call implements CreateConnectionResponse {
      */
     public String getId() {
         return mId;
+    }
+
+    /**
+     * Returns the unique ID for this call (see {@link #getId}) along with an attempt indicator that
+     * iterates based on attempts to establish a {@link Connection} using createConnectionProcessor.
+     * @return The call ID with an appended attempt id.
+     */
+    public String getConnectionId() {
+        if(mCreateConnectionProcessor != null) {
+            mConnectionId = mId + "_" +
+                    String.valueOf(mCreateConnectionProcessor.getConnectionAttempt());
+            return mConnectionId;
+        } else {
+            return mConnectionId;
+        }
     }
 
     /**
@@ -654,6 +681,9 @@ public class Call implements CreateConnectionResponse {
                     break;
                 case CallState.DIALING:
                     event = Log.Events.SET_DIALING;
+                    break;
+                case CallState.PULLING:
+                    event = Log.Events.SET_PULLING;
                     break;
                 case CallState.DISCONNECTED:
                     event = Log.Events.SET_DISCONNECTED;
@@ -747,8 +777,9 @@ public class Call implements CreateConnectionResponse {
             // Let's not allow resetting of the emergency flag. Once a call becomes an emergency
             // call, it will remain so for the rest of it's lifetime.
             if (!mIsEmergencyCall) {
-                mIsEmergencyCall = mHandle != null && PhoneNumberUtils.isLocalEmergencyNumber(
-                        mContext, mHandle.getSchemeSpecificPart());
+                mIsEmergencyCall = mHandle != null &&
+                        mPhoneNumberUtilsAdapter.isLocalEmergencyNumber(mContext,
+                                mHandle.getSchemeSpecificPart());
             }
             startCallerInfoLookup();
             for (Listener l : mListeners) {
@@ -982,10 +1013,18 @@ public class Call implements CreateConnectionResponse {
                 connectionCapabilities = removeVideoCapabilities(connectionCapabilities);
             }
 
+            int previousCapabilities = mConnectionCapabilities;
             mConnectionCapabilities = connectionCapabilities;
             for (Listener l : mListeners) {
                 l.onConnectionCapabilitiesChanged(this);
             }
+
+            int xorCaps = previousCapabilities ^ mConnectionCapabilities;
+            Log.event(this, Log.Events.CAPABILITY_CHANGE,
+                    "Current: [%s], Removed [%s], Added [%s]",
+                    Connection.capabilitiesToStringShort(mConnectionCapabilities),
+                    Connection.capabilitiesToStringShort(previousCapabilities & xorCaps),
+                    Connection.capabilitiesToStringShort(mConnectionCapabilities & xorCaps));
         }
     }
 
@@ -1006,12 +1045,19 @@ public class Call implements CreateConnectionResponse {
             if (wasExternal != isExternal) {
                 Log.v(this, "setConnectionProperties: external call changed isExternal = %b",
                         isExternal);
-
+                Log.event(this, Log.Events.IS_EXTERNAL, isExternal);
                 for (Listener l : mListeners) {
                     l.onExternalCallChanged(this, isExternal);
                 }
 
             }
+
+            int xorProps = previousProperties ^ mConnectionProperties;
+            Log.event(this, Log.Events.PROPERTY_CHANGE,
+                    "Current: [%s], Removed [%s], Added [%s]",
+                    Connection.propertiesToStringShort(mConnectionProperties),
+                    Connection.propertiesToStringShort(previousProperties & xorProps),
+                    Connection.propertiesToStringShort(mConnectionProperties & xorProps));
         }
     }
 
@@ -1287,6 +1333,11 @@ public class Call implements CreateConnectionResponse {
         // Check to verify that the call is still in the ringing state. A call can change states
         // between the time the user hits 'answer' and Telecom receives the command.
         if (isRinging("answer")) {
+            if (!isVideoCallingSupported() && VideoProfile.isVideo(videoState)) {
+                // Video calling is not supported, yet the InCallService is attempting to answer as
+                // video.  We will simply answer as audio-only.
+                videoState = VideoProfile.STATE_AUDIO_ONLY;
+            }
             // At this point, we are asking the connection service to answer but we don't assume
             // that it will work. Instead, we wait until confirmation from the connectino service
             // that the call is in a non-STATE_RINGING state before changing the UI. See
@@ -1477,7 +1528,7 @@ public class Call implements CreateConnectionResponse {
         if (mConnectionService == null) {
             Log.w(this, "splitting from conference call without a connection service");
         } else {
-            Log.event(this, Log.Events.SPLIT_CONFERENCE);
+            Log.event(this, Log.Events.SPLIT_FROM_CONFERENCE);
             mConnectionService.splitFromConference(this);
         }
     }
@@ -1525,7 +1576,7 @@ public class Call implements CreateConnectionResponse {
      * {@link android.telecom.Connection#PROPERTY_IS_EXTERNAL_CALL} property set.
      * <p>
      * An external call is a representation of a call which is taking place on another device
-     * associated with a PhoneAccount on this device.  Issuing a request to pull the external call 
+     * associated with a PhoneAccount on this device.  Issuing a request to pull the external call
      * tells the {@link android.telecom.ConnectionService} that it should move the call from the
      * other device to this one.  An example of this is the IMS multi-endpoint functionality.  A
      * user may have two phones with the same phone number.  If the user is engaged in an active
@@ -1550,7 +1601,7 @@ public class Call implements CreateConnectionResponse {
             return;
         }
 
-        Log.event(this, Log.Events.PULL);
+        Log.event(this, Log.Events.REQUEST_PULL);
         mConnectionService.pullExternalCall(this);
     }
 
@@ -1671,7 +1722,7 @@ public class Call implements CreateConnectionResponse {
             return false;
         }
 
-        if (PhoneNumberUtils.isUriNumber(getHandle().toString())) {
+        if (mPhoneNumberUtilsAdapter.isUriNumber(getHandle().toString())) {
             // The incoming number is actually a URI (i.e. a SIP address),
             // not a regular PSTN phone number, and we can't send SMSes to
             // SIP addresses.
@@ -1884,6 +1935,12 @@ public class Call implements CreateConnectionResponse {
      * @param videoState The video state for the call.
      */
     public void setVideoState(int videoState) {
+        // If the phone account associated with this call does not support video calling, then we
+        // will automatically set the video state to audio-only.
+        if (!isVideoCallingSupported()) {
+            videoState = VideoProfile.STATE_AUDIO_ONLY;
+        }
+
         // Track which video states were applicable over the duration of the call.
         // Only track the call state when the call is active or disconnected.  This ensures we do
         // not include the video state when:
@@ -1895,9 +1952,18 @@ public class Call implements CreateConnectionResponse {
             mVideoStateHistory = mVideoStateHistory | videoState;
         }
 
+        int previousVideoState = mVideoState;
         mVideoState = videoState;
-        for (Listener l : mListeners) {
-            l.onVideoStateChanged(this);
+        if (mVideoState != previousVideoState) {
+            Log.event(this, Log.Events.VIDEO_STATE_CHANGED,
+                    VideoProfile.videoStateToString(videoState));
+            for (Listener l : mListeners) {
+                l.onVideoStateChanged(this, previousVideoState, mVideoState);
+            }
+        }
+
+        if (VideoProfile.isVideo(videoState)) {
+            mAnalytics.setCallIsVideo(true);
         }
     }
 
@@ -1969,6 +2035,8 @@ public class Call implements CreateConnectionResponse {
                 return CallState.ACTIVE;
             case Connection.STATE_DIALING:
                 return CallState.DIALING;
+            case Connection.STATE_PULLING_CALL:
+                return CallState.PULLING;
             case Connection.STATE_DISCONNECTED:
                 return CallState.DISCONNECTED;
             case Connection.STATE_HOLDING:

@@ -1,9 +1,10 @@
-all : IID_to_MPH.c
+all : IID_to_MPH.c run_test
 
 install : IID_to_MPH.c
 	cp IID_to_MPH.c ../../src/autogen
 
 CFLAGS = -I../../include -g -DNDEBUG
+CFLAGS += -Wall -Werror
 
 %.o : %.c
 	gcc -c -o $@ $(CFLAGS) $<
@@ -43,7 +44,7 @@ part23in.gperf : frag1
 	./frag1 > part23in.gperf
 
 frag1 : frag1.o OpenSLES_IID.o
-	gcc -o $@ $(CFLAGS) frag1.o OpenSLES_IID.o
+	gcc -o $@ $(CFLAGS) $^
 
 part5gen.c : frag2.c part23in.c frag3.c
 	$(RM) $@
@@ -54,12 +55,19 @@ part5gen.c : frag2.c part23in.c frag3.c
 	cat frag3.c >> $@
 
 part5gen : part5gen.o OpenSLES_IID.o interfaces.o
-	gcc -o $@ $(CFLAGS) part5gen.o OpenSLES_IID.o interfaces.o
+	gcc -o $@ $(CFLAGS) $^
+
+run_test : test
+	./test
+
+test : test.o OpenSLES_IID.o IID_to_MPH.o
+	gcc -o $@ $(CFLAGS) $^
 
 clean :
 	$(RM) part5gen frag1 *.o
 	$(RM) part23in.gperf part5gen.c part23in.c
 	$(RM) part2.c part3.c part5.c part7.c
+	$(RM) test
 
 distclean : clean
 	$(RM) IID_to_MPH.c

@@ -3115,6 +3115,7 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
 
         }
 
+        DATA_SYNC();
 
         /* Update the parse status map */
         {

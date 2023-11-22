@@ -330,7 +330,12 @@ public class Comment {
     } else if (name.equals("@see")) {
       mSeeTagsList.add(new SeeTagInfo("@see", "@see", text, mBase, pos));
     } else if (name.equals("@link")) {
-      mInlineTagsList.add(new SeeTagInfo(name, "@see", text, mBase, pos));
+      if (Doclava.DEVSITE_IGNORE_JDLINKS) {
+        TagInfo linkTag = new TextTagInfo(name, name, text, pos);
+        mInlineTagsList.add(linkTag);
+      } else {
+        mInlineTagsList.add(new SeeTagInfo(name, "@see", text, mBase, pos));
+      }
     } else if (name.equals("@linkplain")) {
       mInlineTagsList.add(new SeeTagInfo(name, "@linkplain", text, mBase, pos));
     } else if (name.equals("@value")) {

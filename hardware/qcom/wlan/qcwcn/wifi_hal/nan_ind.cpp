@@ -20,7 +20,6 @@
 #include "wifi_hal.h"
 #include "nan_i.h"
 #include "nancommand.h"
-#include "qca-vendor.h"
 #include <errno.h>
 
 //Function which calls the necessaryIndication callback

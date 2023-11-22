@@ -429,6 +429,11 @@ def wait_and_answer_call(log,
 
 
 def wait_for_ringing_event(log, ad, wait_time):
+    log.warning("***DEPRECATED*** wait_for_ringing_event()")
+    return _wait_for_ringing_event(log, ad, wait_time)
+
+
+def _wait_for_ringing_event(log, ad, wait_time):
     """Wait for ringing event.
 
     Args:
@@ -470,44 +475,52 @@ def wait_for_ringing_event(log, ad, wait_time):
     return event_ringing
 
 
-def wait_and_answer_call_for_subscription(
-        log,
-        ad,
-        sub_id,
-        incoming_number=None,
-        incall_ui_display=INCALL_UI_DISPLAY_FOREGROUND):
-    """Wait for an incoming call on specified subscription and
+def wait_for_ringing_call(log, ad, incoming_number=None):
+    """Wait for an incoming call on default voice subscription and
        accepts the call.
 
     Args:
+        log: log object.
+        ad: android device object.
+        incoming_number: Expected incoming number.
+            Optional. Default is None
+
+    Returns:
+        True: if incoming call is received and answered successfully.
+        False: for errors
+        """
+    return wait_for_ringing_call_for_subscription(
+        log, ad, get_incoming_voice_sub_id(ad), incoming_number)
+
+
+def wait_for_ringing_call_for_subscription(log,
+                                           ad,
+                                           sub_id,
+                                           incoming_number=None):
+    """Wait for an incoming call on specified subscription.
+
+    Args:
+        log: log object.
         ad: android device object.
         sub_id: subscription ID
         incoming_number: Expected incoming number.
             Optional. Default is None
-        incall_ui_display: after answer the call, bring in-call UI to foreground or
-            background. Optional, default value is INCALL_UI_DISPLAY_FOREGROUND.
-            if = INCALL_UI_DISPLAY_FOREGROUND, bring in-call UI to foreground.
-            if = INCALL_UI_DISPLAY_BACKGROUND, bring in-call UI to background.
-            else, do nothing.
 
     Returns:
         True: if incoming call is received and answered successfully.
         False: for errors
     """
-    ad.ed.clear_all_events()
-    ad.droid.telephonyStartTrackingCallStateForSubscription(sub_id)
     if (not ad.droid.telecomIsRinging() and
             ad.droid.telephonyGetCallStateForSubscription(sub_id) !=
             TELEPHONY_STATE_RINGING):
-        try:
-            event_ringing = wait_for_ringing_event(
-                log, ad, MAX_WAIT_TIME_CALLEE_RINGING)
-            if event_ringing is None:
-                log.error("No Ringing Event.")
-                return False
-        finally:
-            ad.droid.telephonyStopTrackingCallStateChangeForSubscription(
-                sub_id)
+        ad.ed.clear_all_events()
+        ad.droid.telephonyStartTrackingCallStateForSubscription(sub_id)
+        event_ringing = _wait_for_ringing_event(log, ad,
+                                                MAX_WAIT_TIME_CALLEE_RINGING)
+        ad.droid.telephonyStopTrackingCallStateChangeForSubscription(sub_id)
+        if event_ringing is None:
+            log.error("No Ringing Event.")
+            return False
 
         if not incoming_number:
             result = True
@@ -522,6 +535,39 @@ def wait_and_answer_call_for_subscription(
                 incoming_number, event_ringing['data'][
                     CallStateContainer.INCOMING_NUMBER]))
             return False
+    return True
+
+
+def wait_and_answer_call_for_subscription(
+        log,
+        ad,
+        sub_id,
+        incoming_number=None,
+        incall_ui_display=INCALL_UI_DISPLAY_FOREGROUND):
+    """Wait for an incoming call on specified subscription and
+       accepts the call.
+
+    Args:
+        log: log object.
+        ad: android device object.
+        sub_id: subscription ID
+        incoming_number: Expected incoming number.
+            Optional. Default is None
+        incall_ui_display: after answer the call, bring in-call UI to foreground or
+            background. Optional, default value is INCALL_UI_DISPLAY_FOREGROUND.
+            if = INCALL_UI_DISPLAY_FOREGROUND, bring in-call UI to foreground.
+            if = INCALL_UI_DISPLAY_BACKGROUND, bring in-call UI to background.
+            else, do nothing.
+
+    Returns:
+        True: if incoming call is received and answered successfully.
+        False: for errors
+    """
+
+    if not wait_for_ringing_call_for_subscription(log, ad, sub_id,
+                                                  incoming_number):
+        log.error("Could not answer a call: phone never rang.")
+        return False
 
     ad.ed.clear_all_events()
     ad.droid.telephonyStartTrackingCallStateForSubscription(sub_id)
@@ -559,6 +605,7 @@ def wait_and_reject_call(log,
        reject the call.
 
     Args:
+        log: log object.
         ad: android device object.
         incoming_number: Expected incoming number.
             Optional. Default is None
@@ -584,6 +631,7 @@ def wait_and_reject_call_for_subscription(log,
        reject the call.
 
     Args:
+        log: log object.
         ad: android device object.
         sub_id: subscription ID
         incoming_number: Expected incoming number.
@@ -595,34 +643,11 @@ def wait_and_reject_call_for_subscription(log,
         True: if incoming call is received and reject successfully.
         False: for errors
     """
-    ad.ed.clear_all_events()
-    ad.droid.telephonyStartTrackingCallStateForSubscription(sub_id)
-    if (not ad.droid.telecomIsRinging() and
-            ad.droid.telephonyGetCallStateForSubscription(sub_id) !=
-            TELEPHONY_STATE_RINGING):
-        try:
-            event_ringing = wait_for_ringing_event(
-                log, ad, MAX_WAIT_TIME_CALLEE_RINGING)
-            if event_ringing is None:
-                log.error("No Ringing Event.")
-                return False
-        finally:
-            ad.droid.telephonyStopTrackingCallStateChangeForSubscription(
-                sub_id)
 
-        if not incoming_number:
-            result = True
-        else:
-            result = check_phone_number_match(
-                event_ringing['data'][CallStateContainer.INCOMING_NUMBER],
-                incoming_number)
-
-        if not result:
-            log.error("Incoming Number not match")
-            log.error("Expected number:{}, actual number:{}".format(
-                incoming_number, event_ringing['data'][
-                    CallStateContainer.INCOMING_NUMBER]))
-            return False
+    if not wait_for_ringing_call_for_subscription(log, ad, sub_id,
+                                                  incoming_number):
+        log.error("Could not reject a call: phone never rang.")
+        return False
 
     ad.ed.clear_all_events()
     ad.droid.telephonyStartTrackingCallStateForSubscription(sub_id)
@@ -661,6 +686,14 @@ def wait_and_reject_call_for_subscription(log,
 
 def hangup_call(log, ad):
     """Hang up ongoing active call.
+
+    Args:
+        log: log object.
+        ad: android device object.
+
+    Returns:
+        True: if incoming call is received and reject successfully.
+        False: for errors
     """
     ad.ed.clear_all_events()
     ad.droid.telephonyStartTrackingCallState()
@@ -687,6 +720,7 @@ def disconnect_call_by_id(log, ad, call_id):
     """
     ad.droid.telecomCallDisconnect(call_id)
     return True
+
 
 def _phone_number_remove_prefix(number):
     """Remove the country code and other prefix from the input phone number.
@@ -750,8 +784,7 @@ def check_phone_number_match(number1, number2):
     # Remove country code and prefix
     number1, country_code1 = _phone_number_remove_prefix(number1)
     number2, country_code2 = _phone_number_remove_prefix(number2)
-    if ((country_code1 is not None) and
-        (country_code2 is not None) and
+    if ((country_code1 is not None) and (country_code2 is not None) and
         (country_code1 != country_code2)):
         return False
     # Remove white spaces, dashes, dots
@@ -1311,6 +1344,7 @@ def verify_http_connection(log,
     """Make ping request and return status.
 
     Args:
+        log: log object
         ad: Android Device Object.
         url: Optional. The ping request will be made to this URL.
             Default Value is "http://www.google.com/".
@@ -2949,8 +2983,7 @@ def ensure_phone_default_state(log, ad):
             "ensure_phones_default_state: wait_for_droid_not_in iwlan fail {}.".format(
                 ad.serial))
         result = False
-    if ((not WifiUtils.wifi_reset(log, ad)) or
-        (not WifiUtils.wifi_toggle_state(log, ad, False))):
+    if (not WifiUtils.wifi_reset(log, ad)):
         log.error("ensure_phones_default_state:reset WiFi fail {}.".format(
             ad.serial))
         result = False
@@ -2982,7 +3015,7 @@ def ensure_phones_default_state(log, ads):
     return True
 
 
-def ensure_wifi_connected(log, ad, wifi_ssid, wifi_pwd=None, retry=1):
+def ensure_wifi_connected(log, ad, wifi_ssid, wifi_pwd=None, retry=0):
     """Ensure ad connected to wifi.
 
     Args:
@@ -2994,12 +3027,11 @@ def ensure_wifi_connected(log, ad, wifi_ssid, wifi_pwd=None, retry=1):
     """
     while (retry >= 0):
         WifiUtils.wifi_reset(log, ad)
-        WifiUtils.wifi_toggle_state(log, ad, False)
         WifiUtils.wifi_toggle_state(log, ad, True)
         if WifiUtils.wifi_connect(log, ad, wifi_ssid, wifi_pwd):
             return True
         else:
-            log.info("ensure_wifi_connected: Connect WiFi failed, retry + 1.")
+            log.info("ensure_wifi_connected: Connect WiFi failed")
             retry -= 1
     return False
 
@@ -3381,6 +3413,16 @@ class WifiUtils():
 
     @staticmethod
     def wifi_toggle_state(log, ad, state):
+        """Toggle the WiFi State
+
+        Args:
+            log: log object
+            ad: AndroidDevice object
+            state: True, False, or None
+
+        Returns:
+            boolean success (True) or failure (False)
+        """
         try:
             WifiUtils._wifi_toggle_state(ad, state)
         except Exception as e:
@@ -3389,21 +3431,65 @@ class WifiUtils():
         return True
 
     @staticmethod
-    def wifi_reset(log, ad, disable_wifi=True):
-        try:
-            WifiUtils._reset_wifi(ad)
-        except Exception as e:
-            log.error("WifiUtils.wifi_reset exception: {}".format(e))
+    def forget_all_networks(log, ad):
+        """Forget all stored wifi network information
+
+        Args:
+            log: log object
+            ad: AndroidDevice object
+
+        Returns:
+            boolean success (True) or failure (False)
+        """
+        networks = ad.droid.wifiGetConfiguredNetworks()
+        if networks is None:
+            return True
+        for network in networks:
+            ad.droid.wifiForgetNetwork(network['networkId'])
+            try:
+                event = ad.ed.pop_event(WifiEventNames.WIFI_FORGET_NW_SUCCESS,
+                                        SHORT_TIMEOUT)
+            except Empty:
+                log.warning(
+                    "Could not confirm the removal of network {}.".format(
+                        network))
+        networks = ad.droid.ad.droid.wifiGetConfiguredNetworks()
+        if len(networks):
+            log.error("Failed to forget all networks {}.".format(networks))
             return False
-        finally:
-            if disable_wifi is True:
-                ad.droid.wifiToggleState(False)
-                # Ensure toggle state has human-time to take effect
-            time.sleep(WAIT_TIME_ANDROID_STATE_SETTLING)
         return True
 
     @staticmethod
+    def wifi_reset(log, ad, disable_wifi=True):
+        """Forget all stored wifi networks and (optionally) disable WiFi
+
+        Args:
+            log: log object
+            ad: AndroidDevice object
+            disable_wifi: boolean to disable wifi, defaults to True
+        Returns:
+            boolean success (True) or failure (False)
+        """
+        if disable_wifi is True:
+            if not WifiUtils.wifi_toggle_state(log, ad, False):
+                log.error("Failed to disable WiFi during reset!")
+                return False
+            # Ensure toggle state has human-time to take effect
+            time.sleep(WAIT_TIME_ANDROID_STATE_SETTLING)
+        return WifiUtils.forget_all_networks(log, ad)
+
+    @staticmethod
     def wifi_connect(log, ad, ssid, password=None):
+        """Connect to a WiFi network with a provided SSID and Password
+
+        Args:
+            log: log object
+            ad: AndroidDevice object
+            ssid: the name of the WiFi network
+            password: optional password, used for secure networks.
+        Returns:
+            boolean success (True) or failure (False)
+        """
         if password == "":
             password = None
         try:
@@ -3434,6 +3520,17 @@ class WifiUtils():
 
     @staticmethod
     def start_wifi_tethering(log, ad, ssid, password, ap_band=None):
+        """Start a Tethering Session
+
+        Args:
+            log: log object
+            ad: AndroidDevice object
+            ssid: the name of the WiFi network
+            password: optional password, used for secure networks.
+            ap_band=DEPRECATED specification of 2G or 5G tethering
+        Returns:
+            boolean success (True) or failure (False)
+        """
         try:
             return WifiUtils._start_wifi_tethering(ad, ssid, password, ap_band)
         except Exception as e:
@@ -3442,6 +3539,14 @@ class WifiUtils():
 
     @staticmethod
     def stop_wifi_tethering(log, ad):
+        """Stop a Tethering Session
+
+        Args:
+            log: log object
+            ad: AndroidDevice object
+        Returns:
+            boolean success (True) or failure (False)
+        """
         try:
             WifiUtils._stop_wifi_tethering(ad)
             return True

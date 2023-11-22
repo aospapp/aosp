@@ -22,27 +22,39 @@
 #include <media/stagefright/foundation/ABase.h>
 #include <utils/KeyedVector.h>
 
+#include "activityeventhandler.h"
 #include "hubconnection.h"
 
-#define DEBUG_ACTIVITY_RECOGNITION  0
+namespace android {
 
-struct ActivityContext {
+class ActivityContext : public ActivityEventHandler {
+  public:
     activity_recognition_device_t device;
 
     explicit ActivityContext(const struct hw_module_t *module);
-
-    void onActivityEvent(
-            uint64_t when_us, bool is_flush, float x, float y, float z);
+    ~ActivityContext();
 
     bool getHubAlive();
 
-private:
-    android::Mutex mLock;
+    void registerActivityCallback(
+            const activity_recognition_callback_procs_t *callback);
 
+    bool isEnabled(uint32_t activity_handle, uint32_t event_type) const;
+
+    int enableActivityEvent(uint32_t activity_handle,
+        uint32_t event_type, int64_t max_batch_report_latency_ns);
+
+    int disableActivityEvent(uint32_t activity_handle, uint32_t event_type);
+
+    int flush();
+
+    // ActivityEventHandler interface.
+    virtual void OnActivityEvent(int activityRaw, uint64_t whenNs) override;
+    virtual void OnFlush() override;
+  private:
     android::sp<android::HubConnection> mHubConnection;
 
-    bool mHubAlive;
-
+    android::Mutex mCallbackLock;
     const activity_recognition_callback_procs_t *mCallback;
 
     android::KeyedVector<uint64_t, int64_t> mMaxBatchReportLatencyNs;
@@ -51,50 +63,12 @@ private:
 
     bool mInitExitDone;
 
-    ~ActivityContext();
-
-    int close();
-
-    void registerActivityCallback(
-            const activity_recognition_callback_procs_t *callback);
-
-    bool isEnabled(uint32_t activity_handle, uint32_t event_type) const;
-
-    int enableActivityEvent(
-            uint32_t activity_handle,
-            uint32_t event_type,
-            int64_t max_batch_report_latency_ns);
-
-    int disableActivityEvent(uint32_t activity_handle, uint32_t event_type);
-
-    int flush();
-
     int64_t calculateReportLatencyNs();
-
-    static int CloseWrapper(struct hw_device_t *dev);
-
-    static void RegisterActivityCallbackWrapper(
-            const struct activity_recognition_device *dev,
-            const activity_recognition_callback_procs_t *callback);
-
-    static int EnableActivityEventWrapper(
-            const struct activity_recognition_device *dev,
-            uint32_t activity_handle,
-            uint32_t event_type,
-            int64_t max_batch_report_latency_ns);
-
-    static int DisableActivityEventWrapper(
-            const struct activity_recognition_device *dev,
-            uint32_t activity_handle,
-            uint32_t event_type);
-
-    static int FlushWrapper(const struct activity_recognition_device *dev);
-
-    static void HubCallbackWrapper(
-            void *me, uint64_t time_ms, bool is_flush, float x, float y, float z);
 
     DISALLOW_EVIL_CONSTRUCTORS(ActivityContext);
 };
+
+}  // namespace android
 
 #endif  // ACTIVITY_H_
 

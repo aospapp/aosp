@@ -39,6 +39,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Pair;
 
 import com.android.internal.app.IBatteryStats;
+import com.android.internal.util.AsyncChannel;
 import com.android.internal.util.Protocol;
 import com.android.server.wifi.BidirectionalAsyncChannel;
 import com.android.server.wifi.Clock;
@@ -137,13 +138,13 @@ public class WifiScanningServiceTest {
         return controlChannel;
     }
 
-    private Message verifyHandleMessageAndGetMessage(InOrder order, Handler handler) {
+    private static Message verifyHandleMessageAndGetMessage(InOrder order, Handler handler) {
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
         order.verify(handler).handleMessage(messageCaptor.capture());
         return messageCaptor.getValue();
     }
 
-    private Message verifyHandleMessageAndGetMessage(InOrder order, Handler handler,
+    private static Message verifyHandleMessageAndGetMessage(InOrder order, Handler handler,
             final int what) {
         CapturingMatcher<Message> messageMatcher = new CapturingMatcher<Message>() {
             public boolean matches(Object argument) {
@@ -155,14 +156,14 @@ public class WifiScanningServiceTest {
         return messageMatcher.getLastValue();
     }
 
-    private void verifyScanResultsRecieved(InOrder order, Handler handler, int listenerId,
+    private static void verifyScanResultsRecieved(InOrder order, Handler handler, int listenerId,
             WifiScanner.ScanData... expected) {
         Message scanResultMessage = verifyHandleMessageAndGetMessage(order, handler,
                 WifiScanner.CMD_SCAN_RESULT);
         assertScanResultsMessage(listenerId, expected, scanResultMessage);
     }
 
-    private void assertScanResultsMessage(int listenerId, WifiScanner.ScanData[] expected,
+    private static void assertScanResultsMessage(int listenerId, WifiScanner.ScanData[] expected,
             Message scanResultMessage) {
         assertEquals("what", WifiScanner.CMD_SCAN_RESULT, scanResultMessage.what);
         assertEquals("listenerId", listenerId, scanResultMessage.arg2);
@@ -170,18 +171,19 @@ public class WifiScanningServiceTest {
                 ((WifiScanner.ParcelableScanData) scanResultMessage.obj).getResults());
     }
 
-    private void verifySingleScanCompletedRecieved(InOrder order, Handler handler, int listenerId) {
+    private static void verifySingleScanCompletedRecieved(InOrder order, Handler handler,
+            int listenerId) {
         Message completedMessage = verifyHandleMessageAndGetMessage(order, handler,
                 WifiScanner.CMD_SINGLE_SCAN_COMPLETED);
         assertSingleScanCompletedMessage(listenerId, completedMessage);
     }
 
-    private void assertSingleScanCompletedMessage(int listenerId, Message completedMessage) {
+    private static void assertSingleScanCompletedMessage(int listenerId, Message completedMessage) {
         assertEquals("what", WifiScanner.CMD_SINGLE_SCAN_COMPLETED, completedMessage.what);
         assertEquals("listenerId", listenerId, completedMessage.arg2);
     }
 
-    private void sendBackgroundScanRequest(BidirectionalAsyncChannel controlChannel,
+    private static void sendBackgroundScanRequest(BidirectionalAsyncChannel controlChannel,
             int scanRequestId, WifiScanner.ScanSettings settings, WorkSource workSource) {
         Bundle scanParams = new Bundle();
         scanParams.putParcelable(WifiScanner.SCAN_PARAMS_SCAN_SETTINGS_KEY, settings);
@@ -190,7 +192,7 @@ public class WifiScanningServiceTest {
                         scanRequestId, scanParams));
     }
 
-    private void sendSingleScanRequest(BidirectionalAsyncChannel controlChannel,
+    private static void sendSingleScanRequest(BidirectionalAsyncChannel controlChannel,
             int scanRequestId, WifiScanner.ScanSettings settings, WorkSource workSource) {
         Bundle scanParams = new Bundle();
         scanParams.putParcelable(WifiScanner.SCAN_PARAMS_SCAN_SETTINGS_KEY, settings);
@@ -199,12 +201,24 @@ public class WifiScanningServiceTest {
                         scanRequestId, scanParams));
     }
 
-    private void verifySuccessfulResponse(InOrder order, Handler handler, int arg2) {
+    private static void registerScanListener(BidirectionalAsyncChannel controlChannel,
+            int listenerRequestId) {
+        controlChannel.sendMessage(Message.obtain(null, WifiScanner.CMD_REGISTER_SCAN_LISTENER, 0,
+                        listenerRequestId, null));
+    }
+
+    private static void deregisterScanListener(BidirectionalAsyncChannel controlChannel,
+            int listenerRequestId) {
+        controlChannel.sendMessage(Message.obtain(null, WifiScanner.CMD_DEREGISTER_SCAN_LISTENER, 0,
+                        listenerRequestId, null));
+    }
+
+    private static void verifySuccessfulResponse(InOrder order, Handler handler, int arg2) {
         Message response = verifyHandleMessageAndGetMessage(order, handler);
         assertSuccessfulResponse(arg2, response);
     }
 
-    private void assertSuccessfulResponse(int arg2, Message response) {
+    private static void assertSuccessfulResponse(int arg2, Message response) {
         if (response.what == WifiScanner.CMD_OP_FAILED) {
             WifiScanner.OperationResult result = (WifiScanner.OperationResult) response.obj;
             fail("response indicates failure, reason=" + result.reason
@@ -215,13 +229,65 @@ public class WifiScanningServiceTest {
         }
     }
 
-    private void verifyFailedResponse(InOrder order, Handler handler, int arg2,
+    /**
+     * If multiple results are expected for a single hardware scan then the order that they are
+     * dispatched is dependant on the order which they are iterated through internally. This
+     * function validates that the order is either one way or the other. A scan listener can
+     * optionally be provided as well and will be checked after the after the single scan requests.
+     */
+    private static void verifyMultipleSingleScanResults(InOrder handlerOrder, Handler handler,
+            int requestId1, ScanResults results1, int requestId2, ScanResults results2,
+            int listenerRequestId, ScanResults listenerResults) {
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        handlerOrder.verify(handler, times(listenerResults == null ? 4 : 5))
+                .handleMessage(messageCaptor.capture());
+        int firstListenerId = messageCaptor.getAllValues().get(0).arg2;
+        assertTrue(firstListenerId + " was neither " + requestId2 + " nor " + requestId1,
+                firstListenerId == requestId2 || firstListenerId == requestId1);
+        if (firstListenerId == requestId2) {
+            assertScanResultsMessage(requestId2,
+                    new WifiScanner.ScanData[] {results2.getScanData()},
+                    messageCaptor.getAllValues().get(0));
+            assertSingleScanCompletedMessage(requestId2, messageCaptor.getAllValues().get(1));
+            assertScanResultsMessage(requestId1,
+                    new WifiScanner.ScanData[] {results1.getScanData()},
+                    messageCaptor.getAllValues().get(2));
+            assertSingleScanCompletedMessage(requestId1, messageCaptor.getAllValues().get(3));
+            if (listenerResults != null) {
+                assertScanResultsMessage(listenerRequestId,
+                        new WifiScanner.ScanData[] {listenerResults.getScanData()},
+                        messageCaptor.getAllValues().get(4));
+            }
+        } else {
+            assertScanResultsMessage(requestId1,
+                    new WifiScanner.ScanData[] {results1.getScanData()},
+                    messageCaptor.getAllValues().get(0));
+            assertSingleScanCompletedMessage(requestId1, messageCaptor.getAllValues().get(1));
+            assertScanResultsMessage(requestId2,
+                    new WifiScanner.ScanData[] {results2.getScanData()},
+                    messageCaptor.getAllValues().get(2));
+            assertSingleScanCompletedMessage(requestId2, messageCaptor.getAllValues().get(3));
+            if (listenerResults != null) {
+                assertScanResultsMessage(listenerRequestId,
+                        new WifiScanner.ScanData[] {listenerResults.getScanData()},
+                        messageCaptor.getAllValues().get(4));
+            }
+        }
+    }
+
+    private static void verifyMultipleSingleScanResults(InOrder handlerOrder, Handler handler,
+            int requestId1, ScanResults results1, int requestId2, ScanResults results2) {
+        verifyMultipleSingleScanResults(handlerOrder, handler, requestId1, results1, requestId2,
+                results2, -1, null);
+    }
+
+    private static void verifyFailedResponse(InOrder order, Handler handler, int arg2,
             int expectedErrorReason, String expectedErrorDescription) {
         Message response = verifyHandleMessageAndGetMessage(order, handler);
         assertFailedResponse(arg2, expectedErrorReason, expectedErrorDescription, response);
     }
 
-    private void assertFailedResponse(int arg2, int expectedErrorReason,
+    private static void assertFailedResponse(int arg2, int expectedErrorReason,
             String expectedErrorDescription, Message response) {
         if (response.what == WifiScanner.CMD_OP_SUCCEEDED) {
             fail("response indicates success");
@@ -299,8 +365,9 @@ public class WifiScanningServiceTest {
 
     private void assertDumpContainsRequestLog(String type, int id) {
         String serviceDump = dumpService();
-        Pattern logLineRegex = Pattern.compile("^.+" + type + ": ClientInfo\\[uid=\\d+\\],Id=" +
-                id + ".*$", Pattern.MULTILINE);
+        Pattern logLineRegex = Pattern.compile("^.+" + type
+                + ": ClientInfo\\[uid=\\d+,android\\.os\\.Messenger@[a-f0-9]+\\],Id=" + id
+                + ".*$", Pattern.MULTILINE);
         assertTrue("dump did not contain log with type=" + type + ", id=" + id +
                 ": " + serviceDump + "\n",
                 logLineRegex.matcher(serviceDump).find());
@@ -309,8 +376,9 @@ public class WifiScanningServiceTest {
     private void assertDumpContainsCallbackLog(String callback, int id, String extra) {
         String serviceDump = dumpService();
         String extraPattern = extra == null ? "" : "," + extra;
-        Pattern logLineRegex = Pattern.compile("^.+" + callback + ": ClientInfo\\[uid=\\d+\\],Id=" +
-                id + extraPattern + "$", Pattern.MULTILINE);
+        Pattern logLineRegex = Pattern.compile("^.+" + callback
+                + ": ClientInfo\\[uid=\\d+,android\\.os\\.Messenger@[a-f0-9]+\\],Id=" + id
+                + extraPattern + "$", Pattern.MULTILINE);
         assertTrue("dump did not contain callback log with callback=" + callback + ", id=" + id +
                 ", extra=" + extra + ": " + serviceDump + "\n",
                 logLineRegex.matcher(serviceDump).find());
@@ -561,9 +629,95 @@ public class WifiScanningServiceTest {
         verify(mBatteryStats).noteWifiScanStoppedFromSource(eq(workSource));
     }
 
-    // TODO Add more single scan tests
-    // * disable wifi while scanning
-    // * disable wifi while scanning with pending scan
+    /**
+     * Send a single scan request and then disable Wi-Fi before it completes
+     */
+    @Test
+    public void sendSingleScanRequestThenDisableWifi() {
+        WifiScanner.ScanSettings requestSettings = createRequest(channelsToSpec(2400), 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId = 2293;
+
+        startServiceAndLoadDriver();
+
+        when(mWifiScannerImpl.startSingleScan(any(WifiNative.ScanSettings.class),
+                        any(WifiNative.ScanEventHandler.class))).thenReturn(true);
+
+        Handler handler = mock(Handler.class);
+        BidirectionalAsyncChannel controlChannel = connectChannel(handler);
+        InOrder order = inOrder(handler, mWifiScannerImpl);
+
+        // Run scan 1
+        sendSingleScanRequest(controlChannel, requestId, requestSettings, null);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(order, handler, requestId);
+
+        // disable wifi
+        TestUtil.sendWifiScanAvailable(mBroadcastReceiver, mContext,
+                WifiManager.WIFI_STATE_DISABLED);
+
+        // validate failed response
+        mLooper.dispatchAll();
+        verifyFailedResponse(order, handler, requestId, WifiScanner.REASON_UNSPECIFIED,
+                "Scan was interrupted");
+        verifyNoMoreInteractions(handler);
+    }
+
+    /**
+     * Send a single scan request, schedule a second pending scan and disable Wi-Fi before the first
+     * scan completes.
+     */
+    @Test
+    public void sendSingleScanAndPendingScanAndListenerThenDisableWifi() {
+        WifiScanner.ScanSettings requestSettings1 = createRequest(channelsToSpec(2400), 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId1 = 2293;
+
+        WifiScanner.ScanSettings requestSettings2 = createRequest(channelsToSpec(2450), 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId2 = 2294;
+
+        int listenerRequestId = 2295;
+
+        startServiceAndLoadDriver();
+
+        when(mWifiScannerImpl.startSingleScan(any(WifiNative.ScanSettings.class),
+                        any(WifiNative.ScanEventHandler.class))).thenReturn(true);
+
+        Handler handler = mock(Handler.class);
+        BidirectionalAsyncChannel controlChannel = connectChannel(handler);
+        InOrder order = inOrder(handler, mWifiScannerImpl);
+
+        // Request scan 1
+        sendSingleScanRequest(controlChannel, requestId1, requestSettings1, null);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(order, handler, requestId1);
+
+        // Request scan 2
+        sendSingleScanRequest(controlChannel, requestId2, requestSettings2, null);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(order, handler, requestId2);
+
+        // Setup scan listener
+        registerScanListener(controlChannel, listenerRequestId);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(order, handler, listenerRequestId);
+
+        // disable wifi
+        TestUtil.sendWifiScanAvailable(mBroadcastReceiver, mContext,
+                WifiManager.WIFI_STATE_DISABLED);
+
+        // validate failed response
+        mLooper.dispatchAll();
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        order.verify(handler, times(2)).handleMessage(messageCaptor.capture());
+        assertFailedResponse(requestId1, WifiScanner.REASON_UNSPECIFIED,
+                "Scan was interrupted", messageCaptor.getAllValues().get(0));
+        assertFailedResponse(requestId2, WifiScanner.REASON_UNSPECIFIED,
+                "Scan was interrupted", messageCaptor.getAllValues().get(1));
+        // No additional callbacks for scan listener
+        verifyNoMoreInteractions(handler);
+    }
 
     /**
      * Send a single scan request and then a second one after the first completes.
@@ -627,8 +781,8 @@ public class WifiScanningServiceTest {
     }
 
     /**
-     * Send a single scan request and then a second one before the first completes.
-     * Verify that both are scheduled and succeed.
+     * Send a single scan request and then a second one not satisfied by the first before the first
+     * completes. Verify that both are scheduled and succeed.
      */
     @Test
     public void sendSingleScanRequestWhilePreviousScanRunning() {
@@ -693,8 +847,8 @@ public class WifiScanningServiceTest {
 
 
     /**
-     * Send a single scan request and then two more before the first completes.
-     * Verify that the first completes and the second two are merged.
+     * Send a single scan request and then two more before the first completes. Neither are
+     * satisfied by the first scan. Verify that the first completes and the second two are merged.
      */
     @Test
     public void sendMultipleSingleScanRequestWhilePreviousScanRunning() throws RemoteException {
@@ -777,32 +931,8 @@ public class WifiScanningServiceTest {
 
         mLooper.dispatchAll();
 
-        // unfortunatally the order that these events are dispatched is dependant on the order which
-        // they are iterated through internally
-        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
-        handlerOrder.verify(handler, times(4)).handleMessage(messageCaptor.capture());
-        int firstListenerId = messageCaptor.getAllValues().get(0).arg2;
-        assertTrue(firstListenerId + " was neither " + requestId2 + " nor " + requestId3,
-                firstListenerId == requestId2 || firstListenerId == requestId3);
-        if (firstListenerId == requestId2) {
-            assertScanResultsMessage(requestId2,
-                    new WifiScanner.ScanData[] {results2.getScanData()},
-                    messageCaptor.getAllValues().get(0));
-            assertSingleScanCompletedMessage(requestId2, messageCaptor.getAllValues().get(1));
-            assertScanResultsMessage(requestId3,
-                    new WifiScanner.ScanData[] {results3.getScanData()},
-                    messageCaptor.getAllValues().get(2));
-            assertSingleScanCompletedMessage(requestId3, messageCaptor.getAllValues().get(3));
-        } else {
-            assertScanResultsMessage(requestId3,
-                    new WifiScanner.ScanData[] {results3.getScanData()},
-                    messageCaptor.getAllValues().get(0));
-            assertSingleScanCompletedMessage(requestId3, messageCaptor.getAllValues().get(1));
-            assertScanResultsMessage(requestId2,
-                    new WifiScanner.ScanData[] {results2.getScanData()},
-                    messageCaptor.getAllValues().get(2));
-            assertSingleScanCompletedMessage(requestId2, messageCaptor.getAllValues().get(3));
-        }
+        verifyMultipleSingleScanResults(handlerOrder, handler, requestId2, results2, requestId3,
+                results3);
         assertEquals(mWifiMetrics.getOneshotScanCount(), 3);
         assertEquals(mWifiMetrics.getScanReturnEntry(WifiMetricsProto.WifiLog.SCAN_SUCCESS), 3);
 
@@ -818,6 +948,357 @@ public class WifiScanningServiceTest {
         assertDumpContainsCallbackLog("singleScanResults", requestId3,
                 "results=" + results3.getRawScanResults().length);
     }
+
+
+    /**
+     * Send a single scan request and then a second one satisfied by the first before the first
+     * completes. Verify that only one scan is scheduled.
+     */
+    @Test
+    public void sendSingleScanRequestWhilePreviousScanRunningAndMergeIntoFirstScan() {
+        // Split by frequency to make it easier to determine which results each request is expecting
+        ScanResults results24GHz = ScanResults.create(0, 2400, 2400, 2400, 2450);
+        ScanResults results5GHz = ScanResults.create(0, 5150, 5150, 5175);
+        ScanResults resultsBoth = ScanResults.merge(results24GHz, results5GHz);
+
+        WifiScanner.ScanSettings requestSettings1 = createRequest(WifiScanner.WIFI_BAND_BOTH, 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId1 = 12;
+        ScanResults results1 = resultsBoth;
+
+        WifiScanner.ScanSettings requestSettings2 = createRequest(WifiScanner.WIFI_BAND_24_GHZ, 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId2 = 13;
+        ScanResults results2 = results24GHz;
+
+
+        startServiceAndLoadDriver();
+
+        when(mWifiScannerImpl.startSingleScan(any(WifiNative.ScanSettings.class),
+                        any(WifiNative.ScanEventHandler.class))).thenReturn(true);
+
+        Handler handler = mock(Handler.class);
+        BidirectionalAsyncChannel controlChannel = connectChannel(handler);
+        InOrder handlerOrder = inOrder(handler);
+        InOrder nativeOrder = inOrder(mWifiScannerImpl);
+
+        // Run scan 1
+        sendSingleScanRequest(controlChannel, requestId1, requestSettings1, null);
+
+        mLooper.dispatchAll();
+        WifiNative.ScanEventHandler eventHandler = verifyStartSingleScan(nativeOrder,
+                computeSingleScanNativeSettings(requestSettings1));
+        verifySuccessfulResponse(handlerOrder, handler, requestId1);
+
+        // Queue scan 2 (will be folded into ongoing scan)
+        sendSingleScanRequest(controlChannel, requestId2, requestSettings2, null);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(handlerOrder, handler, requestId2);
+
+        // dispatch scan 1 results
+        when(mWifiScannerImpl.getLatestSingleScanResults())
+                .thenReturn(resultsBoth.getScanData());
+        eventHandler.onScanStatus(WifiNative.WIFI_SCAN_RESULTS_AVAILABLE);
+
+        mLooper.dispatchAll();
+        verifyMultipleSingleScanResults(handlerOrder, handler, requestId1, results1, requestId2,
+                results2);
+
+        assertEquals(mWifiMetrics.getOneshotScanCount(), 2);
+        assertEquals(mWifiMetrics.getScanReturnEntry(WifiMetricsProto.WifiLog.SCAN_SUCCESS), 2);
+    }
+
+    /**
+     * Send a single scan request and then two more before the first completes, one of which is
+     * satisfied by the first scan. Verify that the first two complete together the second scan is
+     * just for the other scan.
+     */
+    @Test
+    public void sendMultipleSingleScanRequestWhilePreviousScanRunningAndMergeOneIntoFirstScan()
+          throws RemoteException {
+        // Split by frequency to make it easier to determine which results each request is expecting
+        ScanResults results2400 = ScanResults.create(0, 2400, 2400, 2400);
+        ScanResults results2450 = ScanResults.create(0, 2450);
+        ScanResults results1and3 = ScanResults.merge(results2400, results2450);
+
+        WifiScanner.ScanSettings requestSettings1 = createRequest(channelsToSpec(2400, 2450), 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId1 = 12;
+        WorkSource workSource1 = new WorkSource(1121);
+        ScanResults results1 = results1and3;
+
+        WifiScanner.ScanSettings requestSettings2 = createRequest(channelsToSpec(2450, 5175), 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId2 = 13;
+        WorkSource workSource2 = new WorkSource(Binder.getCallingUid()); // don't explicitly set
+        ScanResults results2 = ScanResults.create(0, 2450, 5175, 2450);
+
+        WifiScanner.ScanSettings requestSettings3 = createRequest(channelsToSpec(2400), 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId3 = 15;
+        WorkSource workSource3 = new WorkSource(2292);
+        ScanResults results3 = results2400;
+
+        startServiceAndLoadDriver();
+
+        when(mWifiScannerImpl.startSingleScan(any(WifiNative.ScanSettings.class),
+                        any(WifiNative.ScanEventHandler.class))).thenReturn(true);
+
+        Handler handler = mock(Handler.class);
+        BidirectionalAsyncChannel controlChannel = connectChannel(handler);
+        InOrder handlerOrder = inOrder(handler);
+        InOrder nativeOrder = inOrder(mWifiScannerImpl);
+
+        // Run scan 1
+        sendSingleScanRequest(controlChannel, requestId1, requestSettings1, workSource1);
+
+        mLooper.dispatchAll();
+        WifiNative.ScanEventHandler eventHandler1 = verifyStartSingleScan(nativeOrder,
+                computeSingleScanNativeSettings(requestSettings1));
+        verifySuccessfulResponse(handlerOrder, handler, requestId1);
+        verify(mBatteryStats).noteWifiScanStartedFromSource(eq(workSource1));
+
+
+        // Queue scan 2 (will not run because previous is in progress)
+        // uses uid of calling process
+        sendSingleScanRequest(controlChannel, requestId2, requestSettings2, null);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(handlerOrder, handler, requestId2);
+
+        // Queue scan 3 (will be merged into the active scan)
+        sendSingleScanRequest(controlChannel, requestId3, requestSettings3, workSource3);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(handlerOrder, handler, requestId3);
+
+        // dispatch scan 1 results
+        when(mWifiScannerImpl.getLatestSingleScanResults())
+                .thenReturn(results1and3.getScanData());
+        eventHandler1.onScanStatus(WifiNative.WIFI_SCAN_RESULTS_AVAILABLE);
+
+        mLooper.dispatchAll();
+        verifyMultipleSingleScanResults(handlerOrder, handler, requestId1, results1, requestId3,
+                results3);
+        // only the requests know at the beginning of the scan get blamed
+        verify(mBatteryStats).noteWifiScanStoppedFromSource(eq(workSource1));
+        verify(mBatteryStats).noteWifiScanStartedFromSource(eq(workSource2));
+
+        // now that the first scan completed we expect the second and third ones to start
+        WifiNative.ScanEventHandler eventHandler2 = verifyStartSingleScan(nativeOrder,
+                computeSingleScanNativeSettings(requestSettings2));
+
+        // dispatch scan 2 and 3 results
+        when(mWifiScannerImpl.getLatestSingleScanResults())
+                .thenReturn(results2.getScanData());
+        eventHandler2.onScanStatus(WifiNative.WIFI_SCAN_RESULTS_AVAILABLE);
+
+        mLooper.dispatchAll();
+
+        verifyScanResultsRecieved(handlerOrder, handler, requestId2, results2.getScanData());
+        verifySingleScanCompletedRecieved(handlerOrder, handler, requestId2);
+        assertEquals(mWifiMetrics.getOneshotScanCount(), 3);
+        assertEquals(mWifiMetrics.getScanReturnEntry(WifiMetricsProto.WifiLog.SCAN_SUCCESS), 3);
+
+        verify(mBatteryStats).noteWifiScanStoppedFromSource(eq(workSource2));
+
+        assertDumpContainsRequestLog("addSingleScanRequest", requestId1);
+        assertDumpContainsRequestLog("addSingleScanRequest", requestId2);
+        assertDumpContainsRequestLog("addSingleScanRequest", requestId3);
+        assertDumpContainsCallbackLog("singleScanResults", requestId1,
+                "results=" + results1.getRawScanResults().length);
+        assertDumpContainsCallbackLog("singleScanResults", requestId2,
+                "results=" + results2.getRawScanResults().length);
+        assertDumpContainsCallbackLog("singleScanResults", requestId3,
+                "results=" + results3.getRawScanResults().length);
+    }
+
+    /**
+     * Register a single scan listener and do a single scan
+     */
+    @Test
+    public void registerScanListener() throws Exception {
+        WifiScanner.ScanSettings requestSettings = createRequest(WifiScanner.WIFI_BAND_BOTH, 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        WifiNative.ScanSettings nativeSettings = computeSingleScanNativeSettings(requestSettings);
+        ScanResults results = ScanResults.create(0, 2400, 5150, 5175);
+
+        int requestId = 12;
+        int listenerRequestId = 13;
+
+        startServiceAndLoadDriver();
+
+        Handler handler = mock(Handler.class);
+        BidirectionalAsyncChannel controlChannel = connectChannel(handler);
+        InOrder order = inOrder(handler, mWifiScannerImpl);
+
+        when(mWifiScannerImpl.startSingleScan(any(WifiNative.ScanSettings.class),
+                        any(WifiNative.ScanEventHandler.class))).thenReturn(true);
+
+        registerScanListener(controlChannel, listenerRequestId);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(order, handler, listenerRequestId);
+
+        sendSingleScanRequest(controlChannel, requestId, requestSettings, null);
+
+        mLooper.dispatchAll();
+        WifiNative.ScanEventHandler eventHandler = verifyStartSingleScan(order, nativeSettings);
+        verifySuccessfulResponse(order, handler, requestId);
+
+        when(mWifiScannerImpl.getLatestSingleScanResults())
+                .thenReturn(results.getRawScanData());
+        eventHandler.onScanStatus(WifiNative.WIFI_SCAN_RESULTS_AVAILABLE);
+
+        mLooper.dispatchAll();
+        verifyScanResultsRecieved(order, handler, requestId, results.getScanData());
+        verifySingleScanCompletedRecieved(order, handler, requestId);
+        verifyScanResultsRecieved(order, handler, listenerRequestId, results.getScanData());
+        verifyNoMoreInteractions(handler);
+
+        assertDumpContainsRequestLog("registerScanListener", listenerRequestId);
+        assertDumpContainsCallbackLog("singleScanResults", listenerRequestId,
+                "results=" + results.getScanData().getResults().length);
+    }
+
+    /**
+     * Register a single scan listener and do a single scan
+     */
+    @Test
+    public void deregisterScanListener() throws Exception {
+        WifiScanner.ScanSettings requestSettings = createRequest(WifiScanner.WIFI_BAND_BOTH, 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        WifiNative.ScanSettings nativeSettings = computeSingleScanNativeSettings(requestSettings);
+        ScanResults results = ScanResults.create(0, 2400, 5150, 5175);
+
+        int requestId = 12;
+        int listenerRequestId = 13;
+
+        startServiceAndLoadDriver();
+
+        Handler handler = mock(Handler.class);
+        BidirectionalAsyncChannel controlChannel = connectChannel(handler);
+        InOrder order = inOrder(handler, mWifiScannerImpl);
+
+        when(mWifiScannerImpl.startSingleScan(any(WifiNative.ScanSettings.class),
+                        any(WifiNative.ScanEventHandler.class))).thenReturn(true);
+
+        registerScanListener(controlChannel, listenerRequestId);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(order, handler, listenerRequestId);
+
+        sendSingleScanRequest(controlChannel, requestId, requestSettings, null);
+
+        mLooper.dispatchAll();
+        WifiNative.ScanEventHandler eventHandler = verifyStartSingleScan(order, nativeSettings);
+        verifySuccessfulResponse(order, handler, requestId);
+
+        deregisterScanListener(controlChannel, listenerRequestId);
+        mLooper.dispatchAll();
+
+        when(mWifiScannerImpl.getLatestSingleScanResults())
+                .thenReturn(results.getRawScanData());
+        eventHandler.onScanStatus(WifiNative.WIFI_SCAN_RESULTS_AVAILABLE);
+
+        mLooper.dispatchAll();
+        verifyScanResultsRecieved(order, handler, requestId, results.getScanData());
+        verifySingleScanCompletedRecieved(order, handler, requestId);
+        verifyNoMoreInteractions(handler);
+
+        assertDumpContainsRequestLog("registerScanListener", listenerRequestId);
+        assertDumpContainsRequestLog("deregisterScanListener", listenerRequestId);
+    }
+
+    /**
+     * Send a single scan request and then two more before the first completes. Neither are
+     * satisfied by the first scan. Verify that the first completes and the second two are merged.
+     */
+    @Test
+    public void scanListenerRecievesAllResults() throws RemoteException {
+        WifiScanner.ScanSettings requestSettings1 = createRequest(channelsToSpec(2400), 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId1 = 12;
+        ScanResults results1 = ScanResults.create(0, 2400);
+
+        WifiScanner.ScanSettings requestSettings2 = createRequest(channelsToSpec(2450, 5175), 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId2 = 13;
+        ScanResults results2 = ScanResults.create(0, 2450, 5175, 2450);
+
+        WifiScanner.ScanSettings requestSettings3 = createRequest(channelsToSpec(5150), 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId3 = 15;
+        ScanResults results3 = ScanResults.create(0, 5150, 5150, 5150, 5150);
+
+        WifiNative.ScanSettings nativeSettings2and3 = createSingleScanNativeSettingsForChannels(
+                WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN, channelsToSpec(2450, 5175, 5150));
+        ScanResults results2and3 = ScanResults.merge(results2, results3);
+
+        int listenerRequestId = 13;
+
+
+        startServiceAndLoadDriver();
+
+        when(mWifiScannerImpl.startSingleScan(any(WifiNative.ScanSettings.class),
+                        any(WifiNative.ScanEventHandler.class))).thenReturn(true);
+
+        Handler handler = mock(Handler.class);
+        BidirectionalAsyncChannel controlChannel = connectChannel(handler);
+        InOrder handlerOrder = inOrder(handler);
+        InOrder nativeOrder = inOrder(mWifiScannerImpl);
+
+        // Run scan 1
+        sendSingleScanRequest(controlChannel, requestId1, requestSettings1, null);
+
+        mLooper.dispatchAll();
+        WifiNative.ScanEventHandler eventHandler1 = verifyStartSingleScan(nativeOrder,
+                computeSingleScanNativeSettings(requestSettings1));
+        verifySuccessfulResponse(handlerOrder, handler, requestId1);
+
+
+        // Queue scan 2 (will not run because previous is in progress)
+        sendSingleScanRequest(controlChannel, requestId2, requestSettings2, null);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(handlerOrder, handler, requestId2);
+
+        // Queue scan 3 (will not run because previous is in progress)
+        sendSingleScanRequest(controlChannel, requestId3, requestSettings3, null);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(handlerOrder, handler, requestId3);
+
+        // Register scan listener
+        registerScanListener(controlChannel, listenerRequestId);
+        mLooper.dispatchAll();
+        verifySuccessfulResponse(handlerOrder, handler, listenerRequestId);
+
+        // dispatch scan 1 results
+        when(mWifiScannerImpl.getLatestSingleScanResults())
+                .thenReturn(results1.getScanData());
+        eventHandler1.onScanStatus(WifiNative.WIFI_SCAN_RESULTS_AVAILABLE);
+
+        mLooper.dispatchAll();
+        verifyScanResultsRecieved(handlerOrder, handler, requestId1, results1.getScanData());
+        verifySingleScanCompletedRecieved(handlerOrder, handler, requestId1);
+        verifyScanResultsRecieved(handlerOrder, handler, listenerRequestId, results1.getScanData());
+
+        // now that the first scan completed we expect the second and third ones to start
+        WifiNative.ScanEventHandler eventHandler2and3 = verifyStartSingleScan(nativeOrder,
+                nativeSettings2and3);
+
+        // dispatch scan 2 and 3 results
+        when(mWifiScannerImpl.getLatestSingleScanResults())
+                .thenReturn(results2and3.getScanData());
+        eventHandler2and3.onScanStatus(WifiNative.WIFI_SCAN_RESULTS_AVAILABLE);
+
+        mLooper.dispatchAll();
+
+        verifyMultipleSingleScanResults(handlerOrder, handler, requestId2, results2, requestId3,
+                results3, listenerRequestId, results2and3);
+
+        assertDumpContainsRequestLog("registerScanListener", listenerRequestId);
+        assertDumpContainsCallbackLog("singleScanResults", listenerRequestId,
+                "results=" + results1.getRawScanResults().length);
+        assertDumpContainsCallbackLog("singleScanResults", listenerRequestId,
+                "results=" + results2and3.getRawScanResults().length);
+    }
+
 
     private void doSuccessfulBackgroundScan(WifiScanner.ScanSettings requestSettings,
             WifiNative.ScanSettings nativeSettings) {
@@ -1155,4 +1636,39 @@ public class WifiScanningServiceTest {
         expectSwPnoScan(order, scanSettings.second, scanResults);
         verifyPnoNetworkFoundRecieved(order, handler, requestId, scanResults.getRawScanResults());
     }
+
+    /**
+     * Tries to simulate the race scenario where a client is disconnected immediately after single
+     * scan request is sent to |SingleScanStateMachine|.
+     */
+    @Test
+    public void processSingleScanRequestAfterDisconnect() throws Exception {
+        startServiceAndLoadDriver();
+        BidirectionalAsyncChannel controlChannel = connectChannel(mock(Handler.class));
+        mLooper.dispatchAll();
+
+        // Send the single scan request and then send the disconnect immediately after.
+        WifiScanner.ScanSettings requestSettings = createRequest(WifiScanner.WIFI_BAND_BOTH, 0,
+                0, 20, WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN);
+        int requestId = 10;
+
+        sendSingleScanRequest(controlChannel, requestId, requestSettings, null);
+        // Can't call |disconnect| here because that sends |CMD_CHANNEL_DISCONNECT| followed by
+        // |CMD_CHANNEL_DISCONNECTED|.
+        controlChannel.sendMessage(Message.obtain(null, AsyncChannel.CMD_CHANNEL_DISCONNECTED, 0,
+                0, null));
+
+        // Now process the above 2 actions. This should result in first processing the single scan
+        // request (which forwards the request to SingleScanStateMachine) and then processing the
+        // disconnect after.
+        mLooper.dispatchAll();
+
+        // Now check that we logged the invalid request.
+        String serviceDump = dumpService();
+        Pattern logLineRegex = Pattern.compile("^.+" + "singleScanInvalidRequest: "
+                + "ClientInfo\\[unknown\\],Id=" + requestId + ",bad request$", Pattern.MULTILINE);
+        assertTrue("dump did not contain log with ClientInfo[unknown]: " + serviceDump + "\n",
+                logLineRegex.matcher(serviceDump).find());
+    }
+
 }

@@ -125,8 +125,7 @@ public class OsHostTests extends DeviceTestCase implements IBuildReceiver, IAbiR
                             Arrays.asList(hostgroup.split(" ")));
                     assertEquals(2, allHosts.size());
                     assertTrue("AllHosts Contains: " + allHosts, allHosts.contains(HOST_EXPLICIT));
-                    // Disable wildcard test until next API bump
-                    // assertTrue("AllHosts Contains: " + allHosts, allHosts.contains(HOST_WILDCARD));
+                    assertTrue("AllHosts Contains: " + allHosts, allHosts.contains(HOST_WILDCARD));
                     foundVerifierOutput = true;
                     break;
                 }

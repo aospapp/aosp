@@ -20,6 +20,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.PersistableBundle;
@@ -35,7 +36,6 @@ import android.telephony.TelephonyManager;
 
 import com.android.ims.internal.IImsCallSession;
 import com.android.ims.internal.IImsEcbm;
-import com.android.ims.internal.IImsEcbmListener;
 import com.android.ims.internal.IImsMultiEndpoint;
 import com.android.ims.internal.IImsRegistrationListener;
 import com.android.ims.internal.IImsService;
@@ -66,6 +66,8 @@ public class ImsManager {
     public static final int PROPERTY_DBG_VT_AVAIL_OVERRIDE_DEFAULT = 0;
     public static final String PROPERTY_DBG_WFC_AVAIL_OVERRIDE = "persist.dbg.wfc_avail_ovr";
     public static final int PROPERTY_DBG_WFC_AVAIL_OVERRIDE_DEFAULT = 0;
+    public static final String PROPERTY_DBG_ALLOW_IMS_OFF_OVERRIDE = "persist.dbg.allow_ims_off";
+    public static final int PROPERTY_DBG_ALLOW_IMS_OFF_OVERRIDE_DEFAULT = 0;
 
     /**
      * For accessing the IMS related service.
@@ -178,6 +180,17 @@ public class ImsManager {
 
     private ImsMultiEndpoint mMultiEndpoint = null;
 
+    // SystemProperties used as cache
+    private static final String VOLTE_PROVISIONED_PROP = "net.lte.ims.volte.provisioned";
+    private static final String WFC_PROVISIONED_PROP = "net.lte.ims.wfc.provisioned";
+    private static final String VT_PROVISIONED_PROP = "net.lte.ims.vt.provisioned";
+    // Flag indicating data enabled or not. This flag should be in sync with
+    // DcTracker.isDataEnabled(). The flag will be set later during boot up.
+    private static final String DATA_ENABLED_PROP = "net.lte.ims.data.enabled";
+
+    public static final String TRUE = "true";
+    public static final String FALSE = "false";
+
     /**
      * Gets a manager instance.
      *
@@ -266,29 +279,52 @@ public class ImsManager {
                 && isGbaValid(context);
     }
 
-    /*
+    /**
      * Indicates whether VoLTE is provisioned on device
      */
     public static boolean isVolteProvisionedOnDevice(Context context) {
-        boolean isProvisioned = true;
         if (getBooleanCarrierConfig(context,
                     CarrierConfigManager.KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL)) {
-            isProvisioned = false; // disable on any error
             ImsManager mgr = ImsManager.getInstance(context,
                     SubscriptionManager.getDefaultVoicePhoneId());
             if (mgr != null) {
-                try {
-                    ImsConfig config = mgr.getConfigInterface();
-                    if (config != null) {
-                        isProvisioned = config.getVolteProvisioned();
-                    }
-                } catch (ImsException ie) {
-                    // do nothing
-                }
+                return mgr.isVolteProvisioned();
             }
         }
 
-        return isProvisioned;
+        return true;
+    }
+
+    /**
+     * Indicates whether VoWifi is provisioned on device
+     */
+    public static boolean isWfcProvisionedOnDevice(Context context) {
+        if (getBooleanCarrierConfig(context,
+                CarrierConfigManager.KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL)) {
+            ImsManager mgr = ImsManager.getInstance(context,
+                    SubscriptionManager.getDefaultVoicePhoneId());
+            if (mgr != null) {
+                return mgr.isWfcProvisioned();
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Indicates whether VT is provisioned on device
+     */
+    public static boolean isVtProvisionedOnDevice(Context context) {
+        if (getBooleanCarrierConfig(context,
+                CarrierConfigManager.KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL)) {
+            ImsManager mgr = ImsManager.getInstance(context,
+                    SubscriptionManager.getDefaultVoicePhoneId());
+            if (mgr != null) {
+                return mgr.isVtProvisioned();
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -341,18 +377,31 @@ public class ImsManager {
                         imsManager.mImsConfigListener);
 
                 if (enabled) {
+                    log("setVtSetting() : turnOnIms");
                     imsManager.turnOnIms();
-                } else if (getBooleanCarrierConfig(context,
-                        CarrierConfigManager.KEY_CARRIER_ALLOW_TURNOFF_IMS_BOOL)
+                } else if (isTurnOffImsAllowedByPlatform(context)
                         && (!isVolteEnabledByPlatform(context)
                         || !isEnhanced4gLteModeSettingEnabledByUser(context))) {
                     log("setVtSetting() : imsServiceAllowTurnOff -> turnOffIms");
                     imsManager.turnOffIms();
                 }
             } catch (ImsException e) {
-                loge("setVtSetting(): " + e);
+                loge("setVtSetting(): ", e);
             }
         }
+    }
+
+    /*
+     * Returns whether turning off ims is allowed by platform.
+     * The platform property may override the carrier config.
+     */
+    private static boolean isTurnOffImsAllowedByPlatform(Context context) {
+        if (SystemProperties.getInt(PROPERTY_DBG_ALLOW_IMS_OFF_OVERRIDE,
+                PROPERTY_DBG_ALLOW_IMS_OFF_OVERRIDE_DEFAULT) == 1) {
+            return true;
+        }
+        return getBooleanCarrierConfig(context,
+                CarrierConfigManager.KEY_CARRIER_ALLOW_TURNOFF_IMS_BOOL);
     }
 
     /**
@@ -387,9 +436,9 @@ public class ImsManager {
                         imsManager.mImsConfigListener);
 
                 if (enabled) {
+                    log("setWfcSetting() : turnOnIms");
                     imsManager.turnOnIms();
-                } else if (getBooleanCarrierConfig(context,
-                        CarrierConfigManager.KEY_CARRIER_ALLOW_TURNOFF_IMS_BOOL)
+                } else if (isTurnOffImsAllowedByPlatform(context)
                         && (!isVolteEnabledByPlatform(context)
                         || !isEnhanced4gLteModeSettingEnabledByUser(context))) {
                     log("setWfcSetting() : imsServiceAllowTurnOff -> turnOffIms");
@@ -401,7 +450,7 @@ public class ImsManager {
                         ? getWfcMode(context)
                         : ImsConfig.WfcModeFeatureValueConstants.CELLULAR_PREFERRED);
             } catch (ImsException e) {
-                loge("setWfcSetting(): " + e);
+                loge("setWfcSetting(): ", e);
             }
         }
     }
@@ -537,6 +586,84 @@ public class ImsManager {
     }
 
     /**
+     * This function should be called when ImsConfig.ACTION_IMS_CONFIG_CHANGED is received.
+     *
+     * We cannot register receiver in ImsManager because this would lead to resource leak.
+     * ImsManager can be created in different processes and it is not notified when that process
+     * is about to be terminated.
+     *
+     * @hide
+     * */
+    public static void onProvisionedValueChanged(Context context, int item, String value) {
+        if (DBG) Rlog.d(TAG, "onProvisionedValueChanged: item=" + item + " val=" + value);
+        ImsManager mgr = ImsManager.getInstance(context,
+                SubscriptionManager.getDefaultVoicePhoneId());
+
+        switch (item) {
+            case ImsConfig.ConfigConstants.VLT_SETTING_ENABLED:
+                mgr.setVolteProvisionedProperty(value.equals("1"));
+                if (DBG) Rlog.d(TAG,"isVoLteProvisioned = " + mgr.isVolteProvisioned());
+                break;
+
+            case ImsConfig.ConfigConstants.VOICE_OVER_WIFI_SETTING_ENABLED:
+                mgr.setWfcProvisionedProperty(value.equals("1"));
+                if (DBG) Rlog.d(TAG,"isWfcProvisioned = " + mgr.isWfcProvisioned());
+                break;
+
+            case ImsConfig.ConfigConstants.LVC_SETTING_ENABLED:
+                mgr.setVtProvisionedProperty(value.equals("1"));
+                if (DBG) Rlog.d(TAG,"isVtProvisioned = " + mgr.isVtProvisioned());
+                break;
+
+        }
+    }
+
+    private class AsyncUpdateProvisionedValues extends AsyncTask<Void, Void, Void> {
+        @Override
+        protected Void doInBackground(Void... params) {
+            // disable on any error
+            setVolteProvisionedProperty(false);
+            setWfcProvisionedProperty(false);
+            setVtProvisionedProperty(false);
+
+            try {
+                ImsConfig config = getConfigInterface();
+                if (config != null) {
+                    setVolteProvisionedProperty(getProvisionedBool(config,
+                            ImsConfig.ConfigConstants.VLT_SETTING_ENABLED));
+                    if (DBG) Rlog.d(TAG, "isVoLteProvisioned = " + isVolteProvisioned());
+
+                    setWfcProvisionedProperty(getProvisionedBool(config,
+                            ImsConfig.ConfigConstants.VOICE_OVER_WIFI_SETTING_ENABLED));
+                    if (DBG) Rlog.d(TAG, "isWfcProvisioned = " + isWfcProvisioned());
+
+                    setVtProvisionedProperty(getProvisionedBool(config,
+                            ImsConfig.ConfigConstants.LVC_SETTING_ENABLED));
+                    if (DBG) Rlog.d(TAG, "isVtProvisioned = " + isVtProvisioned());
+
+                }
+            } catch (ImsException ie) {
+                Rlog.e(TAG, "AsyncUpdateProvisionedValues error: ", ie);
+            }
+
+            return null;
+        }
+
+        private boolean getProvisionedBool(ImsConfig config, int item) throws ImsException {
+            return config.getProvisionedValue(item) == ImsConfig.FeatureValueConstants.ON;
+        }
+    }
+
+    /** Asynchronously get VoLTE, WFC, VT provisioning statuses */
+    private void updateProvisionedValues() {
+        if (getBooleanCarrierConfig(mContext,
+                CarrierConfigManager.KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL)) {
+
+            new AsyncUpdateProvisionedValues().execute();
+        }
+    }
+
+    /**
      * Sync carrier config and user settings with ImsConfig.
      *
      * @param context for the manager object
@@ -555,25 +682,33 @@ public class ImsManager {
         final ImsManager imsManager = ImsManager.getInstance(context, phoneId);
         if (imsManager != null && (!imsManager.mConfigUpdated || force)) {
             try {
-                boolean isImsUsed = imsManager.updateVolteFeatureValue();
-                isImsUsed |= imsManager.updateVideoCallFeatureValue();
-                isImsUsed |= imsManager.updateWfcFeatureAndProvisionedValues();
+                imsManager.updateProvisionedValues();
 
-                if (isImsUsed || !getBooleanCarrierConfig(context,
-                      CarrierConfigManager.KEY_CARRIER_ALLOW_TURNOFF_IMS_BOOL)) {
+                // TODO: Extend ImsConfig API and set all feature values in single function call.
+
+                // Note: currently the order of updates is set to produce different order of
+                // setFeatureValue() function calls from setAdvanced4GMode(). This is done to
+                // differentiate this code path from vendor code perspective.
+                boolean isImsUsed = imsManager.updateVolteFeatureValue();
+                isImsUsed |= imsManager.updateWfcFeatureAndProvisionedValues();
+                isImsUsed |= imsManager.updateVideoCallFeatureValue();
+
+                if (isImsUsed || !isTurnOffImsAllowedByPlatform(context)) {
                     // Turn on IMS if it is used.
                     // Also, if turning off is not allowed for current carrier,
                     // we need to turn IMS on because it might be turned off before
                     // phone switched to current carrier.
+                    log("updateImsServiceConfig: turnOnIms");
                     imsManager.turnOnIms();
                 } else {
                     // Turn off IMS if it is not used AND turning off is allowed for carrier.
+                    log("updateImsServiceConfig: turnOffIms");
                     imsManager.turnOffIms();
                 }
 
                 imsManager.mConfigUpdated = true;
             } catch (ImsException e) {
-                loge("updateImsServiceConfig: " + e);
+                loge("updateImsServiceConfig: ", e);
                 imsManager.mConfigUpdated = false;
             }
         }
@@ -606,20 +741,22 @@ public class ImsManager {
     }
 
     /**
-     * Update VC config
+     * Update video call over LTE config
      * @return whether feature is On
      * @throws ImsException
      */
     private boolean updateVideoCallFeatureValue() throws ImsException {
         boolean available = isVtEnabledByPlatform(mContext);
-        boolean enabled = isEnhanced4gLteModeSettingEnabledByUser(mContext) &&
-                isVtEnabledByUser(mContext);
+        boolean enabled = isVtEnabledByUser(mContext);
         boolean isNonTty = isNonTtyOrTtyOnVolteEnabled(mContext);
-        boolean isFeatureOn = available && enabled && isNonTty;
+        boolean isDataEnabled = isDataEnabled();
+
+        boolean isFeatureOn = available && enabled && isNonTty && isDataEnabled;
 
         log("updateVideoCallFeatureValue: available = " + available
                 + ", enabled = " + enabled
-                + ", nonTTY = " + isNonTty);
+                + ", nonTTY = " + isNonTty
+                + ", data enabled = " + isDataEnabled);
 
         getConfigInterface().setFeatureValue(
                 ImsConfig.FeatureConstants.FEATURE_TYPE_VIDEO_OVER_LTE,
@@ -746,6 +883,32 @@ public class ImsManager {
         }
 
         return result;
+    }
+
+    /**
+     * Adds registration listener to the IMS service.
+     *
+     * @param serviceClass a service class specified in {@link ImsServiceClass}
+     *      For VoLTE service, it MUST be a {@link ImsServiceClass#MMTEL}.
+     * @param listener To listen to IMS registration events; It cannot be null
+     * @throws NullPointerException if {@code listener} is null
+     * @throws ImsException if calling the IMS service results in an error
+     */
+    public void addRegistrationListener(int serviceClass, ImsConnectionStateListener listener)
+            throws ImsException {
+        checkAndThrowExceptionIfServiceUnavailable();
+
+        if (listener == null) {
+            throw new NullPointerException("listener can't be null");
+        }
+
+        try {
+            mImsService.addRegistrationListener(mPhoneId, serviceClass,
+                    createRegistrationListenerProxy(serviceClass, listener));
+        } catch (RemoteException e) {
+            throw new ImsException("addRegistrationListener()", e,
+                    ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
+        }
     }
 
     /**
@@ -896,7 +1059,7 @@ public class ImsManager {
             ImsCall.Listener listener) throws ImsException {
         if (DBG) {
             log("makeCall :: serviceId=" + serviceId
-                    + ", profile=" + profile + ", callees=" + callees);
+                    + ", profile=" + profile);
         }
 
         checkAndThrowExceptionIfServiceUnavailable();
@@ -1183,23 +1346,22 @@ public class ImsManager {
     }
 
     private boolean isImsTurnOffAllowed() {
-        return getBooleanCarrierConfig(mContext,
-                CarrierConfigManager.KEY_CARRIER_ALLOW_TURNOFF_IMS_BOOL)
+        return isTurnOffImsAllowedByPlatform(mContext)
                 && (!isWfcEnabledByPlatform(mContext)
                 || !isWfcEnabledByUser(mContext));
     }
 
-    private void setAdvanced4GMode(boolean turnOn) throws ImsException {
-        checkAndThrowExceptionIfServiceUnavailable();
-
+    private void setLteFeatureValues(boolean turnOn) {
+        log("setLteFeatureValues: " + turnOn);
         try {
             ImsConfig config = getConfigInterface();
-            if (config != null && (turnOn || !isImsTurnOffAllowed())) {
+            if (config != null) {
                 config.setFeatureValue(ImsConfig.FeatureConstants.FEATURE_TYPE_VOICE_OVER_LTE,
                         TelephonyManager.NETWORK_TYPE_LTE, turnOn ? 1 : 0, mImsConfigListener);
 
                 if (isVtEnabledByPlatform(mContext)) {
-                    boolean enableViLte = turnOn && isVtEnabledByUser(mContext);
+                    boolean enableViLte = turnOn && isVtEnabledByUser(mContext) &&
+                            isDataEnabled();
                     config.setFeatureValue(ImsConfig.FeatureConstants.FEATURE_TYPE_VIDEO_OVER_LTE,
                             TelephonyManager.NETWORK_TYPE_LTE,
                             enableViLte ? 1 : 0,
@@ -1207,13 +1369,26 @@ public class ImsManager {
                 }
             }
         } catch (ImsException e) {
-            log("setAdvanced4GMode() : " + e);
+            loge("setLteFeatureValues: exception ", e);
         }
+    }
+
+    private void setAdvanced4GMode(boolean turnOn) throws ImsException {
+        checkAndThrowExceptionIfServiceUnavailable();
+
+        // if turnOn: first set feature values then call turnOnIms()
+        // if turnOff: only set feature values if IMS turn off is not allowed. If turn off is
+        // allowed, first call turnOffIms() then set feature values
         if (turnOn) {
+            setLteFeatureValues(turnOn);
+            log("setAdvanced4GMode: turnOnIms");
             turnOnIms();
-        } else if (isImsTurnOffAllowed()) {
-            log("setAdvanced4GMode() : imsServiceAllowTurnOff -> turnOffIms");
-            turnOffIms();
+        } else {
+            if (isImsTurnOffAllowed()) {
+                log("setAdvanced4GMode: turnOffIms");
+                turnOffIms();
+            }
+            setLteFeatureValues(turnOn);
         }
     }
 
@@ -1485,11 +1660,49 @@ public class ImsManager {
                 SubscriptionManager.getDefaultVoicePhoneId(), true);
     }
 
+    private boolean isDataEnabled() {
+        return SystemProperties.getBoolean(DATA_ENABLED_PROP, true);
+    }
+
+    /**
+     * Set data enabled/disabled flag.
+     * @param enabled True if data is enabled, otherwise disabled.
+     */
+    public void setDataEnabled(boolean enabled) {
+        log("setDataEnabled: " + enabled);
+        SystemProperties.set(DATA_ENABLED_PROP, enabled ? TRUE : FALSE);
+    }
+
+    private boolean isVolteProvisioned() {
+        return SystemProperties.getBoolean(VOLTE_PROVISIONED_PROP, true);
+    }
+
+    private void setVolteProvisionedProperty(boolean provisioned) {
+        SystemProperties.set(VOLTE_PROVISIONED_PROP, provisioned ? TRUE : FALSE);
+    }
+
+    private boolean isWfcProvisioned() {
+        return SystemProperties.getBoolean(WFC_PROVISIONED_PROP, true);
+    }
+
+    private void setWfcProvisionedProperty(boolean provisioned) {
+        SystemProperties.set(WFC_PROVISIONED_PROP, provisioned ? TRUE : FALSE);
+    }
+
+    private boolean isVtProvisioned() {
+        return SystemProperties.getBoolean(VT_PROVISIONED_PROP, true);
+    }
+
+    private void setVtProvisionedProperty(boolean provisioned) {
+        SystemProperties.set(VT_PROVISIONED_PROP, provisioned ? TRUE : FALSE);
+    }
+
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("ImsManager:");
         pw.println("  mPhoneId = " + mPhoneId);
         pw.println("  mConfigUpdated = " + mConfigUpdated);
         pw.println("  mImsService = " + mImsService);
+        pw.println("  mDataEnabled = " + isDataEnabled());
 
         pw.println("  isGbaValid = " + isGbaValid(mContext));
         pw.println("  isImsTurnOffAllowed = " + isImsTurnOffAllowed());
@@ -1507,6 +1720,8 @@ public class ImsManager {
         pw.println("  getWfcMode = " + getWfcMode(mContext));
         pw.println("  isWfcRoamingEnabledByUser = " + isWfcRoamingEnabledByUser(mContext));
 
+        pw.println("  isVtProvisionedOnDevice = " + isVtProvisionedOnDevice(mContext));
+        pw.println("  isWfcProvisionedOnDevice = " + isWfcProvisionedOnDevice(mContext));
         pw.flush();
     }
 }

@@ -22,7 +22,6 @@ import android.location.GnssStatus;
 import android.util.Log;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import junit.framework.Assert;
 
@@ -90,7 +89,7 @@ public class GnssMeasurementsConstellationTest extends GnssTestCase {
         mTestLocationManager.requestLocationUpdates(mLocationListener);
 
         mMeasurementListener.await();
-        if (!mMeasurementListener.verifyState(isMeasurementTestStrict())) {
+        if (!mMeasurementListener.verifyStatus(isMeasurementTestStrict())) {
             return;
         }
 

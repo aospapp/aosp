@@ -38,7 +38,7 @@
     <string name="rename_action" msgid="6016003384693240896">"Լավ"</string>
     <string name="cancel_action" msgid="3811860427489435048">"Չեղարկել"</string>
     <string name="menu_item_add_item" msgid="6233177331075781114">"Ավելացնել հիմնական էկրանին"</string>
-    <string name="group_applications" msgid="2103752818818161976">"Ծրագրեր"</string>
+    <string name="group_applications" msgid="2103752818818161976">"Հավելվածներ"</string>
     <string name="group_shortcuts" msgid="9133529424900391877">"Դյուրանցումներ"</string>
     <string name="group_widgets" msgid="6704978494073105844">"Վիջեթներ"</string>
     <string name="group_wallpapers" msgid="1568191644272224858">"Պաստառներ"</string>
@@ -51,7 +51,7 @@
     <string name="shortcut_duplicate" msgid="4757756326465060694">"«<xliff:g id="NAME">%s</xliff:g>» դյուրանցումն արդեն գոյություն ունի:"</string>
     <string name="title_select_shortcut" msgid="1873670208166882222">"Ընտրել դյուրանցում"</string>
     <string name="title_select_application" msgid="1793455815754848652">"Ընտրել ծրագիր"</string>
-    <string name="all_apps_button_label" msgid="2578400570124163469">"Ծրագրեր"</string>
+    <string name="all_apps_button_label" msgid="2578400570124163469">"Հավելվածներ"</string>
     <string name="all_apps_home_button_label" msgid="1022222300329398558">"Տուն"</string>
     <string name="delete_zone_label_workspace" msgid="7153615831493049150">"Հեռացնել"</string>
     <string name="delete_zone_label_all_apps" msgid="6664588234817475108">"Ապատեղադրել"</string>
@@ -60,7 +60,7 @@
     <string name="info_target_label" msgid="4019495079517426980">"Ծրագրի տեղեկությունները"</string>
     <string name="accessibility_search_button" msgid="816822994629942611">"Որոնել"</string>
     <string name="accessibility_voice_search_button" msgid="3938249215065842475">"Ձայնային որոնում"</string>
-    <string name="accessibility_all_apps_button" msgid="8803738611398979849">"Ծրագրեր"</string>
+    <string name="accessibility_all_apps_button" msgid="8803738611398979849">"Հավելվածներ"</string>
     <string name="accessibility_delete_button" msgid="3628162007991023603">"Հեռացնել"</string>
     <string name="delete_zone_label_all_apps_system_app" msgid="3683920959591819044">"Ապատեղադրել թարմացումը"</string>
     <string name="menu_add" msgid="3065046628354640854">"Ավելացնել"</string>

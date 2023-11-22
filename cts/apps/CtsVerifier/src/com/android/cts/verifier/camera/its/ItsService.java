@@ -94,7 +94,7 @@ public class ItsService extends Service implements SensorEventListener {
     public static final String TAG = ItsService.class.getSimpleName();
 
     // Timeouts, in seconds.
-    private static final int TIMEOUT_CALLBACK = 10;
+    private static final int TIMEOUT_CALLBACK = 20;
     private static final int TIMEOUT_3A = 10;
 
     // Time given for background requests to warm up pipeline

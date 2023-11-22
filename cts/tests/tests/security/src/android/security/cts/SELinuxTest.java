@@ -69,8 +69,11 @@ public class SELinuxTest extends AndroidTestCase {
         assertEquals(getFileContext("/data"), "u:object_r:system_data_file:s0");
         assertEquals(getFileContext("/data/app"), "u:object_r:apk_data_file:s0");
         assertEquals(getFileContext("/data/local/tmp"), "u:object_r:shell_data_file:s0");
-        assertEquals(getFileContext("/cache"), "u:object_r:cache_file:s0");
         assertEquals(getFileContext("/sys"), "u:object_r:sysfs:s0");
+        File dir = new File("/cache");
+        if (dir.exists()) {
+            assertEquals(getFileContext("/cache"), "u:object_r:cache_file:s0");
+        }
     }
 
     private static final native String getFileContext(String path);

@@ -594,7 +594,7 @@ public class WifiMonitor {
         while (true) {
             if (mWifiNative.connectToSupplicant()) {
                 mConnected = true;
-                new MonitorThread().start();
+                new MonitorThread(mWifiNative.getLocalLog()).start();
                 return true;
             }
             if (connectTries++ < 5) {
@@ -723,10 +723,11 @@ public class WifiMonitor {
     }
 
     private class MonitorThread extends Thread {
-        private final LocalLog mLocalLog = mWifiNative.getLocalLog();
+        private final LocalLog mLocalLog;
 
-        public MonitorThread() {
+        public MonitorThread(LocalLog localLog) {
             super("WifiMonitor");
+            mLocalLog = localLog;
         }
 
         public void run() {

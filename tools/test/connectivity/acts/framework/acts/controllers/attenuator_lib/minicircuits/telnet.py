@@ -42,7 +42,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
     def __init__(self, num_atten=0):
         super().__init__(num_atten)
         self._tnhelper = _tnhelper._TNHelper(tx_cmd_separator="\r\n",
-                                             rx_cmd_separator="\n\r",
+                                             rx_cmd_separator="\r\n",
                                              prompt="")
 
     def __del__(self):

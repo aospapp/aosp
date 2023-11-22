@@ -34,14 +34,19 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Test to check non-modifiable themes have not been changed.
@@ -67,6 +72,9 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
     private static final String DENSITY_PROP_DEVICE = "ro.sf.lcd_density";
     private static final String DENSITY_PROP_EMULATOR = "qemu.sf.lcd_density";
 
+    /** Shell command used to obtain current device density. */
+    private static final String WM_DENSITY = "wm density";
+
     /** Overall test timeout is 30 minutes. Should only take about 5. */
     private static final int TEST_RESULT_TIMEOUT = 30 * 60 * 1000;
 
@@ -84,7 +92,7 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
 
     private ExecutorService mExecutionService;
 
-    private ExecutorCompletionService<Boolean> mCompletionService;
+    private ExecutorCompletionService<File> mCompletionService;
 
     @Override
     public void setAbi(IAbi abi) {
@@ -185,12 +193,24 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
 
         final int numTasks = extractGeneratedImages(localZip, mReferences);
 
-        int failures = 0;
+        final List<File> failures = new ArrayList<>();
         for (int i = numTasks; i > 0; i--) {
-            failures += mCompletionService.take().get() ? 0 : 1;
+            final File comparison = mCompletionService.take().get();
+            if (comparison != null) {
+                failures.add(comparison);
+            }
         }
 
-        assertTrue(failures + " failures in theme test", failures == 0);
+        // Generate ZIP file from failure output.
+        final int failureCount = failures.size();
+        if (failureCount != 0) {
+            final File failuresZip = File.createTempFile("failures", ".zip");
+            compressFiles(failures, failuresZip, true);
+            Log.logAndDisplay(LogLevel.INFO, LOG_TAG,
+                    "Wrote " + failureCount+ " failures to file:" + failuresZip.getPath());
+        }
+
+        assertTrue(failureCount + " failures in theme test", failureCount == 0);
     }
 
     private int extractGeneratedImages(File localZip, Map<String, File> references)
@@ -198,7 +218,7 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
         int numTasks = 0;
 
         // Extract generated images to temporary files.
-        final byte[] data = new byte[4096];
+        final byte[] data = new byte[8192];
         try (ZipInputStream zipInput = new ZipInputStream(new FileInputStream(localZip))) {
             ZipEntry entry;
             while ((entry = zipInput.getNextEntry()) != null) {
@@ -230,6 +250,40 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
         return numTasks;
     }
 
+    /**
+     * Compresses a list of files to a ZIP file.
+     *
+     * @param files the files to compress
+     * @param outFile the output file
+     * @param remove {@code true} to remove files after compressing them or
+     *               {@code false} to leave them alone
+     */
+    public static void compressFiles(List<File> files, File outFile, boolean remove)
+            throws IOException {
+        final ZipOutputStream zipOut = new ZipOutputStream(new FileOutputStream(outFile));
+        final byte[] data = new byte[4096];
+        for (File file : files) {
+            final FileInputStream fileIn = new FileInputStream(file);
+            final ZipEntry entry = new ZipEntry(file.getName());
+            zipOut.putNextEntry(entry);
+
+            int count;
+            while ((count = fileIn.read(data, 0, data.length)) != -1) {
+                zipOut.write(data, 0, count);
+                zipOut.flush();
+            }
+
+            zipOut.closeEntry();
+            fileIn.close();
+
+            if (remove) {
+                file.delete();
+            }
+        }
+
+        zipOut.close();
+    }
+
     private boolean generateDeviceImages() throws Exception {
         // Stop any existing instances.
         mDevice.executeShellCommand(STOP_CMD);
@@ -243,38 +297,61 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
     }
 
     private static String getDensityBucketForDevice(ITestDevice device) {
+        final int density;
+        try {
+            density = getDensityForDevice(device);
+        } catch (DeviceNotAvailableException e) {
+            throw new RuntimeException("Failed to detect device density", e);
+        }
+
+        final String bucket;
+        switch (density) {
+            case 120:
+                bucket = "ldpi";
+                break;
+            case 160:
+                bucket = "mdpi";
+                break;
+            case 213:
+                bucket = "tvdpi";
+                break;
+            case 240:
+                bucket = "hdpi";
+                break;
+            case 320:
+                bucket = "xhdpi";
+                break;
+            case 480:
+                bucket = "xxhdpi";
+                break;
+            case 640:
+                bucket = "xxxhdpi";
+                break;
+            default:
+                bucket = density + "dpi";
+                break;
+        }
+
+        Log.logAndDisplay(LogLevel.INFO, LOG_TAG,
+                "Device density detected as " + density + " (" + bucket + ")");
+        return bucket;
+    }
+
+    private static int getDensityForDevice(ITestDevice device) throws DeviceNotAvailableException {
+        final String output = device.executeShellCommand(WM_DENSITY);
+        final Pattern p = Pattern.compile("Override density: (\\d+)");
+        final Matcher m = p.matcher(output);
+        if (m.find()) {
+            return Integer.parseInt(m.group(1));
+        }
+
         final String densityProp;
         if (device.getSerialNumber().startsWith("emulator-")) {
             densityProp = DENSITY_PROP_EMULATOR;
         } else {
             densityProp = DENSITY_PROP_DEVICE;
         }
-
-        final int density;
-        try {
-            density = Integer.parseInt(device.getProperty(densityProp));
-        } catch (DeviceNotAvailableException e) {
-            return "unknown";
-        }
-
-        switch (density) {
-            case 120:
-                return "ldpi";
-            case 160:
-                return "mdpi";
-            case 213:
-                return "tvdpi";
-            case 240:
-                return "hdpi";
-            case 320:
-                return "xhdpi";
-            case 480:
-                return "xxhdpi";
-            case 640:
-                return "xxxhdpi";
-            default:
-                return density + "dpi";
-        }
+        return Integer.parseInt(device.getProperty(densityProp));
     }
 
     private static boolean checkHardwareTypeSkipTest(String hardwareTypeString) {

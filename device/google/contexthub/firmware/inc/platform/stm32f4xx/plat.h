@@ -25,7 +25,6 @@ extern "C" {
 #include <stdbool.h>
 #include <seos.h>
 
-
 enum PlatSleepDevID
 {
     Stm32sleepDevTim2, /* we use this for short sleeps in WFI mode */

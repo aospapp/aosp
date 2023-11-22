@@ -24,19 +24,22 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Rect;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
 import android.support.test.jank.JankTestBase;
+import android.support.test.timeresulthelper.TimeResultLogger;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
-import android.support.test.timeresulthelper.TimeResultLogger;
 import android.util.Log;
-import android.os.Environment;
+import android.widget.Button;
 
 import java.io.File;
 import java.io.IOException;
@@ -72,6 +75,9 @@ public class SystemUiJankTests extends JankTestBase {
             .getAbsolutePath(), "autotester.log");
     private static final File RESULTS_FILE = new File(Environment.getExternalStorageDirectory()
             .getAbsolutePath(), "results.log");
+    private static final String GMAIL_PACKAGE_NAME = "com.google.android.gm";
+    private static final String DISABLE_COMMAND = "pm disable-user ";
+    private static final String ENABLE_COMMAND = "pm enable ";
 
     private UiDevice mDevice;
     private List<String> mLaunchedPackages = new ArrayList<>();
@@ -153,8 +159,21 @@ public class SystemUiJankTests extends JankTestBase {
         mDevice.waitForIdle();
     }
 
-    public void prepareNotifications() throws IOException {
+    public void prepareNotifications() throws Exception {
+        blockNotifications();
         goHome();
+        mDevice.openNotification();
+        SystemClock.sleep(100);
+        mDevice.waitForIdle();
+
+        // CLEAR ALL might not be visible in case we don't have any clearable notifications.
+        UiObject clearAll =
+                mDevice.findObject(new UiSelector().className(Button.class).text("CLEAR ALL"));
+        if (clearAll.exists()) {
+            clearAll.click();
+        }
+        mDevice.pressHome();
+        mDevice.waitForIdle();
         Builder builder = new Builder(getInstrumentation().getTargetContext())
                 .setContentTitle(NOTIFICATION_TEXT);
         NotificationManager nm = (NotificationManager) getInstrumentation().getTargetContext()
@@ -170,7 +189,16 @@ public class SystemUiJankTests extends JankTestBase {
                 getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
     }
 
-    public void cancelNotifications(Bundle metrics) throws IOException {
+    public void blockNotifications() throws Exception {
+        mDevice.executeShellCommand(DISABLE_COMMAND + GMAIL_PACKAGE_NAME);
+    }
+
+    public void unblockNotifications() throws Exception {
+        mDevice.executeShellCommand(ENABLE_COMMAND + GMAIL_PACKAGE_NAME);
+    }
+
+    public void cancelNotifications(Bundle metrics) throws Exception {
+        unblockNotifications();
         TimeResultLogger.writeTimeStampLogEnd(String.format("%s-%s",
                 getClass().getSimpleName(), getName()), TIMESTAMP_FILE);
         NotificationManager nm = (NotificationManager) getInstrumentation().getTargetContext()

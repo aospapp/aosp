@@ -78,6 +78,7 @@ public class WifiManagerFacade extends RpcReceiver {
     private final WifiScanReceiver mScanResultsAvailableReceiver;
     private final WifiStateChangeReceiver mStateChangeReceiver;
     private boolean mTrackingWifiStateChange;
+    private boolean mTrackingTetherStateChange;
 
     private final BroadcastReceiver mTetherStateReceiver = new BroadcastReceiver() {
         @Override
@@ -130,6 +131,7 @@ public class WifiManagerFacade extends RpcReceiver {
         mScanResultsAvailableReceiver = new WifiScanReceiver(mEventFacade);
         mStateChangeReceiver = new WifiStateChangeReceiver();
         mTrackingWifiStateChange = false;
+        mTrackingTetherStateChange = false;
     }
 
     private void makeLock(int wifiMode) {
@@ -464,7 +466,8 @@ public class WifiManagerFacade extends RpcReceiver {
     }
 
     @Rpc(description = "test.")
-    public String wifiTest(String certString) throws CertificateException, IOException {
+    public String wifiTest(
+            @RpcParameter(name = "certString") String certString) throws CertificateException, IOException {
         // TODO(angli): Make this work. Convert a X509Certificate back to a string.
         X509Certificate caCert = strToX509Cert(certString);
         caCert.getEncoded();
@@ -521,7 +524,6 @@ public class WifiManagerFacade extends RpcReceiver {
             Log.e("Got negative network Id.");
             return false;
         }
-        mWifi.disconnect();
         mWifi.enableNetwork(nId, true);
         return mWifi.reconnect();
     }
@@ -767,22 +769,35 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.removeNetwork(netId);
     }
 
+    private WifiConfiguration createSoftApWifiConfiguration(JSONObject configJson)
+            throws JSONException {
+        WifiConfiguration config = genWifiConfig(configJson);
+        // Need to strip of extra quotation marks for SSID and password.
+        String ssid = config.SSID;
+        if (ssid != null) {
+            config.SSID = ssid.substring(1, ssid.length() - 1);
+        }
+        String pwd = config.preSharedKey;
+        if (pwd != null) {
+            config.preSharedKey = pwd.substring(1, pwd.length() - 1);
+        }
+        return config;
+    }
+
+    @Rpc(description = "Set configuration for soft AP.")
+    public Boolean wifiSetWifiApConfiguration(
+            @RpcParameter(name = "configJson") JSONObject configJson) throws JSONException {
+        WifiConfiguration config = createSoftApWifiConfiguration(configJson);
+        return mWifi.setWifiApConfiguration(config);
+    }
+
     @Rpc(description = "Start/stop wifi soft AP.")
     public Boolean wifiSetApEnabled(
             @RpcParameter(name = "enable") Boolean enable,
             @RpcParameter(name = "configJson") JSONObject configJson) throws JSONException {
         int wifiState = mWifi.getWifiState();
         if (enable) {
-            WifiConfiguration config = genWifiConfig(configJson);
-            // Need to strip of extra quotation marks for SSID and password.
-            String ssid = config.SSID;
-            if (ssid != null) {
-                config.SSID = ssid.substring(1, ssid.length() - 1);
-            }
-            String pwd = config.preSharedKey;
-            if (pwd != null) {
-                config.preSharedKey = pwd.substring(1, pwd.length() - 1);
-            }
+            WifiConfiguration config = createSoftApWifiConfiguration(configJson);
             return mWifi.setWifiApEnabled(config, enable);
         } else {
             return mWifi.setWifiApEnabled(null, false);
@@ -822,16 +837,28 @@ public class WifiManagerFacade extends RpcReceiver {
     @Rpc(description = "Start listening for wifi state change related broadcasts.")
     public void wifiStartTrackingStateChange() {
         mService.registerReceiver(mStateChangeReceiver, mStateChangeFilter);
-        mService.registerReceiver(mTetherStateReceiver, mTetherFilter);
         mTrackingWifiStateChange = true;
     }
 
     @Rpc(description = "Stop listening for wifi state change related broadcasts.")
     public void wifiStopTrackingStateChange() {
         if (mTrackingWifiStateChange == true) {
-            mService.unregisterReceiver(mTetherStateReceiver);
             mService.unregisterReceiver(mStateChangeReceiver);
             mTrackingWifiStateChange = false;
+        }
+    }
+
+    @Rpc(description = "Start listening for tether state change related broadcasts.")
+    public void wifiStartTrackingTetherStateChange() {
+        mService.registerReceiver(mTetherStateReceiver, mTetherFilter);
+        mTrackingTetherStateChange = true;
+    }
+
+    @Rpc(description = "Stop listening for wifi state change related broadcasts.")
+    public void wifiStopTrackingTetherStateChange() {
+        if (mTrackingTetherStateChange == true) {
+            mService.unregisterReceiver(mTetherStateReceiver);
+            mTrackingTetherStateChange = false;
         }
     }
 
@@ -874,6 +901,9 @@ public class WifiManagerFacade extends RpcReceiver {
         wifiLockRelease();
         if (mTrackingWifiStateChange == true) {
             wifiStopTrackingStateChange();
+        }
+        if (mTrackingTetherStateChange == true) {
+            wifiStopTrackingTetherStateChange();
         }
     }
 }

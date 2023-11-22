@@ -28,6 +28,7 @@ class Config(enum.Enum):
     key_log_path = "logpath"
     key_testbed = "testbed"
     key_testbed_name = "name"
+    key_config_path = "configpath"
     key_test_paths = "testpaths"
     key_port = "Port"
     key_address = "Address"

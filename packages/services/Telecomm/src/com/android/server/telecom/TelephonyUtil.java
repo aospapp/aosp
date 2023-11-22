@@ -22,8 +22,14 @@ import android.net.Uri;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 
 import com.android.internal.annotations.VisibleForTesting;
+
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Utilities to deal with the system telephony services. The system telephony services are treated
@@ -66,5 +72,56 @@ public final class TelephonyUtil {
     public static boolean shouldProcessAsEmergency(Context context, Uri handle) {
         return handle != null && PhoneNumberUtils.isLocalEmergencyNumber(
                 context, handle.getSchemeSpecificPart());
+    }
+
+    public static void sortSimPhoneAccounts(Context context, List<PhoneAccount> accounts) {
+        final TelephonyManager telephonyManager = TelephonyManager.from(context);
+
+        // Sort the accounts according to how we want to display them.
+        Collections.sort(accounts, new Comparator<PhoneAccount>() {
+            @Override
+            public int compare(PhoneAccount account1, PhoneAccount account2) {
+                int retval = 0;
+
+                // SIM accounts go first
+                boolean isSim1 = account1.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION);
+                boolean isSim2 = account2.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION);
+                if (isSim1 != isSim2) {
+                    retval = isSim1 ? -1 : 1;
+                }
+
+                int subId1 = telephonyManager.getSubIdForPhoneAccount(account1);
+                int subId2 = telephonyManager.getSubIdForPhoneAccount(account2);
+                if (subId1 != SubscriptionManager.INVALID_SUBSCRIPTION_ID &&
+                        subId2 != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                    retval = (SubscriptionManager.getSlotId(subId1) <
+                            SubscriptionManager.getSlotId(subId2)) ? -1 : 1;
+                }
+
+                // Then order by package
+                if (retval == 0) {
+                    String pkg1 = account1.getAccountHandle().getComponentName().getPackageName();
+                    String pkg2 = account2.getAccountHandle().getComponentName().getPackageName();
+                    retval = pkg1.compareTo(pkg2);
+                }
+
+                // Finally, order by label
+                if (retval == 0) {
+                    String label1 = nullToEmpty(account1.getLabel().toString());
+                    String label2 = nullToEmpty(account2.getLabel().toString());
+                    retval = label1.compareTo(label2);
+                }
+
+                // Then by hashcode
+                if (retval == 0) {
+                    retval = account1.hashCode() - account2.hashCode();
+                }
+                return retval;
+            }
+        });
+    }
+
+    private static String nullToEmpty(String str) {
+        return str == null ? "" : str;
     }
 }

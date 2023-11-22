@@ -92,4 +92,21 @@ public class LocaleDisplayNamesTest {
                 Locale.CHINA, DisplayContext.CAPITALIZATION_NONE);
         assertEquals("拼音罗马字", names.variantDisplayName("PINYIN"));
     }
+
+    // http://b/31177615
+    @Test
+    public void testCyprusTurkishTranslation() {
+        final Locale[] variousTurkishTestLocales = {
+            new Locale("tr"),
+            new Locale("tr", "CY"),
+            new Locale("tr", "TR")
+        };
+
+        for (Locale testLocale : variousTurkishTestLocales) {
+            LocaleDisplayNamesImpl names = (LocaleDisplayNamesImpl) LocaleDisplayNames.getInstance(
+                    testLocale, DisplayContext.STANDARD_NAMES);
+            assertEquals("Bad translation for Cyprus in locale " + testLocale,
+                    "Kıbrıs", names.regionDisplayName("CY"));
+        }
+    }
 }

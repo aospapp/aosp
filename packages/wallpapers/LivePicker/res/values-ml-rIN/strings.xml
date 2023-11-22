@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"സജീവ വാൾപേപ്പർ ലോഡുചെയ്യുന്നു..."</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"ഹോം സ്‌ക്രീൻ"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"ഹോം സ്ക്രീനും ലോക്ക് സ്ക്രീനും"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"വാൾപേപ്പർ വിവര പാനൽ ചുരുക്കുക"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"വാൾപേപ്പർ വിവര പാനൽ വികസിപ്പിക്കുക"</string>
 </resources>

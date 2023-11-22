@@ -28,17 +28,19 @@ import java.util.concurrent.TimeUnit;
 /**
  * Used for receiving GPS satellite measurements from the GPS engine.
  * Each measurement contains raw and computed data identifying a satellite.
+ * Only counts measurement events with more than one actual Measurement in them (not just clock)
  */
 class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback {
     // Timeout in sec for count down latch wait
-    private static final int TIMEOUT_IN_SEC = 90;
+    private static final int STATUS_TIMEOUT_IN_SEC = 10;
+    private static final int MEAS_TIMEOUT_IN_SEC = 60;
 
     private volatile int mStatus = -1;
 
     private final String mTag;
-    private final int mEventsToCollect;
     private final List<GnssMeasurementsEvent> mMeasurementsEvents;
     private final CountDownLatch mCountDownLatch;
+    private final CountDownLatch mCountDownLatchStatus;
 
     TestGnssMeasurementListener(String tag) {
         this(tag, 0);
@@ -47,14 +49,16 @@ class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback {
     TestGnssMeasurementListener(String tag, int eventsToCollect) {
         mTag = tag;
         mCountDownLatch = new CountDownLatch(eventsToCollect);
-        mEventsToCollect = eventsToCollect;
+        mCountDownLatchStatus = new CountDownLatch(1);
         mMeasurementsEvents = new ArrayList<>(eventsToCollect);
     }
 
     @Override
     public void onGnssMeasurementsReceived(GnssMeasurementsEvent event) {
-        mMeasurementsEvents.add(event);
-        if (mMeasurementsEvents.size() >= mEventsToCollect) {
+        // Only count measurement events with more than one actual Measurement in them
+        // (not just clock)
+        if (event.getMeasurements().size() > 0) {
+            mMeasurementsEvents.add(event);
             mCountDownLatch.countDown();
         }
     }
@@ -62,20 +66,23 @@ class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback {
     @Override
     public void onStatusChanged(int status) {
         mStatus = status;
-        if (mStatus != GnssMeasurementsEvent.Callback.STATUS_READY) {
-            mCountDownLatch.countDown();
-        }
+        mCountDownLatchStatus.countDown();
+    }
+
+    public boolean awaitStatus() throws InterruptedException {
+        return TestUtils.waitFor(mCountDownLatchStatus, STATUS_TIMEOUT_IN_SEC);
     }
 
     public boolean await() throws InterruptedException {
-        return TestUtils.waitFor(mCountDownLatch);
+        return TestUtils.waitFor(mCountDownLatch, MEAS_TIMEOUT_IN_SEC);
     }
+
 
     /**
      * @return {@code true} if the state of the test ensures that data is expected to be collected,
      *         {@code false} otherwise.
      */
-    public boolean verifyState(boolean testIsStrict) {
+    public boolean verifyStatus(boolean testIsStrict) {
         switch (getStatus()) {
             case GnssMeasurementsEvent.Callback.STATUS_NOT_SUPPORTED:
                 String message = "GnssMeasurements is not supported in the device:"

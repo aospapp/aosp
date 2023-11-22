@@ -22,7 +22,7 @@
 #include "cpp_bindings.h"
 #include <utils/Log.h>
 #include "nancommand.h"
-
+#include "vendor_definitions.h"
 #ifdef __GNUC__
 #define PRINTF_FORMAT(a,b) __attribute__ ((format (printf, (a), (b))))
 #define STRUCT_PACKED __attribute__ ((packed))
@@ -30,8 +30,6 @@
 #define PRINTF_FORMAT(a,b)
 #define STRUCT_PACKED
 #endif
-
-#include "qca-vendor.h"
 
 //Singleton Static Instance
 NanCommand* NanCommand::mNanCommandInstance  = NULL;
@@ -43,7 +41,6 @@ wifi_error nan_register_handler(wifi_interface_handle iface,
     // Obtain the singleton instance
     int ret = 0;
     NanCommand *nanCommand = NULL;
-    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
 
     nanCommand = NanCommand::instance(wifiHandle);
@@ -55,7 +52,6 @@ wifi_error nan_register_handler(wifi_interface_handle iface,
     ret = nanCommand->setCallbackHandler(handlers);
     return (wifi_error)ret;
 
-cleanup:
     return (wifi_error)ret;
 }
 
@@ -257,6 +253,7 @@ wifi_error nan_subscribe_request(transaction_id id,
         goto cleanup;
 
     /* Set the interface Id of the message. */
+
     ret = nanCommand->set_iface_id(ifaceInfo->name);
     if (ret < 0)
         goto cleanup;
@@ -537,7 +534,6 @@ wifi_error nan_get_sta_parameter(transaction_id id,
 {
     int ret = WIFI_ERROR_NOT_SUPPORTED;
     NanCommand *nanCommand = NULL;
-    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
 
     nanCommand = NanCommand::instance(wifiHandle);

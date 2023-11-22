@@ -18,10 +18,6 @@
 # contains most of the code (assertions...) and libgmock_main just
 # provide a common main to run the test (ie if you link against
 # libgmock_main you won't/should not provide a main() entry point.
-#
-# We build these 2 libraries for the target device and for the host if
-# it is running linux and using ASTL.
-#
 
 # TODO: The targets below have some redundancy. Check if we cannot
 # condense them using function(s) for the common code.
@@ -95,15 +91,15 @@ LOCAL_MODULE := libgmock_host
 LOCAL_MULTILIB := both
 LOCAL_SANITIZE := never
 LOCAL_RTTI_FLAG := -frtti
+LOCAL_MODULE_HOST_OS := linux darwin windows
 
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 #######################################################################
-# gmock_main lib target
+# gmock_main lib host
 
 include $(CLEAR_VARS)
 
-LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := gmock_main.cc
 LOCAL_C_INCLUDES := $(libgmock_host_includes)
@@ -112,6 +108,7 @@ LOCAL_C_FLAGS += $(libgmock_cflags)
 LOCAL_MODULE := libgmock_main_host
 LOCAL_MULTILIB := both
 LOCAL_SANITIZE := never
+LOCAL_MODULE_HOST_OS := linux darwin windows
 
 include $(BUILD_HOST_STATIC_LIBRARY)
 
@@ -120,7 +117,6 @@ include $(BUILD_HOST_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 
-LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := gmock-all.cc
 LOCAL_C_INCLUDES := $(libgmock_target_includes)

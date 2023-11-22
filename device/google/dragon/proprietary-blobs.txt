@@ -29,9 +29,6 @@
 /root/vendor/firmware/nouveau/nv12b_sw_nonctx
 /root/vendor/firmware/nouveau/pmu_bl.bin
 /root/vendor/firmware/nouveau/pmu_sig.bin
-/root/vendor/firmware/nvhost_nvdec020_ns.fw
-/root/vendor/firmware/nvhost_nvdec020_prod.fw
-/root/vendor/firmware/nvhost_nvdec_bl020.fw
 /root/vendor/firmware/nvidia/tegra210/bpmp.bin
 /root/vendor/firmware/nvidia/tegra210/nvdec_bl_prod.bin
 /root/vendor/firmware/nvidia/tegra210/nvdec_ns.bin

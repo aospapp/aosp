@@ -39,9 +39,8 @@ multiplies the current by the time for which the subsystem was active and
 computes the mAh value, which is then used to estimate the amount of battery
 drained by the application/subsystem.</p>
 
-<p>Devices with <a href="#chipset-data">Bluetooth and Wi-Fi controllers</a>
-running Android 6.0 and higher can provide additional power values obtained from
-chipset data.</p>
+<p>Devices with Bluetooth, modem, and Wi-Fi controllers running Android 7.0 and
+higher can provide additional power values obtained from chipset data.</p>
 
 
 <h2 id="multiple-cpus">Devices with heterogeneous CPUs</h2>
@@ -114,20 +113,6 @@ sample file in AOSP, see
   <td>100mA-300mA</td>
   <td>A fraction of this value (based on screen brightness) is added to the
   screen.on value to compute the power usage of the screen.</td>
-</tr>
-
-<tr>
-  <td>bluetooth.active</td>
-  <td>Additional power used when playing audio through Bluetooth A2DP.</td>
-  <td>14mA</td>
-  <td></td>
-</tr>
-
-<tr>
-  <td>bluetooth.on</td>
-  <td>Additional power used when Bluetooth is turned on but idle.</td>
-  <td>1.4mA</td>
-  <td></td>
 </tr>
 
 <tr>
@@ -218,6 +203,91 @@ sample file in AOSP, see
 </tr>
 
 <tr>
+  <td>bluetooth.controller.idle</td>
+  <td>Average current draw (mA) of the Bluetooth controller when idle.</td>
+  <td> - </td>
+  <td rowspan=4>These values are not estimated, but taken from the data sheet of
+  the controller. If there are multiple receive or transmit states, the average
+  of those states is taken. In addition, the system now collects data for
+  <a href="#le-bt-scans">Low Energy (LE) and Bluetooth scans</a>.<br><br>Android
+  N and later no longer use the Bluetooth power values for bluetooth.active
+  (used when playing audio via Bluetooth A2DP) and bluetooth.on (used when
+  Bluetooth is on but idle).</td>
+</tr>
+
+<tr>
+  <td>bluetooth.controller.rx</td>
+  <td>Average current draw (mA) of the Bluetooth controller when receiving.</td>
+  <td> - </td>
+</tr>
+
+<tr>
+  <td>bluetooth.controller.tx</td>
+  <td>Average current draw (mA) of the Bluetooth controller when transmitting.</td>
+  <td> - </td>
+</tr>
+
+<tr>
+  <td>bluetooth.controller.voltage</td>
+  <td>Average operating voltage (mV) of the Bluetooth controller.</td>
+  <td> - </td>
+</tr>
+
+<tr>
+  <td>modem.controller.idle</td>
+  <td>Average current draw (mA) of the modem controller when idle.</td>
+  <td> - </td>
+  <td rowspan=4>These values are not estimated, but taken from the data sheet of
+  the controller. If there are multiple receive or transmit states, the average
+  of those states is taken.</td>
+</tr>
+
+<tr>
+  <td>modem.controller.rx</td>
+  <td>Average current draw (mA) of the modem controller when receiving.</td>
+  <td> - </td>
+</tr>
+
+<tr>
+  <td>modem.controller.tx</td>
+  <td>Average current draw (mA) of the modem controller when transmitting.</td>
+  <td> - </td>
+</tr>
+
+<tr>
+  <td>modem.controller.voltage</td>
+  <td>Average operating voltage (mV) of the modem controller.</td>
+  <td> - </td>
+</tr>
+
+<tr>
+  <td>wifi.controller.idle</td>
+  <td>Average current draw (mA) of the Wi-Fi controller when idle.</td>
+  <td> - </td>
+  <td rowspan=4>These values are not estimated, but taken from the data sheet of
+  the controller. If there are multiple receive or transmit states, the average
+  of those states is taken.</td>
+</tr>
+
+<tr>
+  <td>wifi.controller.rx</td>
+  <td>Average current draw (mA) of the Wi-Fi controller when receiving.</td>
+  <td> - </td>
+</tr>
+
+<tr>
+  <td>wifi.controller.tx</td>
+  <td>Average current draw (mA) of the Wi-Fi controller when transmitting.</td>
+  <td> - </td>
+</tr>
+
+<tr>
+  <td>wifi.controller.voltage</td>
+  <td>Average operating voltage (mV) of the Wi-Fi controller.</td>
+  <td> - </td>
+</tr>
+
+<tr>
   <td>cpu.speeds</td>
   <td>Multi-value entry that lists each possible CPU speed in KHz.</td>
   <td>125000KHz, 250000KHz, 500000KHz, 1000000KHz, 1500000KHz</td>
@@ -272,78 +342,15 @@ sample file in AOSP, see
   <td>3000mAh</td>
   <td></td>
 </tr>
+
 </table>
 
-<h2 id="chipset-data">Devices with Bluetooth and Wi-Fi controllers</h2>
-<p>Devices with Bluetooth and Wi-Fi controllers running Android 6.0 and
-higher can be polled for the following energy use data:</p>
-<ul>
-<li>Time spent transmitting (in milliseconds).</li>
-<li>Time spent receiving (in milliseconds).</li>
-<li>Time spent idle (in milliseconds).</li>
-</ul>
-
-<p>Time values are not measured but are instead available from respective chip
-specifications and must be explicitly stated (for details, see
-<a href="{@docRoot}devices/tech/power/batterystats.html#wifi-reqs">Wi-Fi,
-Bluetooth, and cellular usage</a>). To convert time values to power values, the
-framework expects four (4) values for each controller in a resource overlay at
-<code>/frameworks/base/core/res/res/values/config.xml</code>.</p>
-
-  <table id="chipset-energy-data">
-
-    <tr>
-      <th width="10%">Controller</th>
-      <th width="40%">Values/Resource Names</th>
-      <th width="40%">Description</th>
-    </tr>
-
-    <tr>
-      <td>Bluetooth<</td>
-      <td>android:integer/config_bluetooth_idle_cur_ma</td>
-      <td>Average current draw (mA) of the Bluetooth controller when idle.</td>
-    </tr>
-
-    <tr>
-      <td>Bluetooth</td>
-      <td>android:integer/config_bluetooth_active_rx_cur_ma</td>
-      <td>Average current draw (mA) of the Bluetooth controller when receiving.</td>
-    </tr>
-
-    <tr>
-      <td>Bluetooth</td>
-      <td>android:integer/config_bluetooth_tx_cur_ma</td>
-      <td>Average current draw (mA) of the Bluetooth controller when transmitting.</td>
-    </tr>
-
-    <tr>
-      <td>Bluetooth</td>
-      <td>android:integer/config_bluetooth_operating_voltage_mv</td>
-      <td>Average operating voltage (mV) of the Bluetooth controller.</td>
-    </tr>
-
-    <tr>
-      <td>Wi-Fi</td>
-      <td>android:integer/config_wifi_idle_receive_cur_ma</td>
-      <td>Average current draw (mA) of the Wi-Fi controller when idle.</td>
-    </tr>
-
-    <tr>
-      <td>Wi-Fi</td>
-      <td>android:integer/config_wifi_active_rx_cur_ma</td>
-      <td>Average current draw (mA) of the Wi-Fi controller when receiving.</td>
-    </tr>
-
-    <tr>
-      <td>Wi-Fi</td>
-      <td>android:integer/config_wifi_tx_cur_ma</td>
-      <td>average current draw (mA) of the Wi-Fi controller when transmitting.</td>
-    </tr>
-
-    <tr>
-      <td>Wi-Fi</td>
-      <td>android:integer/config_wifi_operating_voltage_mv</td>
-      <td>Average operating voltage (mV) of the Wi-Fi controller.</td>
-    </tr>
-
-    </table>
+<h2 id="le-bt-scans">Low Energy (LE) and Bluetooth scans</h2>
+<p>For devices running Android 7.0, the system collects data for Low Energy (LE)
+scans and Bluetooth network traffic (such as RFCOMM and L2CAP) and associates
+these activities with the initiating application. Bluetooth scans are associated
+with the application that initiated the scan, but batch scans are not (and
+are instead associated with the Bluetooth application). For an application
+scanning for N milliseconds, the cost of the scan is N milliseconds of rx time
+and N milliseconds of tx time; all leftover controller time is assigned to
+network traffic or the Bluetooth application.</p>

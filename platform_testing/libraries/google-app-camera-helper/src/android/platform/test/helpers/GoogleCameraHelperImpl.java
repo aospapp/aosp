@@ -53,9 +53,11 @@ public class GoogleCameraHelperImpl extends AbstractGoogleCameraHelper {
     private static final String UI_SHUTTER_BUTTON_ID_3X = "photo_video_button";
     private static final String UI_SHUTTER_BUTTON_ID_2X = "shutter_button";
     private static final String UI_SETTINGS_BUTTON_ID = "settings_button";
+    private static final String UI_SETTINGS_SCROLLABLE_ID = "settings_activity_content";
     private static final String UI_MENU_BUTTON_ID_3X = "menuButton";
     private static final String UI_MENU_BUTTON_ID_4X = "toybox_menu_button";
     private static final String UI_SPECIAL_MODE_CLOSE = "closeButton";
+    private static final String UI_SWITCH_WIDGET = "switch_widget";
     private static final String UI_HDR_BUTTON_ID_2X = "hdr_plus_toggle_button";
     private static final String UI_HDR_BUTTON_ID_3X = "hdr_plus_toggle_button";
     private static final String UI_HDR_BUTTON_ID_4X = "hdr_button";
@@ -65,6 +67,10 @@ public class GoogleCameraHelperImpl extends AbstractGoogleCameraHelper {
     private static final String UI_SELECTED_OPTION_ID = "selected_option_label";
     private static final String UI_HFR_TOGGLE_ID_J = "hfr_button";
     private static final String UI_HFR_TOGGLE_ID_I = "hfr_mode_toggle_button";
+    private static final String UI_HFR_VIDEO_BUTTON_ID = "video_hfr_shutter_button";
+    private static final String UI_FPS_BUTTON_ID = "fps_button";
+    private static final String UI_FPS_30_BUTTON_ID = "fps_30";
+    private static final String UI_FPS_60_BUTTON_ID = "fps_60";
 
     private static final String DESC_HDR_AUTO = "HDR Plus auto";
     private static final String DESC_HDR_OFF_3X = "HDR Plus off";
@@ -80,11 +86,14 @@ public class GoogleCameraHelperImpl extends AbstractGoogleCameraHelper {
     private static final String TEXT_4K_ON = "UHD 4K";
     private static final String TEXT_HD_1080 = "HD 1080p";
     private static final String TEXT_HD_720 = "HD 720p";
+    private static final String TEXT_SD_480 = "SD 480p";
     private static final String TEXT_HDR_AUTO = "HDR off";
     private static final String TEXT_HDR_ON = "HDR+ Auto";
     private static final String TEXT_HDR_OFF = "HDR on";
     private static final String TEXT_BACK_VIDEO_RESOLUTION_4X = "Back camera video resolution";
     private static final String TEXT_BACK_VIDEO_RESOLUTION_3X = "Back camera video";
+    private static final String TEXT_FRONT_VIDEO_RESOLUTION_4X = "Front camera video resolution";
+    private static final String TEXT_FRONT_VIDEO_RESOLUTION_3X = "Front camera video";
 
     public static final int HDR_MODE_AUTO = -1;
     public static final int HDR_MODE_OFF = 0;
@@ -93,6 +102,10 @@ public class GoogleCameraHelperImpl extends AbstractGoogleCameraHelper {
     public static final int VIDEO_4K_MODE_ON = 1;
     public static final int VIDEO_HD_1080 = 0;
     public static final int VIDEO_HD_720 = -1;
+    public static final int VIDEO_SD_480 = -2;
+
+    public static final int VIDEO_30FPS = 0;
+    public static final int VIDEO_60FPS = 1;
 
     public static final int HFR_MODE_OFF = 0;
     public static final int HFR_MODE_120_FPS = 1;
@@ -560,7 +573,9 @@ public class GoogleCameraHelperImpl extends AbstractGoogleCameraHelper {
         }
 
         // Select Item "Back camera video", which is the only mode supports 4k
-        selectVideoResolution(mode);
+        String textBackVideoResolution =
+                (mIsVersionK)? TEXT_BACK_VIDEO_RESOLUTION_4X:TEXT_BACK_VIDEO_RESOLUTION_3X;
+        selectVideoResolution(mode, textBackVideoResolution);
 
         if (mIsVersionI || mIsVersionJ) {
             // Quit Menu "Resolution & Quality"
@@ -767,6 +782,24 @@ public class GoogleCameraHelperImpl extends AbstractGoogleCameraHelper {
         mDevice.waitForIdle();
     }
 
+    private UiObject2 findSettingItem(String mode) {
+
+        UiObject2 container = mDevice.findObject(
+                By.res(UI_PACKAGE_NAME, UI_SETTINGS_SCROLLABLE_ID));
+        if (container == null) {
+            throw new IllegalStateException("Cannot find scrollable Setting menu item");
+        }
+
+        UiObject2 settingItem = mDevice.wait(Until.findObject(By.text(mode)), MENU_WAIT_TIME);
+        boolean scrollable = true;
+        while (scrollable && (settingItem == null)) {
+            scrollable = container.scroll(Direction.DOWN, 1.0f);
+            settingItem = mDevice.wait(Until.findObject(By.text(mode)), MENU_WAIT_TIME);
+        }
+
+        return settingItem;
+    }
+
     private void selectSettingItem(String mode) {
         UiObject2 settingItem = mDevice.findObject(By.text(mode));
         if (settingItem != null) {
@@ -809,12 +842,10 @@ public class GoogleCameraHelperImpl extends AbstractGoogleCameraHelper {
         mDevice.waitForIdle();
     }
 
-    private void selectVideoResolution(int mode) {
-        String textBackVideoResolution =
-                (mIsVersionK)? TEXT_BACK_VIDEO_RESOLUTION_4X:TEXT_BACK_VIDEO_RESOLUTION_3X;
-        UiObject2 backCamera = mDevice.findObject(By.text(textBackVideoResolution));
-        if (backCamera != null) {
-            backCamera.click();
+    private void selectVideoResolution(int mode, String textVideoResolution) {
+        UiObject2 menuItem = mDevice.findObject(By.text(textVideoResolution));
+        if (menuItem != null) {
+            menuItem.click();
         } else {
             throw new UnknownUiException(
                     String.format("Back camera button was not enabled with %d seconds",
@@ -829,6 +860,8 @@ public class GoogleCameraHelperImpl extends AbstractGoogleCameraHelper {
             mDevice.wait(Until.findObject(By.text(TEXT_HD_1080)), MENU_WAIT_TIME).click();
         } else if (mode == VIDEO_HD_720){
             mDevice.wait(Until.findObject(By.text(TEXT_HD_720)), MENU_WAIT_TIME).click();
+        } else if (mode == VIDEO_SD_480){
+            mDevice.wait(Until.findObject(By.text(TEXT_SD_480)), MENU_WAIT_TIME).click();
         } else {
             throw new UnknownUiException("Failed to set video resolution");
         }
@@ -994,6 +1027,152 @@ public class GoogleCameraHelperImpl extends AbstractGoogleCameraHelper {
 
     private UiObject2 getAlbumFilmstripView() {
         return mDevice.findObject(By.res(UI_PACKAGE_NAME, UI_ALBUM_FILMSTRIP_VIEW_ID));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public void setEIS(boolean mode) {
+        // If the menu is not open, open it
+        if (!isMenuOpen()) {
+            openMenu();
+        }
+
+       if (mIsVersionI || mIsVersionJ || mIsVersionK) {
+            // Select Menu Item "Settings"
+            selectMenuItem("Settings");
+        } else {
+            // Select Menu Item "Settings"
+            selectSetting2X();
+        }
+
+        UiObject2 settingItem = findSettingItem("Video stabilization");
+        if (settingItem != null) {
+            UiObject2 itemParent = settingItem.getParent();
+            if (itemParent != null) {
+                UiObject2 itemGrandparent = itemParent.getParent();
+                if (itemGrandparent != null) {
+                    // We need the LinearLayout object to grab the toggle widget.
+                    // It is the grandparent of the TextView object returned from findSettingItem()
+                    UiObject2 toggle = itemGrandparent.findObject(By.res("android", UI_SWITCH_WIDGET));
+                    if (toggle != null) {
+                        String currentState = toggle.getText();
+
+                        if (mode && currentState.equals("OFF")) {
+                            toggle.click();
+                        }
+                        else if (!mode && currentState.equals("ON")) {
+                            toggle.click();
+                        }
+
+                        closeMenuItem();
+                    }
+                    else {
+                        throw new UnknownUiException("Cannot find video stabilization toggle widget");
+                    }
+                }
+                else {
+                    throw new UnknownUiException("Cannot find LinearLayout object for Video stabilization");
+                }
+            }
+            else {
+                throw new UnknownUiException("Cannot find RelativeLayout object for Video stabilization");
+            }
+        }
+        else {
+            throw new UnknownUiException("Cannot find video stabilization setting item");
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public void selectFrontVideoResolution(int mode) {
+        // If the menu is not open, open it
+        if (!isMenuOpen()) {
+            openMenu();
+        }
+
+        if (mIsVersionI || mIsVersionJ || mIsVersionK) {
+            // Select Menu Item "Settings"
+            selectMenuItem("Settings");
+        } else {
+            // Select Menu Item "Settings"
+            selectSetting2X();
+        }
+
+        String textFrontVideoResolution =
+            (mIsVersionK)? TEXT_FRONT_VIDEO_RESOLUTION_4X:TEXT_FRONT_VIDEO_RESOLUTION_3X;
+        UiObject2 settingItem = findSettingItem(textFrontVideoResolution);
+        if (settingItem != null) {
+            selectVideoResolution(mode, textFrontVideoResolution);
+            closeMenuItem();
+        }
+        else {
+            throw new UnknownUiException("Cannot find front camera video resolution setting item");
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public void selectBackVideoResolution(int mode) {
+        // If the menu is not open, open it
+        if (!isMenuOpen()) {
+            openMenu();
+        }
+
+        if (mIsVersionI || mIsVersionJ || mIsVersionK) {
+            // Select Menu Item "Settings"
+            selectMenuItem("Settings");
+        } else {
+            // Select Menu Item "Settings"
+            selectSetting2X();
+        }
+
+        String textBackVideoResolution =
+                (mIsVersionK)? TEXT_BACK_VIDEO_RESOLUTION_4X:TEXT_BACK_VIDEO_RESOLUTION_3X;
+        UiObject2 settingItem = findSettingItem(textBackVideoResolution);
+        if (settingItem != null) {
+            selectVideoResolution(mode, textBackVideoResolution);
+            closeMenuItem();
+        }
+        else {
+            throw new UnknownUiException("Cannot find back camera video resolution setting item");
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public void setFrameRate(int mode) {
+        if (!isVideoMode()) {
+            throw new IllegalStateException("GoogleCamera must be in video mode to set frame rate.");
+        }
+
+        UiObject2 fpsButton = mDevice.findObject(By.res(UI_PACKAGE_NAME, UI_FPS_BUTTON_ID));
+        if (fpsButton != null) {
+            fpsButton.click();
+            UiObject2 fpsRateButton = null;
+            if (mode == VIDEO_30FPS) {
+                fpsRateButton = mDevice.wait(Until.findObject(
+                        By.res(UI_PACKAGE_NAME, UI_FPS_30_BUTTON_ID)), DIALOG_TRANSITION_WAIT);
+            }
+            else if (mode == VIDEO_60FPS) {
+                fpsRateButton = mDevice.wait(Until.findObject(
+                        By.res(UI_PACKAGE_NAME, UI_FPS_60_BUTTON_ID)), DIALOG_TRANSITION_WAIT);
+            }
+
+            if (fpsRateButton != null) {
+                fpsRateButton.click();
+            }
+            else {
+                throw new UnknownUiException("Cannot find set frame rate button");
+            }
+        }
+        else {
+            throw new UnknownUiException("Cannot find framerate button.");
+        }
     }
 
     /**

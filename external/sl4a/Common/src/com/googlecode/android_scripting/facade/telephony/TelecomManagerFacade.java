@@ -79,6 +79,7 @@ public class TelecomManagerFacade extends RpcReceiver {
 
     @Rpc(description = "If there's a ringing call, accept on behalf of the user.")
     public void telecomAcceptRingingCall(
+            @RpcParameter(name = "videoState")
             @RpcOptional
             String videoState) {
 

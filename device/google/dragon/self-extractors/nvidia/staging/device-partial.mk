@@ -29,9 +29,6 @@ PRODUCT_COPY_FILES := \
     vendor/nvidia/dragon/proprietary/nv12b_sw_nonctx:root/vendor/firmware/nouveau/nv12b_sw_nonctx:nvidia \
     vendor/nvidia/dragon/proprietary/pmu_bl.bin:root/vendor/firmware/nouveau/pmu_bl.bin:nvidia \
     vendor/nvidia/dragon/proprietary/pmu_sig.bin:root/vendor/firmware/nouveau/pmu_sig.bin:nvidia \
-    vendor/nvidia/dragon/proprietary/nvhost_nvdec020_ns.fw:root/vendor/firmware/nvhost_nvdec020_ns.fw:nvidia \
-    vendor/nvidia/dragon/proprietary/nvhost_nvdec020_prod.fw:root/vendor/firmware/nvhost_nvdec020_prod.fw:nvidia \
-    vendor/nvidia/dragon/proprietary/nvhost_nvdec_bl020.fw:root/vendor/firmware/nvhost_nvdec_bl020.fw:nvidia \
     vendor/nvidia/dragon/proprietary/bpmp.bin:root/vendor/firmware/nvidia/tegra210/bpmp.bin:nvidia \
     vendor/nvidia/dragon/proprietary/nvdec_bl_prod.bin:root/vendor/firmware/nvidia/tegra210/nvdec_bl_prod.bin:nvidia \
     vendor/nvidia/dragon/proprietary/nvdec_ns.bin:root/vendor/firmware/nvidia/tegra210/nvdec_ns.bin:nvidia \

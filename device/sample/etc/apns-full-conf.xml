@@ -36,7 +36,7 @@
       mtu="1410"
   />
 
-  <apn carrier="T-Mobie TEST SIM"
+  <apn carrier="T-Mobile TEST SIM"
       mcc="001"
       mnc="01"
       apn="phone"
@@ -6042,6 +6042,15 @@
       mvno_type="imsi"
   />
 
+  <apn carrier="O2 DE IMS"
+      mcc="262"
+      mnc="07"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
+  />
+
   <apn carrier="o2 Internet Prepaid"
       mcc="262"
       mnc="07"
@@ -6100,6 +6109,15 @@
       type="default,supl,mms"
       mvno_match_data="26207500"
       mvno_type="imsi"
+  />
+
+  <apn carrier="O2 DE IMS"
+      mcc="262"
+      mnc="08"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
   />
 
   <apn carrier="Truphone"
@@ -6810,6 +6828,49 @@
       mvno_type="gid"
   />
 
+  <apn carrier="TELUS"
+      mcc="302"
+      mnc="220"
+      apn="sp.telus.com"
+      type="default,mms,supl"
+      mmsc="http://aliasredirect.net/proxy/mmsc"
+      mmsproxy="74.49.0.18"
+      mmsport="80"
+      mvno_match_data="55"
+      mvno_type="gid"
+  />
+
+  <apn carrier="TELUS Tether"
+      mcc="302"
+      mnc="220"
+      apn="isp.telus.com"
+      server="*"
+      type="dun"
+      protocol="IPV4V6"
+      mvno_match_data="54"
+      mvno_type="gid"
+  />
+
+  <apn carrier="TELUS Tether"
+      mcc="302"
+      mnc="220"
+      apn="isp.telus.com"
+      server="*"
+      type="dun"
+      protocol="IPV4V6"
+      mvno_match_data="55"
+      mvno_type="gid"
+  />
+
+  <apn carrier="TELUS IMS"
+      mcc="302"
+      mnc="220"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
+  />
+
   <apn carrier="Koodo"
       mcc="302"
       mnc="220"
@@ -6819,6 +6880,40 @@
       mmsproxy="74.49.0.18"
       mmsport="80"
       mvno_match_data="4B"
+      mvno_type="gid"
+  />
+
+  <apn carrier="Koodo"
+      mcc="302"
+      mnc="220"
+      apn="sp.koodo.com"
+      type="default,mms,supl"
+      mmsc="http://aliasredirect.net/proxy/koodo/mmsc"
+      mmsproxy="74.49.0.18"
+      mmsport="80"
+      mvno_match_data="4F"
+      mvno_type="gid"
+  />
+
+  <apn carrier="Koodo Tether"
+      mcc="302"
+      mnc="220"
+      apn="sp.koodo.com"
+      server="*"
+      type="dun"
+      protocol="IPV4V6"
+      mvno_match_data="4B"
+      mvno_type="gid"
+  />
+
+  <apn carrier="Koodo Tether"
+      mcc="302"
+      mnc="220"
+      apn="sp.koodo.com"
+      server="*"
+      type="dun"
+      protocol="IPV4V6"
+      mvno_match_data="4F"
       mvno_type="gid"
   />
 
@@ -6885,6 +6980,49 @@
       mvno_type="gid"
   />
 
+  <apn carrier="TELUS"
+      mcc="302"
+      mnc="221"
+      apn="sp.telus.com"
+      type="default,mms,supl"
+      mmsc="http://aliasredirect.net/proxy/mmsc"
+      mmsproxy="74.49.0.18"
+      mmsport="80"
+      mvno_match_data="55"
+      mvno_type="gid"
+  />
+
+  <apn carrier="TELUS Tether"
+      mcc="302"
+      mnc="221"
+      apn="isp.telus.com"
+      server="*"
+      type="dun"
+      protocol="IPV4V6"
+      mvno_match_data="54"
+      mvno_type="gid"
+  />
+
+  <apn carrier="TELUS Tether"
+      mcc="302"
+      mnc="221"
+      apn="isp.telus.com"
+      server="*"
+      type="dun"
+      protocol="IPV4V6"
+      mvno_match_data="55"
+      mvno_type="gid"
+  />
+
+  <apn carrier="TELUS IMS"
+      mcc="302"
+      mnc="221"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
+  />
+
   <apn carrier="Koodo"
       mcc="302"
       mnc="221"
@@ -6894,6 +7032,40 @@
       mmsproxy="74.49.0.18"
       mmsport="80"
       mvno_match_data="4B"
+      mvno_type="gid"
+  />
+
+  <apn carrier="Koodo"
+      mcc="302"
+      mnc="221"
+      apn="sp.koodo.com"
+      type="default,mms,supl"
+      mmsc="http://aliasredirect.net/proxy/koodo/mmsc"
+      mmsproxy="74.49.0.18"
+      mmsport="80"
+      mvno_match_data="4F"
+      mvno_type="gid"
+  />
+
+  <apn carrier="Koodo Tether"
+      mcc="302"
+      mnc="221"
+      apn="sp.koodo.com"
+      server="*"
+      type="dun"
+      protocol="IPV4V6"
+      mvno_match_data="4B"
+      mvno_type="gid"
+  />
+
+  <apn carrier="Koodo Tether"
+      mcc="302"
+      mnc="221"
+      apn="sp.koodo.com"
+      server="*"
+      type="dun"
+      protocol="IPV4V6"
+      mvno_match_data="4F"
       mvno_type="gid"
   />
 
@@ -6945,6 +7117,15 @@
       type="default,supl"
   />
 
+  <apn carrier="Rogers IMS"
+      mcc="302"
+      mnc="370"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
+  />
+
   <apn carrier="Fido Tethering"
       mcc="302"
       mnc="370"
@@ -6968,6 +7149,17 @@
       mvno_type="gid"
       protocol="IPV4V6"
       roaming_protocol="IP"
+  />
+
+  <apn carrier="Fido Internet"
+      mcc="302"
+      mnc="370"
+      apn="IMS"
+      type="ims"
+      mvno_match_data="DD"
+      mvno_type="gid"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
   />
 
   <apn carrier="MTS"
@@ -7045,6 +7237,15 @@
       mmsc="http://mms.bell.ca/mms/wapenc"
   />
 
+  <apn carrier="Bell Mobility IMS"
+      mcc="302"
+      mnc="610"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
+  />
+
   <apn carrier="MTS"
       mcc="302"
       mnc="660"
@@ -7068,6 +7269,27 @@
       roaming_protocol="IP"
       mvno_type="spn"
       mvno_match_data="MTS"
+  />
+
+  <apn carrier="Rogers LTE"
+      mcc="302"
+      mnc="720"
+      apn="ltemobile.apn"
+      type="default,mms,supl"
+      mmsproxy="mmsproxy.rogers.com"
+      mmsc="http://mms.gprs.rogers.com"
+      mmsport="80"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
+  />
+
+  <apn carrier="Rogers IMS"
+      mcc="302"
+      mnc="720"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
   />
 
   <apn carrier="chatr"
@@ -26150,6 +26372,15 @@
       mmsport="8080"
       mmsc="http://mms.celcom.net.my"
       type="default,supl,mms"
+  />
+
+  <apn carrier="Telstra IMS"
+      mcc="505"
+      mnc="01"
+      apn="ims"
+      type="ims"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
   />
 
   <apn carrier="Telstra Internet"

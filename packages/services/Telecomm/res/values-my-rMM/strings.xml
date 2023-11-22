@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"အသံစာပို့စနစ် နံပါတ် ပျောက်နေပါသည်"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"ဆင်းမ်ကဒ်ပေါ်တွင် အသံစာပို့စနစ် နံပါတ် သိမ်းဆည်ထားခြင်း မရှိပါ"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"နံပါတ်ထပ်ထည့်ရန်"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"စက်ရုံထုတ်ဖုန်းခေါ်အပ်ဖ်ကိုပြောင်းလိုပါသလား"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="CURRENT_APP">%2$s</xliff:g> အစား <xliff:g id="NEW_APP">%1$s</xliff:g> ကိုသင့်ရဲ့ စက်ရုံထုတ်ဖုန်းခေါ်အပ်ဖ်အဖြစ် သုံးလိုပါသလား"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g> ကိုသင့်ရဲ့စက်ရုံထုတ်ဖုန်းခေါ်အပ်ဖ်အဖြစ် သုံးလိုပါသလား"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g> ကို သင့်ဖုန်း၏မူရင်းအက်ပ်အဖြစ် ထားမလား။"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"မူရင်း သတ်မှတ်ရန်"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"မလုပ်တော့"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> သည် ခေါ်ဆိုမှုများကို ဘက်စုံပြုလုပ်ထိန်းချုပ်သွားနိုင်မည်ဖြစ်သည်။ သင်ယုံကြည်သော အက်ပ်များကိုသာ မူရင်း Phone အက်ပ်အဖြစ် သတ်မှတ်သင့်ပါသည်။"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"ပိတ်ဆို့ထားသည့် နံပါတ်များ"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"သင်သည် ဘလော့ခ်လုပ်ထားသော နံပါတ်များမှ ဖုန်းခေါ်ခြင်း (သို့) စာသားပို့ခြင်းတို့ကို လက်ခံရရှိမည် မဟုတ်ပါ။"</string>
     <string name="block_number" msgid="1101252256321306179">"နံပါတ်တစ်ခု ထည့်ပါ"</string>

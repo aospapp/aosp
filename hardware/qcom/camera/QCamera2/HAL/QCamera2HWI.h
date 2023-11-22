@@ -168,7 +168,9 @@ public:
     static void releaseNotifications(void *data, void *user_data);
     static bool matchSnapshotNotifications(void *data, void *user_data);
     static bool matchPreviewNotifications(void *data, void *user_data);
+    static bool matchTimestampNotifications(void *data, void *user_data);
     virtual int32_t flushPreviewNotifications();
+    virtual int32_t flushVideoNotifications();
 private:
 
     camera_notify_callback         mNotifyCb;
@@ -217,6 +219,7 @@ public:
     static int pre_take_picture(struct camera_device *);
     static int take_picture(struct camera_device *);
     int takeLiveSnapshot_internal();
+    int cancelLiveSnapshot_internal();
     int takeBackendPic_internal(bool *JpegMemOpt, char *raw_format);
     void clearIntPendingEvents();
     void checkIntPicPending(bool JpegMemOpt, char *raw_format);
@@ -254,6 +257,8 @@ public:
             void);
     int32_t setRelatedCamSyncInfo(
             cam_sync_related_sensors_event_info_t* info);
+    bool isFrameSyncEnabled(void);
+    int32_t setFrameSyncEnabled(bool enable);
     int32_t setMpoComposition(bool enable);
     bool getMpoComposition(void);
     bool getRecordingHintValue(void);
@@ -297,6 +302,7 @@ public:
     int32_t getJpegHandleInfo(mm_jpeg_ops_t *ops,
             mm_jpeg_mpo_ops_t *mpo_ops, uint32_t *pJpegClientHandle);
     uint32_t getCameraId() { return mCameraId; };
+    bool bLiveSnapshot;
 private:
     int setPreviewWindow(struct preview_stream_ops *window);
     int setCallBacks(
@@ -746,7 +752,6 @@ private:
     mm_jpeg_mpo_ops_t     mJpegMpoHandle;
     uint32_t              mJpegClientHandle;
     bool                  mJpegHandleOwner;
-
    //ts add for makeup
 #ifdef TARGET_TS_MAKEUP
     TSRect mFaceRect;
@@ -755,6 +760,7 @@ private:
     bool TsMakeupProcess(mm_camera_buf_def_t *frame,QCameraStream * stream,TSRect& faceRect);
 #endif
     QCameraMemory *mMetadataMem;
+    QCameraVideoMemory *mVideoMem;
 
     static uint32_t sNextJobId;
 

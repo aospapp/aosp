@@ -114,7 +114,7 @@ int main(int argc __unused, char **argv __unused)
     format_pcm.numChannels = 3;
     result = (*engineEngine)->CreateAudioPlayer(engineEngine, &playerObject, &audioSrc,
             &audioSnk, 1, ids, req);
-    assert(SL_RESULT_CONTENT_UNSUPPORTED == result);
+    assert(SL_RESULT_PARAMETER_INVALID == result);
     assert(NULL == playerObject);
     format_pcm.numChannels = 2;
 
@@ -140,7 +140,7 @@ int main(int argc __unused, char **argv __unused)
     format_pcm.bitsPerSample = 24;
     result = (*engineEngine)->CreateAudioPlayer(engineEngine, &playerObject, &audioSrc,
             &audioSnk, 1, ids, req);
-    assert(SL_RESULT_CONTENT_UNSUPPORTED == result);
+    assert(SL_RESULT_PARAMETER_INVALID == result);
     assert(NULL == playerObject);
     format_pcm.bitsPerSample = 16;
 

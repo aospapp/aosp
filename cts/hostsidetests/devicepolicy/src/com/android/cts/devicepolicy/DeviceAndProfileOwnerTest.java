@@ -106,6 +106,9 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
             getDevice().uninstallPackage(INTENT_SENDER_PKG);
             getDevice().uninstallPackage(CUSTOMIZATION_APP_PKG);
+
+            // Press the HOME key to close any alart dialog that may be shown.
+            getDevice().executeShellCommand("input keyevent 3");
         }
         super.tearDown();
     }
@@ -173,6 +176,37 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         }
         installAppAsUser(VPN_APP_APK, mUserId);
         executeDeviceTestClass(".AlwaysOnVpnTest");
+    }
+
+    public void testAlwaysOnVpnLockDown() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        installAppAsUser(VPN_APP_APK, mUserId);
+        try {
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testAlwaysOnSet");
+            forceStopPackageForUser(VPN_APP_PKG, mUserId);
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testNetworkBlocked");
+        } finally {
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testCleanup");
+        }
+    }
+
+    public void testAlwaysOnVpnPackageUninstalled() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        installAppAsUser(VPN_APP_APK, mUserId);
+        try {
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testAlwaysOnSet");
+            getDevice().uninstallPackage(VPN_APP_PKG);
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testAlwaysOnVpnDisabled");
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testSetNonExistingPackage");
+        } finally {
+            executeDeviceTestMethod(".AlwaysOnVpnMultiStageTest", "testCleanup");
+        }
     }
 
     public void testPermissionPolicy() throws Exception {

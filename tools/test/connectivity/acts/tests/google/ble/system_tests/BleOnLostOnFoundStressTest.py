@@ -28,7 +28,6 @@ from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
 from acts.test_utils.bt.BleEnum import ScanSettingsMatchMode
 from acts.test_utils.bt.BleEnum import ScanSettingsMatchNum
 from acts.test_utils.bt.bt_test_utils import cleanup_scanners_and_advertisers
-from acts.test_utils.bt.bt_test_utils import get_advanced_droid_list
 from acts.test_utils.bt.bt_gatt_utils import orchestrate_gatt_connection
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.bt_gatt_utils import run_continuous_write_descriptor
@@ -46,12 +45,8 @@ class BleOnLostOnFoundStressTest(BluetoothBaseTest):
 
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
-        self.droid_list = get_advanced_droid_list(self.android_devices)
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
-        if self.droid_list[1]['max_advertisements'] == 0:
-            self.tests = ()
-            return
 
     def teardown_test(self):
         cleanup_scanners_and_advertisers(

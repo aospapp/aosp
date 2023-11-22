@@ -27,6 +27,7 @@
 #include <utils/Mutex.h>
 #include <utils/Thread.h>
 
+#include "activityeventhandler.h"
 #include "eventnums.h"
 #include "hubdefs.h"
 #include "ring.h"
@@ -51,20 +52,14 @@ struct HubConnection : public Thread {
 
     void queueActivate(int handle, bool enable);
     void queueSetDelay(int handle, nsecs_t delayNs);
-    void queueBatch(
-            int handle,
-            int flags,
-            nsecs_t sampling_period_ns,
+    void queueBatch(int handle, nsecs_t sampling_period_ns,
             nsecs_t max_report_latency_ns);
     void queueFlush(int handle);
     void queueData(int handle, void *data, size_t length);
 
     ssize_t read(sensors_event_t *ev, size_t size);
 
-    typedef void (*ActivityFunc)(
-            void *, uint64_t time_us, bool is_flush, float x, float y, float z);
-
-    void setActivityCallback(void *cookie, ActivityFunc cb);
+    void setActivityCallback(ActivityEventHandler *eventHandler);
 
     void saveSensorSettings() const;
 
@@ -186,14 +181,13 @@ private:
 
     RingBuffer mRing;
 
-    void *mActivityCbCookie;
-    ActivityFunc mActivityCb;
+    ActivityEventHandler *mActivityEventHandler;
 
     float mMagBias[3];
     uint8_t mMagAccuracy;
     uint8_t mMagAccuracyRestore;
 
-    float mGyroBias[3];
+    float mGyroBias[3], mAccelBias[3];
 
     SensorState mSensorState[NUM_COMMS_SENSORS_PLUS_1];
 
@@ -202,7 +196,7 @@ private:
 
     int mFd;
     int mInotifyPollIndex;
-    struct pollfd mPollFds[3];
+    struct pollfd mPollFds[4];
     int mNumPollFds;
 
     sensors_event_t *initEv(sensors_event_t *ev, uint64_t timestamp, uint32_t type, uint32_t sensor);
@@ -225,6 +219,9 @@ private:
     void restoreSensorState();
     void sendCalibrationOffsets();
 
+    // Enable SCHED_FIFO priority for main thread
+    void enableSchedFifoMode();
+
 #ifdef LID_STATE_REPORTING_ENABLED
     int mUinputFd;
 
@@ -238,6 +235,10 @@ private:
 
     void queueUsbMagBias();
 #endif  // USB_MAG_BIAS_REPORTING_ENABLED
+
+#ifdef DOUBLE_TOUCH_ENABLED
+    int mDoubleTouchPollIndex;
+#endif  // DOUBLE_TOUCH_ENABLED
 
     DISALLOW_EVIL_CONSTRUCTORS(HubConnection);
 };

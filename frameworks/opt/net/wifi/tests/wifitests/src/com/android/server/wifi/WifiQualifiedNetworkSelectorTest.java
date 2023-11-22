@@ -2233,4 +2233,41 @@ public class WifiQualifiedNetworkSelectorTest {
         assertEquals(WifiQualifiedNetworkSelector.ExternalScoreEvaluator
                 .BestCandidateType.NONE, evaluator.getBestCandidateType());
     }
+
+    /**
+     * Case #46   Choose 2.4GHz BSSID with stronger RSSI value over
+     *            5GHz BSSID with weaker RSSI value
+     *
+     * In this test. we simulate following scenario:
+     * Two APs are found in scan results
+     * BSSID1 is @ 5GHz with RSSI -82
+     * BSSID2 is @ 2Ghz with RSSI -72
+     * These two BSSIDs get exactly the same QNS score
+     *
+     * expect BSSID2 to be chosen as it has stronger RSSI value
+     */
+    @Test
+    public void chooseStrongerRssiOver5GHz() {
+        String[] ssids = {"\"test1\"", "\"test1\""};
+        String[] bssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4"};
+        int[] frequencies = {5220, 2437};
+        String[] caps = {"[ESS]", "[ESS]"};
+        int[] levels = {-82, -72};
+        int[] security = {SECURITY_NONE, SECURITY_NONE};
+
+        List<ScanDetail> scanDetails = getScanDetails(ssids, bssids, frequencies, caps, levels);
+        WifiConfiguration[] savedConfigs = generateWifiConfigurations(ssids, security);
+        prepareConfigStore(savedConfigs);
+
+        final List<WifiConfiguration> savedNetwork = Arrays.asList(savedConfigs);
+        when(mWifiConfigManager.getSavedNetworks()).thenReturn(savedNetwork);
+        scanResultLinkConfiguration(savedConfigs, scanDetails);
+
+        ScanResult chosenScanResult = scanDetails.get(1).getScanResult();
+
+        WifiConfiguration candidate = mWifiQualifiedNetworkSelector.selectQualifiedNetwork(false,
+                false, scanDetails, false, false, true, false);
+
+        verifySelectedResult(chosenScanResult, candidate);
+    }
 }

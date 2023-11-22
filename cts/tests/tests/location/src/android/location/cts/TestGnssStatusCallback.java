@@ -87,6 +87,6 @@ class TestGnssStatusCallback extends GnssStatus.Callback {
     }
 
     public boolean await() throws InterruptedException {
-        return TestUtils.waitFor(mCountDownLatch);
+        return TestUtils.waitFor(mCountDownLatch, TIMEOUT_IN_SEC);
     }
 }

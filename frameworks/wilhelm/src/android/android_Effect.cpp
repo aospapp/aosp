@@ -451,6 +451,38 @@ android::status_t android_erev_getParam(android::sp<android::AudioEffect> pFx,
     }
 }
 
+//-----------------------------------------------------------------------------
+void android_aec_init(audio_session_t sessionId, IAndroidAcousticEchoCancellation* iaec) {
+    SL_LOGV("android_aec_init on session %d", sessionId);
+
+    if (!android_fx_initEffectObj(sessionId, iaec->mAECEffect,
+            &iaec->mAECDescriptor.type)) {
+        SL_LOGE("AEC effect initialization failed");
+        return;
+    }
+}
+
+//-----------------------------------------------------------------------------
+void android_agc_init(audio_session_t sessionId, IAndroidAutomaticGainControl* iagc) {
+    SL_LOGV("android_agc_init on session %d", sessionId);
+
+    if (!android_fx_initEffectObj(sessionId, iagc->mAGCEffect,
+            &iagc->mAGCDescriptor.type)) {
+        SL_LOGE("AGC effect initialization failed");
+        return;
+    }
+}
+
+//-----------------------------------------------------------------------------
+void android_ns_init(audio_session_t sessionId, IAndroidNoiseSuppression* ins) {
+    SL_LOGV("android_ns_init on session %d", sessionId);
+
+    if (!android_fx_initEffectObj(sessionId, ins->mNSEffect,
+            &ins->mNSDescriptor.type)) {
+        SL_LOGE("NS effect initialization failed");
+        return;
+    }
+}
 
 //-----------------------------------------------------------------------------
 /**

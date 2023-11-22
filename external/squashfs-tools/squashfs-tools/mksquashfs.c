@@ -91,6 +91,7 @@ char *context_file = NULL;
 char *mount_point = NULL;
 char *target_out_path = NULL;
 fs_config_func_t fs_config_func = NULL;
+int compress_thresh_per = 0;
 int align_4k_blocks = TRUE;
 FILE *block_map_file = NULL;
 #endif
@@ -435,7 +436,8 @@ int mangle2(void *strm, char *d, char *s, int size,
 				"code %d\n", comp->name, error);
 	}
 
-	if(c_byte == 0 || c_byte >= size) {
+	if(c_byte == 0 || c_byte >= size ||
+			(c_byte > (size * ((100.0 - compress_thresh_per) / 100.0)))) {
 		memcpy(d, s, size);
 		return size | (data_block ? SQUASHFS_COMPRESSED_BIT_BLOCK :
 			SQUASHFS_COMPRESSED_BIT);
@@ -3229,12 +3231,12 @@ void dir_scan(squashfs_inode *inode, char *pathname,
 				pathname, strerror(errno));
 /* ANDROID CHANGES START*/
 #ifdef ANDROID
-		if (android_config) {
-			if (mount_point)
-				android_fs_config(fs_config_func, mount_point, &buf, target_out_path, &caps);
-			else
-				android_fs_config(fs_config_func, pathname, &buf, target_out_path, &caps);
-		}
+		buf.st_mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH; // root mode
+		buf.st_uid = 0;
+		buf.st_gid = 0;
+		buf.st_mtime = time(NULL);
+		buf.st_dev = 0;
+		buf.st_ino = 0;
 #endif
 /* ANDROID CHANGES END */
 		dir_ent->inode = lookup_inode(&buf);
@@ -5696,6 +5698,21 @@ print_compressor_options:
 			}
 			fs_config_file = argv[i];
 		}
+		else if(strcmp(argv[i], "-t") == 0) {
+			if(++i == argc) {
+				ERROR("%s: -t missing compression threshold percentage\n", argv[0]);
+				exit(1);
+			}
+			if(!parse_number(argv[i], &compress_thresh_per, 1)) {
+				ERROR("%s: -t invalid compression threshold percentage\n", argv[0]);
+				exit(1);
+			}
+			if(compress_thresh_per > 100 || compress_thresh_per < 0) {
+				ERROR("%s: -t compression threshold percentage not between 0 and 100\n",
+					argv[0]);
+				exit(1);
+			}
+		}
 #endif
 /* ANDROID CHANGES END */
 		else if(strcmp(argv[i], "-nopad") == 0)
@@ -5795,6 +5812,10 @@ printOptions:
 				"of reading xattrs from file system\n");
 			ERROR("-fs-config-file <file>\tAndroid specific "
 				"filesystem config file\n");
+			ERROR("-t <compress_thresh>\tset minimum "
+				"acceptable compression ratio of a block to\n\t\t\t"
+				"<compress_thresh_per> otherwise don't compress. "
+				"Default 0%\n");
 #endif
 /* ANDROID CHANGES END */
 			ERROR("-noI\t\t\tdo not compress inode table\n");

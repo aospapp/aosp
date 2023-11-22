@@ -21,6 +21,7 @@ import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;
 import android.os.Bundle;
+import android.telephony.CarrierConfigManager;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -61,6 +62,7 @@ public class MmsHttpClient {
     private static final String HEADER_ACCEPT = "Accept";
     private static final String HEADER_ACCEPT_LANGUAGE = "Accept-Language";
     private static final String HEADER_USER_AGENT = "User-Agent";
+    private static final String HEADER_CONNECTION = "Connection";
 
     // The "Accept" header value
     private static final String HEADER_VALUE_ACCEPT =
@@ -70,6 +72,7 @@ public class MmsHttpClient {
             "application/vnd.wap.mms-message; charset=utf-8";
     private static final String HEADER_VALUE_CONTENT_TYPE_WITHOUT_CHARSET =
             "application/vnd.wap.mms-message";
+    private static final String HEADER_CONNECTION_CLOSE = "close";
 
     private static final int IPV4_WAIT_ATTEMPTS = 15;
     private static final long IPV4_WAIT_DELAY_MS = 1000; // 1 seconds
@@ -145,6 +148,14 @@ public class MmsHttpClient {
             if (uaProfUrl != null) {
                 LogUtil.i(requestId, "HTTP: UaProfUrl=" + uaProfUrl);
                 connection.setRequestProperty(uaProfUrlTagName, uaProfUrl);
+            }
+            // Header: Connection: close (if needed)
+            // Some carriers require that the HTTP connection's socket is closed
+            // after an MMS request/response is complete. In these cases keep alive
+            // is disabled. See https://tools.ietf.org/html/rfc7230#section-6.6
+            if (mmsConfig.getBoolean(SmsManager.MMS_CONFIG_CLOSE_CONNECTION, false)) {
+                LogUtil.i(requestId, "HTTP: Connection close after request");
+                connection.setRequestProperty(HEADER_CONNECTION, HEADER_CONNECTION_CLOSE);
             }
             // Add extra headers specified by mms_config.xml's httpparams
             addExtraHeaders(connection, mmsConfig, subId);

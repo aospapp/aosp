@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Не указан номер голосовой почты"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"На SIM-карте нет ни одного номера голосовой почты."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Добавить номер"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Новое приложение для звонков"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"\"<xliff:g id="NEW_APP">%1$s</xliff:g>\" станет приложением для звонков по умолчанию вместо \"<xliff:g id="CURRENT_APP">%2$s</xliff:g>\". Продолжить?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"\"<xliff:g id="NEW_APP">%s</xliff:g>\" станет приложением для звонков по умолчанию. Продолжить?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Сделать <xliff:g id="NEW_APP">%s</xliff:g> приложением по умолчанию для звонков?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Использовать по умолчанию"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Отмена"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> будет отвечать за выполнение всех вызовов и настройку их параметров. Только надежные приложения следует использовать для звонков по умолчанию."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Заблокированные номера"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Звонки и сообщения с заблокированных номеров поступать не будут."</string>
     <string name="block_number" msgid="1101252256321306179">"Добавить номер"</string>

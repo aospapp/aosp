@@ -99,6 +99,11 @@ bool TngCursorPlane::setDataBuffer(BufferMapper& mapper)
         cursorSize = w;
     }
 
+#if ENABLE_ROTATION_180
+    dstX = mModeInfo.hdisplay - dstX - cursorSize;
+    dstY = mModeInfo.vdisplay - dstY - cursorSize;
+#endif
+
     uint32_t cntr = 0;
     if (64 <= cursorSize && cursorSize < 128) {
         cursorSize = 64;

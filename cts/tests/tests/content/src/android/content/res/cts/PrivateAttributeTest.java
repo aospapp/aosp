@@ -26,7 +26,7 @@ import android.util.TypedValue;
  */
 public class PrivateAttributeTest extends AndroidTestCase {
 
-    private static final int sLastPublicAttr = 0x01010527;
+    private static final int sLastPublicAttr = 0x01010530;
 
     public void testNoAttributesAfterLastPublicAttribute() throws Exception {
         final Resources res = getContext().getResources();

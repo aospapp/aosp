@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"იტვირთება ცოცხალი ფონი…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"მთავარი ეკრანი"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"მთავარი ეკრანი და ჩაკეტილი ეკრანი"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"ფონის ინფორმაციის პანელის ჩაკეცვა"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"ფონის ინფორმაციის პანელის გაშლა"</string>
 </resources>

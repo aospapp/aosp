@@ -88,7 +88,6 @@ public class DeviceOwnerProvisioningActivity extends SetupLayoutActivity {
 
         // Setup the UI.
         initializeLayoutParams(R.layout.progress, R.string.setup_work_device, true);
-        configureNavigationButtons(NEXT_BUTTON_EMPTY_LABEL, View.INVISIBLE, View.VISIBLE);
         setTitle(R.string.setup_device_progress);
 
         mProgressTextView = (TextView) findViewById(R.id.prog_text);

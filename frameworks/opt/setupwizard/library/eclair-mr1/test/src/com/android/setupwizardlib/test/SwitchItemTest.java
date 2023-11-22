@@ -87,6 +87,37 @@ public class SwitchItemTest extends AndroidTestCase {
     }
 
     @SmallTest
+    public void testRebind() {
+        SwitchItem item1 = new SwitchItem();
+        item1.setTitle("TestTitle1");
+        item1.setSummary("TestSummary1");
+        item1.setChecked(false);
+
+        SwitchItem item2 = new SwitchItem();
+        item2.setTitle("TestTitle2");
+        item2.setSummary("TestSummary2");
+        item2.setChecked(true);
+
+        View view = createLayout();
+
+        item1.onBindView(view);
+        item2.onBindView(view);
+
+        // Switch should be bound to item2, and therefore checked
+        assertTrue("Switch should be checked", mSwitch.isChecked());
+
+        // Switching the switch to false should change the checked state of item 2 only
+        mSwitch.setChecked(false);
+        assertFalse("Item1 should still be unchecked", item1.isChecked());
+        assertFalse("Item2 should not be checked", item2.isChecked());
+
+        // Switching the switch to true should change the checked state of item 2 only
+        mSwitch.setChecked(true);
+        assertFalse("Item1 should still be unchecked", item1.isChecked());
+        assertTrue("Item2 should be checked", item2.isChecked());
+    }
+
+    @SmallTest
     public void testListenerSetChecked() {
         // Check that calling setChecked on the item will also call the listener.
 

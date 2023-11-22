@@ -26,6 +26,7 @@
 
 #define WPA_PS_ENABLED		0
 #define WPA_PS_DISABLED		1
+#define UNUSED(x)	(void)(x)
 
 
 /* Return type for setBand*/
@@ -41,15 +42,6 @@ typedef struct android_wifi_priv_cmd {
 } android_wifi_priv_cmd;
 
 static int drv_errors = 0;
-
-static void wpa_driver_send_hang_msg(struct wpa_driver_nl80211_data *drv)
-{
-	drv_errors++;
-	if (drv_errors > DRV_NUMBER_SEQUENTIAL_ERRORS) {
-		drv_errors = 0;
-		wpa_msg(drv->ctx, MSG_INFO, WPA_EVENT_DRIVER_STATE "HANGED");
-	}
-}
 
 static void wpa_driver_notify_country_change(void *ctx, char *cmd)
 {
@@ -134,7 +126,7 @@ int wpa_driver_nl80211_driver_cmd(void *priv, char *cmd, char *buf,
 				}
 			}
 			else
-				wpa_printf(MSG_DEBUG, "%s %s len = %d, %lu", __func__, buf, ret, buf_len);
+				wpa_printf(MSG_DEBUG, "%s %s len = %d, %zu", __func__, buf, ret, buf_len);
 			wpa_driver_notify_country_change(drv->ctx, cmd);
 		}
 	}
@@ -153,6 +145,7 @@ int wpa_driver_set_p2p_noa(void *priv, u8 count, int start, int duration)
 
 int wpa_driver_get_p2p_noa(void *priv, u8 *buf, size_t len)
 {
+	UNUSED(priv), UNUSED(buf), UNUSED(len);
 	/* Return 0 till we handle p2p_presence request completely in the driver */
 	return 0;
 }
@@ -171,6 +164,6 @@ int wpa_driver_set_ap_wps_p2p_ie(void *priv, const struct wpabuf *beacon,
 				 const struct wpabuf *proberesp,
 				 const struct wpabuf *assocresp)
 {
-
+	UNUSED(priv), UNUSED(beacon), UNUSED(proberesp), UNUSED(assocresp);
 	return 0;
 }

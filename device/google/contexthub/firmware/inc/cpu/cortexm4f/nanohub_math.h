@@ -21,7 +21,6 @@
 #define asinf  arm_asinf
 #define sinf   arm_sin_f32
 #define cosf   arm_cos_f32
-#define expf   __ieee754_expf
 #define sqrtf  arm_sqrtf
 
 

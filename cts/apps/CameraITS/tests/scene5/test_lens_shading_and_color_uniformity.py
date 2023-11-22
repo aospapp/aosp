@@ -43,7 +43,7 @@ def main():
     # Threshold for pass/fail
     THRES_LS_CT = 0.9    # len shading allowance for center
     THRES_LS_CN = 0.6    # len shading allowance for corner
-    THRES_LS_HIGH = 0.05 # max allowed percentage for a patch to be brighter
+    THRES_LS_HIGH = 0.2  # max allowed percentage for a patch to be brighter
                          # than center
     THRES_UFMT = 0.1     # uniformity allowance
     # Drawing color

@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Número correio de voz ausente"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Não há um número correio de voz armazenado no cartão SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Adicionar número"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Alterar o app discador padrão?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Usar <xliff:g id="NEW_APP">%1$s</xliff:g> em vez de <xliff:g id="CURRENT_APP">%2$s</xliff:g> como seu app discador padrão?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Usar <xliff:g id="NEW_APP">%s</xliff:g> como seu app discador padrão?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Usar o <xliff:g id="NEW_APP">%s</xliff:g> como seu aplicativo de smartphone padrão?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Definir padrão"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Cancelar"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"O <xliff:g id="NEW_APP">%s</xliff:g> poderá ligar e controlar todos os aspectos das chamadas. Defina como aplicativo de smartphone padrão somente aqueles em que você confia."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Números bloqueados"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Você não receberá chamadas nem mensagens de texto dos números bloqueados."</string>
     <string name="block_number" msgid="1101252256321306179">"Adicionar um número"</string>

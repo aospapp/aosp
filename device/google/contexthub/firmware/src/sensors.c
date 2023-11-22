@@ -15,6 +15,7 @@
  */
 
 #include <plat/inc/taggedPtr.h>
+#include <plat/inc/rtc.h>
 #include <cpu/inc/barrier.h>
 #include <atomicBitset.h>
 #include <inttypes.h>
@@ -286,6 +287,14 @@ static bool sensorCallFuncCalibrate(struct Sensor* s)
         return sensorCallAsOwner(s, LOCAL_APP_OPS(s)->sensorCalibrate);
     else
         return osEnqueuePrivateEvt(EVT_APP_SENSOR_CALIBRATE, s->callData, NULL, EXT_APP_TID(s));
+}
+
+static bool sensorCallFuncSelfTest(struct Sensor* s)
+{
+    if (IS_LOCAL_APP(s))
+        return sensorCallAsOwner(s, LOCAL_APP_OPS(s)->sensorSelfTest);
+    else
+        return osEnqueuePrivateEvt(EVT_APP_SENSOR_SELF_TEST, s->callData, NULL, EXT_APP_TID(s));
 }
 
 static bool sensorCallFuncFlush(struct Sensor* s)
@@ -666,7 +675,7 @@ bool sensorRequest(uint32_t unusedTid, uint32_t sensorHandle, uint32_t rate, uin
 
     (void)unusedTid;
 
-    if (!s)
+    if (!s || !s->initComplete)
         return false;
 
     clientTid = osGetCurrentTid();
@@ -791,6 +800,16 @@ bool sensorCalibrate(uint32_t sensorHandle)
     return sensorCallFuncCalibrate(s);
 }
 
+bool sensorSelfTest(uint32_t sensorHandle)
+{
+    struct Sensor* s = sensorFindByHandle(sensorHandle);
+
+    if (!s)
+        return false;
+
+    return sensorCallFuncSelfTest(s);
+}
+
 bool sensorCfgData(uint32_t sensorHandle, void* cfgData)
 {
     struct Sensor* s = sensorFindByHandle(sensorHandle);
@@ -813,6 +832,11 @@ uint64_t sensorGetCurLatency(uint32_t sensorHandle)
     struct Sensor* s = sensorFindByHandle(sensorHandle);
 
     return s ? s->currentLatency : SENSOR_LATENCY_INVALID;
+}
+
+uint64_t sensorGetTime(void)
+{
+    return rtcGetTime();
 }
 
 bool sensorGetInitComplete(uint32_t sensorHandle)

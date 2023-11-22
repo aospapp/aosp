@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Hiányzik a hangposta száma"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Nincs hangpostaszám a SIM kártyán."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Szám hozzáadása"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Módosítja az alapértelmezett tárcsázó alkalmazást?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Legyen a(z) <xliff:g id="NEW_APP">%1$s</xliff:g> az alapértelmezett tárcsázó alkalmazás a(z) <xliff:g id="CURRENT_APP">%2$s</xliff:g> helyett?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Legyen a(z) <xliff:g id="NEW_APP">%s</xliff:g> az alapértelmezett tárcsázó alkalmazás?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Beállítja a(z) <xliff:g id="NEW_APP">%s</xliff:g> alkalmazást alapértelmezettként?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Beállítás alapértelmezettként"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Mégse"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> jogosult lesz hívások indítására és a hívásokkal kapcsolatos minden beállítás vezérlésére. Csak megbízható alkalmazást állítson be alapértelmezett telefonalkalmazásként."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Letiltott számok"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"A jövőben nem kap hívásokat vagy SMS-eket a letiltott számokról."</string>
     <string name="block_number" msgid="1101252256321306179">"Szám hozzáadása"</string>

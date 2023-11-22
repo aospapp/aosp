@@ -40,7 +40,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.UserInfo;
 import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -472,20 +471,28 @@ public abstract class BaseStatusBar extends SystemUI implements
                 }
             }
 
-            riv.setVisibility(View.VISIBLE);
-            int cx = view.getLeft() + view.getWidth() / 2;
+            int width = view.getWidth();
+            if (view instanceof TextView) {
+                // Center the reveal on the text which might be off-center from the TextView
+                TextView tv = (TextView) view;
+                if (tv.getLayout() != null) {
+                    int innerWidth = (int) tv.getLayout().getLineWidth(0);
+                    innerWidth += tv.getCompoundPaddingLeft() + tv.getCompoundPaddingRight();
+                    width = Math.min(width, innerWidth);
+                }
+            }
+            int cx = view.getLeft() + width / 2;
             int cy = view.getTop() + view.getHeight() / 2;
             int w = riv.getWidth();
             int h = riv.getHeight();
             int r = Math.max(
                     Math.max(cx + cy, cx + (h - cy)),
                     Math.max((w - cx) + cy, (w - cx) + (h - cy)));
-            ViewAnimationUtils.createCircularReveal(riv, cx, cy, 0, r)
-                    .start();
 
+            riv.setRevealParameters(cx, cy, r);
             riv.setPendingIntent(pendingIntent);
             riv.setRemoteInput(inputs, input);
-            riv.focus();
+            riv.focusAnimated();
 
             return true;
         }
@@ -954,23 +961,19 @@ public abstract class BaseStatusBar extends SystemUI implements
                 mNotificationGutsExposed = entry.row.getGuts();
                 bindGuts(entry.row);
             }
-            entry.cacheContentViews(mContext, null /* updatedNotification */);
             inflateViews(entry, mStackScroller);
         }
     }
 
-    protected View bindVetoButtonClickListener(View row, final StatusBarNotification n) {
-        View vetoButton = row.findViewById(R.id.veto);
-        vetoButton.setOnClickListener(new View.OnClickListener() {
+    protected void bindDismissListener(final ExpandableNotificationRow row) {
+        row.setOnDismissListener(new View.OnClickListener() {
             public void onClick(View v) {
                 // Accessibility feedback
                 v.announceForAccessibility(
                         mContext.getString(R.string.accessibility_notification_dismissed));
-                performRemoveNotification(n, false /* removeView */);
+                performRemoveNotification(row.getStatusBarNotification(), false /* removeView */);
             }
         });
-        vetoButton.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        return vetoButton;
     }
 
     protected void performRemoveNotification(StatusBarNotification n, boolean removeView) {
@@ -1581,7 +1584,12 @@ public abstract class BaseStatusBar extends SystemUI implements
                 entry.notification.getUser().getIdentifier());
 
         final StatusBarNotification sbn = entry.notification;
-        entry.cacheContentViews(mContext, null);
+        try {
+            entry.cacheContentViews(mContext, null);
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Unable to get notification remote views", e);
+            return false;
+        }
 
         final RemoteViews contentView = entry.cachedContentView;
         final RemoteViews bigContentView = entry.cachedBigContentView;
@@ -1647,9 +1655,7 @@ public abstract class BaseStatusBar extends SystemUI implements
         }
 
         workAroundBadLayerDrawableOpacity(row);
-        View vetoButton = bindVetoButtonClickListener(row, sbn);
-        vetoButton.setContentDescription(mContext.getString(
-                R.string.accessibility_remove_notification));
+        bindDismissListener(row);
 
         // NB: the large icon is now handled entirely by the template
 
@@ -2352,7 +2358,13 @@ public abstract class BaseStatusBar extends SystemUI implements
         Notification n = notification.getNotification();
         mNotificationData.updateRanking(ranking);
 
-        boolean applyInPlace = entry.cacheContentViews(mContext, notification.getNotification());
+        boolean applyInPlace;
+        try {
+            applyInPlace = entry.cacheContentViews(mContext, notification.getNotification());
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Unable to get notification remote views", e);
+            applyInPlace = false;
+        }
         boolean shouldPeek = shouldPeek(entry, notification);
         boolean alertAgain = alertAgain(entry, n);
         if (DEBUG) {
@@ -2404,14 +2416,13 @@ public abstract class BaseStatusBar extends SystemUI implements
                     StatusBarIconView.contentDescForNotification(mContext, n));
             entry.icon.setNotification(n);
             entry.icon.set(ic);
-            inflateViews(entry, mStackScroller);
+            if (!inflateViews(entry, mStackScroller)) {
+                handleNotificationError(notification, "Couldn't update remote views for: "
+                        + notification);
+            }
         }
         updateHeadsUp(key, entry, shouldPeek, alertAgain);
         updateNotifications();
-
-        // Update the veto button accordingly (and as a result, whether this row is
-        // swipe-dismissable)
-        bindVetoButtonClickListener(entry.row, notification);
 
         if (!notification.isClearable()) {
             // The user may have performed a dismiss action on the notification, since it's
@@ -2506,8 +2517,7 @@ public abstract class BaseStatusBar extends SystemUI implements
 
         boolean inUse = mPowerManager.isScreenOn()
                 && (!mStatusBarKeyguardViewManager.isShowing()
-                || mStatusBarKeyguardViewManager.isOccluded())
-                && !mStatusBarKeyguardViewManager.isInputRestricted();
+                || mStatusBarKeyguardViewManager.isOccluded());
         try {
             inUse = inUse && !mDreamManager.isDreaming();
         } catch (RemoteException e) {

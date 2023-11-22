@@ -43,7 +43,7 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipFile;
 
 /**
- * Monkey patches {@link Context#getClassLoader() the application context class
+ * MultiDex patches {@link Context#getClassLoader() the application context class
  * loader} in order to load classes from more than one dex file. The primary
  * {@code classes.dex} must contain the classes necessary for calling this
  * class methods. Secondary dex files named classes2.dex, classes3.dex... found

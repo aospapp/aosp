@@ -1,7 +1,10 @@
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <carrier_config_list>
     <carrier_config>
+        <boolean name="allow_hold_in_ims_call" value="false" />
         <boolean name="carrier_vt_available_bool" value="true" />
+        <boolean name="support_downgrade_vt_to_audio_bool" value="false" />
+        <boolean name="notify_handover_video_from_wifi_to_lte_bool" value="true" />
         <boolean name="carrier_allow_turnoff_ims_bool" value="false" />
         <boolean name="carrier_volte_provisioning_required_bool" value="true" />
         <boolean name="operator_selection_expand_bool" value="true" />
@@ -32,5 +35,32 @@
         <boolean name="allow_adding_apns_bool" value="false" />
         <boolean name="broadcast_emergency_call_state_changes_bool" value="true" />
         <string name="carrier_eri_file_name_string">eri_311480.xml</string>
+        <int name="carrier_default_wfc_ims_mode_int" value="1"/>
+        <boolean name="treat_downgraded_video_calls_as_video_calls_bool" value="true" />
+        <boolean name="drop_video_call_when_answering_audio_call_bool" value="true" />
+        <boolean name="editable_wfc_mode_bool" value="false"/>
+        <boolean name="allow_merge_wifi_calls_when_vowifi_off_bool" value="false" />
+        <boolean name="wifi_calls_can_be_hd_audio" value="false" />
+        <boolean name="video_calls_can_be_hd_audio" value="false" />
+        <boolean name="allow_add_call_during_video_call" value="false" />
+        <boolean name="carrier_promote_wfc_on_call_fail_bool" value="true" />
+        <string-array name="ims_reasoninfo_mapping_string_array" num="8">
+            <item value="332|simultaneous call limit has already been reached|1403" />
+            <item value="332|Forbidden: Simultaneous Call Limit Has Already Been Reached|1403" />
+            <item value="338|another device sent all devices busy response|1404" />
+            <item value="501|call completion elsewhere|1014" />
+            <item value="501|call has been pulled by another device|1016" />
+            <item value="501|another device sent all devices busy response|1404" />
+            <item value="510|another device sent all devices busy response|1404" />
+            <item value="1014|call has been pulled by another device|1016" />
+        </string-array>
+        <boolean name="disable_severe_when_extreme_disabled_bool" value="false" />
+        <boolean name="mmsCloseConnection" value="true"/>
+        <boolean name="notify_vt_handover_to_wifi_failure_bool" value="true" />
+        <int name="wfc_spn_format_idx_int" value="1" />
+        <string-array name="filtered_cnap_names_string_array" num="2">
+            <item value="WIRELESS CALLER" />
+            <item value="UNKNOWN NAME" />
+        </string-array>
     </carrier_config>
 </carrier_config_list>

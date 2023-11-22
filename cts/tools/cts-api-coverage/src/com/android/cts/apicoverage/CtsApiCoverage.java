@@ -187,7 +187,8 @@ public class CtsApiCoverage {
     private static void addApiCoverage(ApiCoverage apiCoverage, File testApk, String dexdeps)
             throws SAXException, IOException {
         XMLReader xmlReader = XMLReaderFactory.createXMLReader();
-        DexDepsXmlHandler dexDepsXmlHandler = new DexDepsXmlHandler(apiCoverage);
+        String testApkName = testApk.getName();
+        DexDepsXmlHandler dexDepsXmlHandler = new DexDepsXmlHandler(apiCoverage, testApkName);
         xmlReader.setContentHandler(dexDepsXmlHandler);
 
         String apkPath = testApk.getPath();

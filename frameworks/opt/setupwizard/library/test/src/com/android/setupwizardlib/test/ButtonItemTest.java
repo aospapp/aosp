@@ -21,6 +21,7 @@ import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
 import com.android.setupwizardlib.R;
@@ -64,6 +65,18 @@ public class ButtonItemTest extends AndroidTestCase {
 
         assertTrue("Default button should be enabled", button.isEnabled());
         assertTrue("Default button text should be empty", TextUtils.isEmpty(button.getText()));
+    }
+
+    public void testCreateButtonTwice() {
+        TestButtonItem item = new TestButtonItem();
+        final Button button = item.createButton(mParent);
+
+        FrameLayout frameLayout = new FrameLayout(getContext());
+        frameLayout.addView(button);
+
+        final Button button2 = item.createButton(mParent);
+        assertSame("createButton should be reused", button, button2);
+        assertNull("Should be removed from parent after createButton", button2.getParent());
     }
 
     public void testSetEnabledTrue() {

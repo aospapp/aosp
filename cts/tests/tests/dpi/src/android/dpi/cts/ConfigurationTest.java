@@ -59,8 +59,11 @@ public class ConfigurationTest extends AndroidTestCase {
         allowedDensities.add(DisplayMetrics.DENSITY_MEDIUM);
         allowedDensities.add(DisplayMetrics.DENSITY_TV);
         allowedDensities.add(DisplayMetrics.DENSITY_HIGH);
+        allowedDensities.add(DisplayMetrics.DENSITY_260);
         allowedDensities.add(DisplayMetrics.DENSITY_280);
+        allowedDensities.add(DisplayMetrics.DENSITY_300);
         allowedDensities.add(DisplayMetrics.DENSITY_XHIGH);
+        allowedDensities.add(DisplayMetrics.DENSITY_340);
         allowedDensities.add(DisplayMetrics.DENSITY_360);
         allowedDensities.add(DisplayMetrics.DENSITY_400);
         allowedDensities.add(DisplayMetrics.DENSITY_420);

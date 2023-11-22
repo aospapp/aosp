@@ -20,7 +20,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,7 +29,6 @@ import android.content.Context;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.InterfaceConfiguration;
-import android.net.LinkAddress;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.INetworkManagementService;
@@ -69,12 +67,6 @@ public class SoftApManagerTest {
     @Mock SoftApManager.Listener mListener;
     @Mock InterfaceConfiguration mInterfaceConfiguration;
 
-    /**
-     * Internal BroadcastReceiver that SoftApManager uses to listen for tethering
-     * events from ConnectivityManager.
-     */
-    BroadcastReceiver mBroadcastReceiver;
-
     SoftApManager mSoftApManager;
 
     /** Sets up test. */
@@ -89,19 +81,12 @@ public class SoftApManagerTest {
         when(mConnectivityManager.getTetherableWifiRegexs())
                 .thenReturn(AVAILABLE_DEVICES);
 
-        mSoftApManager = new SoftApManager(mContext,
-                                           mLooper.getLooper(),
+        mSoftApManager = new SoftApManager(mLooper.getLooper(),
                                            mWifiNative,
                                            mNmService,
-                                           mConnectivityManager,
                                            TEST_COUNTRY_CODE,
                                            mAllowed2GChannels,
                                            mListener);
-        ArgumentCaptor<BroadcastReceiver> broadcastReceiverCaptor =
-                ArgumentCaptor.forClass(BroadcastReceiver.class);
-        verify(mContext).registerReceiver(
-                broadcastReceiverCaptor.capture(), any(IntentFilter.class));
-        mBroadcastReceiver = broadcastReceiverCaptor.getValue();
 
         mLooper.dispatchAll();
     }
@@ -117,35 +102,6 @@ public class SoftApManagerTest {
         order.verify(mListener).onStateChanged(WifiManager.WIFI_AP_STATE_ENABLING, 0);
         order.verify(mListener).onStateChanged(
                 WifiManager.WIFI_AP_STATE_FAILED, WifiManager.SAP_START_FAILURE_GENERAL);
-    }
-
-    /** Tests the handling of timeout after tethering is started. */
-    @Test
-    public void tetheringTimedOut() throws Exception {
-        startSoftApAndVerifyEnabled();
-        announceAvailableForTethering();
-        verifyTetheringRequested();
-
-        InOrder order = inOrder(mListener);
-
-        /* Move the time forward to simulate notification timeout. */
-        mLooper.moveTimeForward(5000);
-        mLooper.dispatchAll();
-
-        /* Verify soft ap is disabled. */
-        verify(mNmService).stopAccessPoint(eq(TEST_INTERFACE_NAME));
-        order.verify(mListener).onStateChanged(WifiManager.WIFI_AP_STATE_DISABLING, 0);
-        order.verify(mListener).onStateChanged(WifiManager.WIFI_AP_STATE_DISABLED, 0);
-    }
-
-    /** Tests the handling of tethered notification after tethering is started. */
-    @Test
-    public void tetherCompleted() throws Exception {
-        startSoftApAndVerifyEnabled();
-        announceAvailableForTethering();
-        verifyTetheringRequested();
-        announceTethered();
-        verifySoftApNotDisabled();
     }
 
     /** Tests the handling of stop command when soft AP is not started. */
@@ -197,32 +153,5 @@ public class SoftApManagerTest {
     protected void verifySoftApNotDisabled() throws Exception {
         verify(mListener, never()).onStateChanged(WifiManager.WIFI_AP_STATE_DISABLING, 0);
         verify(mListener, never()).onStateChanged(WifiManager.WIFI_AP_STATE_DISABLED, 0);
-    }
-
-    /** Sends a broadcast intent indicating that the interface is available for tethering. */
-    protected void announceAvailableForTethering() throws Exception {
-        when(mConnectivityManager.tether(TEST_INTERFACE_NAME))
-                .thenReturn(ConnectivityManager.TETHER_ERROR_NO_ERROR);
-        ArrayList<String> availableList =
-                new ArrayList<String>(Arrays.asList(AVAILABLE_DEVICES));
-        TestUtil.sendTetherStateChanged(
-                mBroadcastReceiver, mContext, availableList, new ArrayList<String>());
-        mLooper.dispatchAll();
-    }
-
-    /** Verifies that tethering was requested. */
-    protected void verifyTetheringRequested() throws Exception {
-        verify(mInterfaceConfiguration).setLinkAddress(any(LinkAddress.class));
-        verify(mInterfaceConfiguration).setInterfaceUp();
-        verify(mNmService).setInterfaceConfig(eq(TEST_INTERFACE_NAME), eq(mInterfaceConfiguration));
-    }
-
-    /** Sends a broadcast intent indicating that the interface is tethered. */
-    protected void announceTethered() throws Exception {
-        ArrayList<String> deviceList =
-                new ArrayList<String>(Arrays.asList(AVAILABLE_DEVICES));
-        TestUtil.sendTetherStateChanged(
-                mBroadcastReceiver, mContext, deviceList, deviceList);
-        mLooper.dispatchAll();
     }
 }

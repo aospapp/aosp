@@ -70,9 +70,13 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
     protected static final String AM_MOVE_TOP_ACTIVITY_TO_PINNED_STACK_COMMAND =
             "am stack move-top-activity-to-pinned-stack 1 0 0 500 500";
 
+    protected static final String LAUNCHING_ACTIVITY = "LaunchingActivity";
+
     private static final String AM_RESIZE_DOCKED_STACK = "am stack resize-docked-stack ";
 
     private static final String AM_MOVE_TASK = "am stack movetask ";
+
+    private static final String INPUT_KEYEVENT_HOME = "input keyevent 3";
 
     /** A reference to the device under test. */
     protected ITestDevice mDevice;
@@ -99,6 +103,7 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
 
     private int mInitialAccelerometerRotation;
     private int mUserRotation;
+    private float mFontScale;
 
     @Override
     protected void setUp() throws Exception {
@@ -114,6 +119,7 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         // Store rotation settings.
         mInitialAccelerometerRotation = getAccelerometerRotation();
         mUserRotation = getUserRotation();
+        mFontScale = getFontScale();
     }
 
     @Override
@@ -125,6 +131,7 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
             // Restore rotation settings to the state they were before test.
             setAccelerometerRotation(mInitialAccelerometerRotation);
             setUserRotation(mUserRotation);
+            setFontScale(mFontScale);
             // Remove special stacks.
             executeShellCommand(AM_REMOVE_STACK + PINNED_STACK_ID);
             executeShellCommand(AM_REMOVE_STACK + DOCKED_STACK_ID);
@@ -142,6 +149,36 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
             throws DeviceNotAvailableException {
         log("adb shell " + command);
         mDevice.executeShellCommand(command, outputReceiver);
+    }
+
+    /**
+     * Launch specific target activity. It uses existing instance of {@link #LAUNCHING_ACTIVITY}, so
+     * that one should be started first.
+     * @param toSide Launch to side in split-screen.
+     * @param randomData Make intent URI random by generating random data.
+     * @param multipleTask Allow multiple task launch.
+     * @param targetActivityName Target activity to be launched. Only class name should be provided,
+     *                           package name of {@link #LAUNCHING_ACTIVITY} will be added
+     *                           automatically.
+     * @throws Exception
+     */
+    protected void launchActivity(boolean toSide, boolean randomData, boolean multipleTask,
+            String targetActivityName) throws Exception {
+        StringBuilder commandBuilder = new StringBuilder(getAmStartCmd(LAUNCHING_ACTIVITY));
+        commandBuilder.append(" -f 0x20000000");
+        if (toSide) {
+            commandBuilder.append(" --ez launch_to_the_side true");
+        }
+        if (randomData) {
+            commandBuilder.append(" --ez random_data true");
+        }
+        if (multipleTask) {
+            commandBuilder.append(" --ez multiple_task true");
+        }
+        if (targetActivityName != null) {
+            commandBuilder.append(" --es target_activity ").append(targetActivityName);
+        }
+        executeShellCommand(commandBuilder.toString());
     }
 
     protected void launchActivityInStack(String activityName, int stackId) throws Exception {
@@ -177,6 +214,10 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         executeShellCommand(AM_RESIZE_DOCKED_STACK
                 + "0 0 " + stackWidth + " " + stackHeight
                 + " 0 0 " + taskWidth + " " + taskHeight);
+    }
+
+    protected void pressHomeButton() throws DeviceNotAvailableException {
+        executeShellCommand(INPUT_KEYEVENT_HOME);
     }
 
     // Utility method for debugging, not used directly here, but useful, so kept around.
@@ -319,6 +360,28 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         }
     }
 
+    protected void setFontScale(float fontScale) throws DeviceNotAvailableException {
+        if (fontScale == 0.0f) {
+            runCommandAndPrintOutput(
+                    "settings delete system font_scale");
+        } else {
+            runCommandAndPrintOutput(
+                    "settings put system font_scale " + fontScale);
+        }
+    }
+
+    protected float getFontScale() throws DeviceNotAvailableException {
+        try {
+            final String fontScale =
+                    runCommandAndPrintOutput("settings get system font_scale").trim();
+            return Float.parseFloat(fontScale);
+        } catch (NumberFormatException e) {
+            // If we don't have a valid font scale key, return 0.0f now so
+            // that we delete the key in tearDown().
+            return 0.0f;
+        }
+    }
+
     protected String runCommandAndPrintOutput(String command) throws DeviceNotAvailableException {
         final String output = executeShellCommand(command);
         log(output);
@@ -359,10 +422,37 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         }
     }
 
-    private String[] getDeviceLogsForActivity(String activityName)
+    protected void assertRelaunchOrConfigChanged(
+            String activityName, int numRelaunch, int numConfigChange)
             throws DeviceNotAvailableException {
-        return mDevice.executeAdbCommand("logcat", "-v", "brief", "-d", activityName + ":I", "*:S")
-                .split("\\n");
+        final ActivityLifecycleCounts lifecycleCounts = new ActivityLifecycleCounts(activityName);
+
+        if (lifecycleCounts.mDestroyCount != numRelaunch) {
+            fail(activityName + " has been destroyed " + lifecycleCounts.mDestroyCount
+                    + " time(s), expecting " + numRelaunch);
+        } else if (lifecycleCounts.mCreateCount != numRelaunch) {
+            fail(activityName + " has been (re)created " + lifecycleCounts.mCreateCount
+                    + " time(s), expecting " + numRelaunch);
+        } else if (lifecycleCounts.mConfigurationChangedCount != numConfigChange) {
+            fail(activityName + " has received " + lifecycleCounts.mConfigurationChangedCount
+                    + " onConfigurationChanged() calls, expecting " + numConfigChange);
+        }
+    }
+
+    protected String[] getDeviceLogsForComponent(String componentName)
+            throws DeviceNotAvailableException {
+        return mDevice.executeAdbCommand(
+                "logcat", "-v", "brief", "-d", componentName + ":I", "*:S").split("\\n");
+    }
+
+    protected String[] getDeviceLogsForComponents(final String[] componentNames)
+            throws DeviceNotAvailableException {
+        String filters = "";
+        for (int i = 0; i < componentNames.length; i++) {
+            filters += componentNames[i] + ":I ";
+        }
+        return mDevice.executeAdbCommand(
+                "logcat", "-v", "brief", "-d", filters, "*:S").split("\\n");
     }
 
     private static final Pattern sCreatePattern = Pattern.compile("(.+): onCreate");
@@ -386,7 +476,7 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
 
     protected ReportedSizes getLastReportedSizesForActivity(String activityName)
             throws DeviceNotAvailableException {
-        final String[] lines = getDeviceLogsForActivity(activityName);
+        final String[] lines = getDeviceLogsForComponent(activityName);
         for (int i = lines.length - 1; i >= 0; i--) {
             final String line = lines[i].trim();
             final Matcher matcher = sNewConfigPattern.matcher(line);
@@ -410,7 +500,7 @@ public abstract class ActivityManagerTestBase extends DeviceTestCase {
         int mDestroyCount;
 
         public ActivityLifecycleCounts(String activityName) throws DeviceNotAvailableException {
-            for (String line : getDeviceLogsForActivity(activityName)) {
+            for (String line : getDeviceLogsForComponent(activityName)) {
                 line = line.trim();
 
                 Matcher matcher = sCreatePattern.matcher(line);

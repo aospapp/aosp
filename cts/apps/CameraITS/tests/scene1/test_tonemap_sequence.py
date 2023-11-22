@@ -35,12 +35,12 @@ def main():
                              its.caps.manual_post_proc(props) and
                              its.caps.per_frame_control(props))
 
-        sens, exp_time, _,_,_ = cam.do_3a(do_af=False,get_results=True)
+        sens, exp_time, _,_,f_dist = cam.do_3a(do_af=True,get_results=True)
 
         means = []
 
         # Capture 3 manual shots with a linear tonemap.
-        req = its.objects.manual_capture_request(sens, exp_time, True, props)
+        req = its.objects.manual_capture_request(sens, exp_time, f_dist, True, props)
         for i in [0,1,2]:
             cap = cam.do_capture(req)
             img = its.image.convert_capture_to_rgb_image(cap)
@@ -49,7 +49,7 @@ def main():
             means.append(tile.mean(0).mean(0))
 
         # Capture 3 manual shots with the default tonemap.
-        req = its.objects.manual_capture_request(sens, exp_time, False)
+        req = its.objects.manual_capture_request(sens, exp_time, f_dist, False)
         for i in [3,4,5]:
             cap = cam.do_capture(req)
             img = its.image.convert_capture_to_rgb_image(cap)

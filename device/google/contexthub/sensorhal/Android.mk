@@ -116,6 +116,10 @@ ifeq ($(NANOHUB_SENSORHAL_USB_MAG_BIAS_ENABLED), true)
 LOCAL_CFLAGS += -DUSB_MAG_BIAS_REPORTING_ENABLED
 endif
 
+ifeq ($(NANOHUB_SENSORHAL_DOUBLE_TOUCH_ENABLED), true)
+LOCAL_CFLAGS += -DDOUBLE_TOUCH_ENABLED
+endif
+
 LOCAL_C_INCLUDES += \
 	device/google/contexthub/firmware/inc \
 	device/google/contexthub/util/common

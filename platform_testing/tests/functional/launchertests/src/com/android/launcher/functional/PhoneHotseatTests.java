@@ -20,6 +20,8 @@ import java.io.IOException;
 import android.content.Intent;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.support.test.launcherhelper.ILauncherStrategy;
+import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
@@ -34,6 +36,7 @@ public class PhoneHotseatTests extends InstrumentationTestCase {
     private static final String HOTSEAT = "hotseat";
     private UiDevice mDevice;
     private HotseatHelper hotseatHelper = null;
+    private ILauncherStrategy mLauncherStrategy = null;
 
     @Override
     public void setUp() throws Exception {
@@ -44,6 +47,7 @@ public class PhoneHotseatTests extends InstrumentationTestCase {
         } catch (RemoteException e) {
             throw new RuntimeException("failed to freeze device orientaion", e);
         }
+        mLauncherStrategy = LauncherStrategyFactory.getInstance(mDevice).getLauncherStrategy();
         hotseatHelper = HotseatHelper.getInstance(mDevice, getInstrumentation().getContext());
     }
 
@@ -79,7 +83,7 @@ public class PhoneHotseatTests extends InstrumentationTestCase {
 
     @MediumTest
     public void testHomeToAllAppsNavigation() {
-        hotseatHelper.launchAppFromHotseat("Apps", getLauncherPackage());
+        mDevice.findObject(mLauncherStrategy.getAllAppsButtonSelector()).click();
         assertNotNull("All apps page not found when navigating from hotseat",
                 mDevice.wait(Until.hasObject(By.res(getLauncherPackage(), "apps_view")), TIMEOUT));
     }

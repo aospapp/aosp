@@ -25,12 +25,6 @@ bsdiff_common_cflags := \
 bsdiff_common_static_libs := \
     libbz
 
-bsdiff_common_unittests := \
-    bsdiff_unittest.cc \
-    extents_file_unittest.cc \
-    extents_unittest.cc \
-    test_utils.cc
-
 # "bsdiff" program.
 bsdiff_shared_libs := \
     libdivsufsort64 \
@@ -44,7 +38,16 @@ bspatch_src_files := \
     bspatch.cc \
     extents.cc \
     extents_file.cc \
-    file.cc
+    file.cc \
+    memory_file.cc
+
+# Unit test files.
+bsdiff_common_unittests := \
+    bsdiff_unittest.cc \
+    bspatch_unittest.cc \
+    extents_file_unittest.cc \
+    extents_unittest.cc \
+    test_utils.cc
 
 # Target executables.
 
@@ -59,6 +62,20 @@ LOCAL_C_INCLUDES += external/bzip2
 LOCAL_STATIC_LIBRARIES := $(bsdiff_common_static_libs)
 include $(BUILD_EXECUTABLE)
 
+# bspatch used in recovery by update_engine_sideload.
+include $(CLEAR_VARS)
+LOCAL_MODULE := bspatch_recovery
+LOCAL_MODULE_STEM := bspatch
+LOCAL_FORCE_STATIC_EXECUTABLE := true
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := \
+    $(bspatch_src_files) \
+    bspatch_main.cc
+LOCAL_CFLAGS := $(bsdiff_common_cflags)
+LOCAL_STATIC_LIBRARIES := \
+    $(bsdiff_common_static_libs)
+include $(BUILD_EXECUTABLE)
 
 # Host executables.
 

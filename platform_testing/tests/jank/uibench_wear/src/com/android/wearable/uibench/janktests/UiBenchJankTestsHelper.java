@@ -17,6 +17,7 @@
 package com.android.wearable.uibench.janktests;
 
 import android.R;
+import android.util.Log;
 import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
@@ -25,6 +26,8 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
+
+import java.io.IOException;
 
 import junit.framework.Assert;
 
@@ -40,12 +43,15 @@ public class UiBenchJankTestsHelper {
     public static final int EXPECTED_FRAMES = 100;
     public static final int CW_FLING_RATE = 5000;
 
+    public static final String LOG_TAG = "UiBenchJankTestsHelper";
     public static final String RES_PACKAGE_NAME = "android";
     public static final String PACKAGE_NAME = "com.android.test.uibench";
     public static final String ROOT_NAME = "root";
     public static final String LAUNCHER_VIEW_NAME = "launcher_view";
     public static final String TEXT_OBJECT_NAME = "text1";
     public static final String UIBENCH_OBJECT_NAME = "UiBench";
+    public static final String KEYBOARD_SERVICE_NAME =
+            "com.google.android.inputmethod.latin/com.google.android.apps.inputmethod.wear.WearIME";
 
     private static UiBenchJankTestsHelper mInstance;
     private UiDevice mDevice;
@@ -145,4 +151,18 @@ public class UiBenchJankTestsHelper {
             40); // slow speed
     }
 
+    // Helper method to turn on/off keyboard IME
+    public void enableKeyboardIME(Boolean turnOn) {
+        try {
+            String cmd = null;
+            if (turnOn) {
+                cmd = "ime enable %s";
+            } else {
+                cmd = "ime disable %s";
+            }
+            mDevice.executeShellCommand(String.format(cmd, KEYBOARD_SERVICE_NAME));
+        } catch (IOException e) {
+            Log.w(LOG_TAG, String.format("Exception when toggling keyboard. %s", e.toString()));
+        }
+    }
 }

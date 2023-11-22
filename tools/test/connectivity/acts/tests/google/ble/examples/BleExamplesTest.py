@@ -24,7 +24,6 @@ from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import adv_succ
 from acts.test_utils.bt.bt_test_utils import scan_result
 from acts.test_utils.bt.bt_test_utils import cleanup_scanners_and_advertisers
-from acts.test_utils.bt.bt_test_utils import get_advanced_droid_list
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 
 
@@ -37,14 +36,10 @@ class BleExamplesTest(BluetoothBaseTest):
 
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
-        self.droid_list = get_advanced_droid_list(self.android_devices)
         self.scn_droid, self.scn_ed = (self.android_devices[0].droid,
                                        self.android_devices[0].ed)
         self.adv_droid, self.adv_ed = (self.android_devices[1].droid,
                                        self.android_devices[1].ed)
-        if self.droid_list[1]['max_advertisements'] == 0:
-            self.tests = ()
-            return
 
     def teardown_test(self):
         cleanup_scanners_and_advertisers(

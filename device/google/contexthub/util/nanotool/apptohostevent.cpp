@@ -47,11 +47,7 @@ const uint8_t *AppToHostEvent::GetDataPtr() const {
               + sizeof(struct HostHubRawPacket));
 }
 
-bool AppToHostEvent::IsCalibrationEventForSensor(SensorType sensor_type) const {
-    if (GetDataLen() < sizeof(struct SensorAppEventHeader)) {
-        return false;
-    }
-
+bool AppToHostEvent::CheckAppId(SensorType sensor_type) const {
     // Make sure the app ID matches what we expect for the sensor type, bail out
     // early if it doesn't
     switch (sensor_type) {
@@ -85,10 +81,41 @@ bool AppToHostEvent::IsCalibrationEventForSensor(SensorType sensor_type) const {
         return false;
     }
 
+    return true;
+}
+
+bool AppToHostEvent::CheckEventHeader(SensorType sensor_type) const {
+    if (GetDataLen() < sizeof(struct SensorAppEventHeader)) {
+        return false;
+    }
+
+    if (!CheckAppId(sensor_type)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool AppToHostEvent::IsCalibrationEventForSensor(SensorType sensor_type) const {
+    if (!CheckEventHeader(sensor_type)) {
+        return false;
+    }
+
     // If we made it this far, we only need to confirm the message ID
     auto header = reinterpret_cast<const struct SensorAppEventHeader *>(
         GetDataPtr());
     return (header->msgId == SENSOR_APP_MSG_CALIBRATION_RESULT);
+}
+
+bool AppToHostEvent::IsTestEventForSensor(SensorType sensor_type) const {
+    if (!CheckEventHeader(sensor_type)) {
+        return false;
+    }
+
+    // If we made it this far, we only need to confirm the message ID
+    auto header = reinterpret_cast<const struct SensorAppEventHeader *>(
+        GetDataPtr());
+    return (header->msgId == SENSOR_APP_MSG_TEST_RESULT);
 }
 
 bool AppToHostEvent::IsValid() const {

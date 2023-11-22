@@ -23,6 +23,9 @@ import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 
 import android.graphics.Rect;
+import android.os.Build;
+import android.support.test.filters.SdkSuppress;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.view.Gravity;
 import android.view.View;
 
@@ -33,6 +36,7 @@ import org.junit.runners.Parameterized;
 import java.util.Arrays;
 import java.util.List;
 
+@MediumTest
 @RunWith(Parameterized.class)
 public class StaggeredGridLayoutManagerWrapContentTest extends BaseWrapContentTest {
     int mOrientation = StaggeredGridLayoutManager.VERTICAL;
@@ -52,6 +56,7 @@ public class StaggeredGridLayoutManagerWrapContentTest extends BaseWrapContentTe
         );
     }
 
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.M)
     @Test
     public void testUnspecifiedWithHint() throws Throwable {
         unspecifiedWithHintTest(mOrientation == StaggeredGridLayoutManager.HORIZONTAL);

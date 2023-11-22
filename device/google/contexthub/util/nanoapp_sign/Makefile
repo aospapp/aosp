@@ -15,9 +15,9 @@
 #
 
 APP = nanoapp_sign
-SRC = nanoapp_sign.c ../../lib/nanohub/rsa.c ../../lib/nanohub/sha2.c
+SRC = nanoapp_sign.c ../../lib/nanohub/rsa.c ../../lib/nanohub/sha2.c ../../lib/nanohub/nanoapp.c
 CC ?= gcc
-CC_FLAGS = -Wall -Werror -Wextra
+CC_FLAGS = -Wall -Werror -Wextra -std=gnu99
 
 $(APP): $(SRC) Makefile
 	$(CC) $(CC_FLAGS) -o $(APP) -O2 $(SRC) \

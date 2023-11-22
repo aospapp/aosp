@@ -31,14 +31,14 @@ class BtPreFlightTest(BaseTestClass):
         for a in self.android_devices:
             d = a.droid
             serial = d.getBuildSerial()
-            self.log.debug("****START: {} DEVICE INFO****".format(serial))
-            self.log.debug("BOOTLOADER VERSION {}".format(d.getBuildBootloader(
+            self.log.info("****START: {} DEVICE INFO****".format(serial))
+            self.log.info("BOOTLOADER VERSION {}".format(d.getBuildBootloader(
             )))
-            self.log.debug("BUILD HARDWARE {}".format(d.getBuildHardware()))
-            self.log.debug("BUILD PRODUCT {}".format(d.getBuildProduct()))
-            self.log.debug("*ENVIRONMENT DETAILS*")
-            self.log.debug(pprint.pformat(d.environment()))
-            self.log.debug("****END: {} DEVICE INFO****".format(serial))
+            self.log.info("BUILD HARDWARE {}".format(d.getBuildHardware()))
+            self.log.info("BUILD PRODUCT {}".format(d.getBuildProduct()))
+            self.log.info("*ENVIRONMENT DETAILS*")
+            self.log.info(pprint.pformat(d.environment()))
+            self.log.info("****END: {} DEVICE INFO****".format(serial))
         return True
 
     def test_setup_logging(self):
@@ -47,18 +47,23 @@ class BtPreFlightTest(BaseTestClass):
         log_level_check = "TRC_BTM=5"
         remount_check = "remount succeeded"
         for ad in self.android_devices:
+            self.log.info("Remounting device...")
             remount_result = ad.adb.remount()
             if remount_check not in str(remount_result):
                 # Test for devices that have disable_verity as not all do
                 try:
+                    self.log.info("Disable verity on device...")
                     ad.adb.disable_verity()
+                    self.log.info("Rebooting device...")
                     ad.reboot()
+                    self.log.info("Remounting device...")
                     remount_result = ad.adb.remount()
                     if remount_check not in str(remount_result):
                         self.abort_all("Unable to remount device")
                 except Exception as e:
                     self.abort_all("Exception in BT pre-flight test: {}"
                                    .format(e))
+            self.log.info("Enabling high level Bluetooth logging to device")
             ad.adb.push("{} /system/etc/bluetooth/bt_stack.conf".format(
                 conf_path))
             result = ad.adb.shell("cat /system/etc/bluetooth/bt_stack.conf")

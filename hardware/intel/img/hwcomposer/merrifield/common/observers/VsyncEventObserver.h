@@ -43,6 +43,7 @@ private:
     bool mEnabled;
     bool mExitThread;
     bool mInitialized;
+    unsigned int mFpsCounter;
 
 private:
     DECLARE_THREAD(VsyncEventPollThread, VsyncEventObserver);

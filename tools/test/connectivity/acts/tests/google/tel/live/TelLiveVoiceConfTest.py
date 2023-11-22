@@ -62,7 +62,6 @@ from acts.test_utils.tel.tel_voice_utils import phone_setup_iwlan
 from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_general
 from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
 from acts.test_utils.tel.tel_voice_utils import swap_calls
-from acts.utils import load_config
 
 
 class TelLiveVoiceConfTest(TelephonyBaseTest):
@@ -387,7 +386,6 @@ class TelLiveVoiceConfTest(TelephonyBaseTest):
             "test_epdg_mo_mt_add_epdg_swap_once_merge_drop_second_call_from_participant_wfc_apm_wifi_preferred_cep",
             )
 
-        self.simconf = load_config(self.user_params["sim_conf_file"])
         self.wifi_network_ssid = self.user_params["wifi_network_ssid"]
 
         try:

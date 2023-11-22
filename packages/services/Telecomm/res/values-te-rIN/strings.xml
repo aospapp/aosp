@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"వాయిస్ మెయిల్ నంబర్ లేదు"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"సిమ్ కార్డులో వాయిస్ మెయిల్ నంబర్ ఏదీ నిల్వ చేయబడలేదు."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"నంబర్‌ను జోడించు"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"డిఫాల్ట్ డయలర్ అనువర్తనాన్ని మార్చాలా?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"మీ డిఫాల్ట్ డయలర్ అనువర్తనంగా <xliff:g id="CURRENT_APP">%2$s</xliff:g> బదులు <xliff:g id="NEW_APP">%1$s</xliff:g>ని ఉపయోగించాలా?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"మీ డిఫాల్ట్ డయలర్ అనువర్తనంగా <xliff:g id="NEW_APP">%s</xliff:g>ని ఉపయోగించాలా?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g>ని మీ డిఫాల్ట్ ఫోన్ అనువర్తనంగా చేయాలా?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"డిఫాల్ట్‌గా సెట్ చేయండి"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"రద్దు చేయి"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> అన్ని రకాల కాల్‌లను చేయగలదు మరియు సంబంధిత అన్ని అంశాలను నియంత్రించగలదు. మీరు విశ్వసించే అనువర్తనాలను మాత్రమే డిఫాల్ట్ ఫోన్ అనువర్తనంగా సెట్ చేయాలి."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"బ్లాక్ చేయబడిన నంబర్‌లు"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"మీరు బ్లాక్ చేయబడిన నంబర్‌ల నుండి కాల్‌లు లేదా వచన సందేశాలను స్వీకరించరు."</string>
     <string name="block_number" msgid="1101252256321306179">"నంబర్‌ను జోడించు"</string>

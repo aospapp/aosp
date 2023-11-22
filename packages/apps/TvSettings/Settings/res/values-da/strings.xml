@@ -341,7 +341,7 @@
     <item msgid="150957081326946463">"Fra"</item>
   </string-array>
     <string name="system_location" msgid="502463575930545806">"Placering"</string>
-    <string name="system_desc_location" msgid="4243551425631207495">"Tillad, at apps, der har bedt om din tilladelse, bruger dine placeringsoplysninger"</string>
+    <string name="system_desc_location" msgid="4243551425631207495">"Tillad, at apps, der har bedt om din tilladelse, bruger dine stedoplysninger"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Placeringssamtykke"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"Tilstand"</string>
     <string name="location_category_recent_location_requests" msgid="3437903422445812245">"Seneste placeringsanmodninger"</string>
@@ -563,7 +563,7 @@
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Denne app understøttes ikke for begrænsede profiler"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Denne app kan få adgang til dine konti"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Placering"</string>
-    <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Tillad, at apps bruger dine placeringsoplysninger"</string>
+    <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Tillad, at apps bruger dine stedoplysninger"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Skift til begrænset profil"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Forlad begrænset profil"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Slet begrænset profil"</string>

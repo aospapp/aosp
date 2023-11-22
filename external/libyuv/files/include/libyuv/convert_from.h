@@ -4,7 +4,7 @@
  *  Use of this source code is governed by a BSD-style license
  *  that can be found in the LICENSE file in the root of the source
  *  tree. An additional intellectual property rights grant can be found
- *  in the file PATENTS.  All contributing project authors may
+ *  in the file PATENTS. All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
@@ -56,9 +56,21 @@ int I400Copy(const uint8* src_y, int src_stride_y,
              uint8* dst_y, int dst_stride_y,
              int width, int height);
 
-// TODO(fbarchard): I420ToNV12
-// TODO(fbarchard): I420ToM420
-// TODO(fbarchard): I420ToQ420
+LIBYUV_API
+int I420ToNV12(const uint8* src_y, int src_stride_y,
+               const uint8* src_u, int src_stride_u,
+               const uint8* src_v, int src_stride_v,
+               uint8* dst_y, int dst_stride_y,
+               uint8* dst_uv, int dst_stride_uv,
+               int width, int height);
+
+LIBYUV_API
+int I420ToNV21(const uint8* src_y, int src_stride_y,
+               const uint8* src_u, int src_stride_u,
+               const uint8* src_v, int src_stride_v,
+               uint8* dst_y, int dst_stride_y,
+               uint8* dst_vu, int dst_stride_vu,
+               int width, int height);
 
 LIBYUV_API
 int I420ToYUY2(const uint8* src_y, int src_stride_y,
@@ -69,13 +81,6 @@ int I420ToYUY2(const uint8* src_y, int src_stride_y,
 
 LIBYUV_API
 int I420ToUYVY(const uint8* src_y, int src_stride_y,
-               const uint8* src_u, int src_stride_u,
-               const uint8* src_v, int src_stride_v,
-               uint8* dst_frame, int dst_stride_frame,
-               int width, int height);
-
-LIBYUV_API
-int I420ToV210(const uint8* src_y, int src_stride_y,
                const uint8* src_u, int src_stride_u,
                const uint8* src_v, int src_stride_v,
                uint8* dst_frame, int dst_stride_frame,
@@ -123,12 +128,23 @@ int I420ToRAW(const uint8* src_y, int src_stride_y,
               uint8* dst_frame, int dst_stride_frame,
               int width, int height);
 
-LIBYUV_API
+//LIBYUV_API
 int I420ToRGB565(const uint8* src_y, int src_stride_y,
                  const uint8* src_u, int src_stride_u,
                  const uint8* src_v, int src_stride_v,
                  uint8* dst_frame, int dst_stride_frame,
                  int width, int height);
+
+// Convert I420 To RGB565 with 4x4 dither matrix (16 bytes).
+// Values in dither matrix from 0 to 7 recommended.
+// The order of the dither matrix is first byte is upper left.
+
+LIBYUV_API
+int I420ToRGB565Dither(const uint8* src_y, int src_stride_y,
+                       const uint8* src_u, int src_stride_u,
+                       const uint8* src_v, int src_stride_v,
+                       uint8* dst_frame, int dst_stride_frame,
+                       const uint8* dither4x4, int width, int height);
 
 LIBYUV_API
 int I420ToARGB1555(const uint8* src_y, int src_stride_y,
@@ -143,8 +159,6 @@ int I420ToARGB4444(const uint8* src_y, int src_stride_y,
                    const uint8* src_v, int src_stride_v,
                    uint8* dst_frame, int dst_stride_frame,
                    int width, int height);
-
-// Note Bayer formats (BGGR) To I420 are in format_conversion.h.
 
 // Convert I420 to specified format.
 // "dst_sample_stride" is bytes in a row for the destination. Pass 0 if the

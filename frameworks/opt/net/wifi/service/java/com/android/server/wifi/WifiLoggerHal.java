@@ -32,8 +32,8 @@ public class WifiLoggerHal {
     public static final byte TX_PKT_FATE_FW_DROP_OTHER = 5;
     public static final byte TX_PKT_FATE_DRV_QUEUED = 6;
     public static final byte TX_PKT_FATE_DRV_DROP_INVALID = 7;
-    public static final byte TX_PKT_FATE_DRV_DROP_NOBUFS = 9;
-    public static final byte TX_PKT_FATE_DRV_DROP_OTHER = 10;
+    public static final byte TX_PKT_FATE_DRV_DROP_NOBUFS = 8;
+    public static final byte TX_PKT_FATE_DRV_DROP_OTHER = 9;
 
     public static final byte RX_PKT_FATE_SUCCESS = 0;
     public static final byte RX_PKT_FATE_FW_QUEUED = 1;

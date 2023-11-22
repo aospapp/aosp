@@ -17,7 +17,6 @@
 package android.uirendering.cts.testclasses;
 
 import android.content.pm.PackageManager;
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -28,6 +27,7 @@ import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
+import android.uirendering.cts.testinfrastructure.CanvasClientDrawable;
 import android.uirendering.cts.testinfrastructure.ViewInitializer;
 import android.view.View;
 import android.view.ViewGroup;
@@ -96,7 +96,7 @@ public class PathClippingTests extends ActivityTestBase {
     @Test
     public void testViewRotate() {
         createTest()
-                .addLayout(R.layout.blue_padded_layout, (ViewInitializer) view -> {
+                .addLayout(R.layout.blue_padded_layout, view -> {
                     ViewGroup rootView = (ViewGroup) view;
                     rootView.setClipChildren(true);
                     View childView = rootView.getChildAt(0);
@@ -119,6 +119,23 @@ public class PathClippingTests extends ActivityTestBase {
                                 Color.WHITE,
                                 Color.WHITE,
                         }));
+    }
+
+    @Test
+    public void testPathScale() {
+        createTest()
+                .addLayout(R.layout.frame_layout, view -> {
+                    Path path = new Path();
+                    path.addCircle(TEST_WIDTH / 2, TEST_HEIGHT / 2,
+                            TEST_WIDTH / 4, Path.Direction.CW);
+                    view.setBackground(new CanvasClientDrawable((canvas, width, height) -> {
+                        canvas.clipPath(path);
+                        canvas.drawColor(Color.BLUE);
+                    }));
+                    view.setScaleX(2);
+                    view.setScaleY(2);
+                })
+                .runWithComparer(new MSSIMComparer(0.90));
     }
 
     @Test

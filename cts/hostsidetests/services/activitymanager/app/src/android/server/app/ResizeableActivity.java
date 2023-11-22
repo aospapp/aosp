@@ -16,12 +16,7 @@
 package android.server.app;
 
 import android.content.res.Configuration;
-import android.graphics.Point;
 import android.os.Bundle;
-import android.util.DisplayMetrics;
-import android.util.Log;
-import android.view.Display;
-import android.view.WindowManager;
 
 public class ResizeableActivity extends AbstractLifecycleLogActivity {
     @Override
@@ -39,25 +34,5 @@ public class ResizeableActivity extends AbstractLifecycleLogActivity {
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         dumpDisplaySize(newConfig);
-    }
-
-    private void dumpDisplaySize(Configuration config) {
-        // Dump the display size as seen by this Activity.
-        final WindowManager wm = getSystemService(WindowManager.class);
-        final Display display = wm.getDefaultDisplay();
-        final Point point = new Point();
-        display.getSize(point);
-        final DisplayMetrics metrics = getResources().getDisplayMetrics();
-
-        final String line = "config" +
-                " size=" + buildCoordString(config.screenWidthDp, config.screenHeightDp) +
-                " displaySize=" + buildCoordString(point.x, point.y) +
-                " metricsSize=" + buildCoordString(metrics.widthPixels, metrics.heightPixels);
-
-        Log.i(getTag(), line);
-    }
-
-    private static String buildCoordString(int x, int y) {
-        return "(" + x + "," + y + ")";
     }
 }

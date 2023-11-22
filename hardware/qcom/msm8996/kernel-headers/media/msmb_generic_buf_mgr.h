@@ -16,8 +16,8 @@
  ***
  ****************************************************************************
  ****************************************************************************/
-#ifndef __UAPI_MEDIA_MSMB_BUF_MNGR_H__
-#define __UAPI_MEDIA_MSMB_BUF_MNGR_H__
+#ifndef __UAPI_MEDIA_MSMB_GENERIC_BUF_MGR_H__
+#define __UAPI_MEDIA_MSMB_GENERIC_BUF_MGR_H__
 #include <media/msmb_camera.h>
 enum msm_camera_buf_mngr_cmd {
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
@@ -53,15 +53,18 @@ struct msm_buf_mngr_main_cont_info {
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
   int32_t cont_fd;
 };
-struct v4l2_subdev * msm_buf_mngr_get_subdev(void);
-#define VIDIOC_MSM_BUF_MNGR_GET_BUF _IOWR('V', BASE_VIDIOC_PRIVATE + 33, struct msm_buf_mngr_info)
+#define MSM_CAMERA_BUF_MNGR_IOCTL_ID_BASE 0
+#define MSM_CAMERA_BUF_MNGR_IOCTL_ID_GET_BUF_BY_IDX 1
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define VIDIOC_MSM_BUF_MNGR_GET_BUF _IOWR('V', BASE_VIDIOC_PRIVATE + 33, struct msm_buf_mngr_info)
 #define VIDIOC_MSM_BUF_MNGR_PUT_BUF _IOWR('V', BASE_VIDIOC_PRIVATE + 34, struct msm_buf_mngr_info)
 #define VIDIOC_MSM_BUF_MNGR_BUF_DONE _IOWR('V', BASE_VIDIOC_PRIVATE + 35, struct msm_buf_mngr_info)
 #define VIDIOC_MSM_BUF_MNGR_CONT_CMD _IOWR('V', BASE_VIDIOC_PRIVATE + 36, struct msm_buf_mngr_main_cont_info)
-#define VIDIOC_MSM_BUF_MNGR_INIT _IOWR('V', BASE_VIDIOC_PRIVATE + 37, struct msm_buf_mngr_info)
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define VIDIOC_MSM_BUF_MNGR_INIT _IOWR('V', BASE_VIDIOC_PRIVATE + 37, struct msm_buf_mngr_info)
 #define VIDIOC_MSM_BUF_MNGR_DEINIT _IOWR('V', BASE_VIDIOC_PRIVATE + 38, struct msm_buf_mngr_info)
 #define VIDIOC_MSM_BUF_MNGR_FLUSH _IOWR('V', BASE_VIDIOC_PRIVATE + 39, struct msm_buf_mngr_info)
+#define VIDIOC_MSM_BUF_MNGR_IOCTL_CMD _IOWR('V', BASE_VIDIOC_PRIVATE + 40, struct msm_camera_private_ioctl_arg)
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #endif
 

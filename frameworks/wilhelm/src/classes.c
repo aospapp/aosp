@@ -127,11 +127,14 @@ static const struct iid_vtable AudioRecorder_interfaces[INTERFACES_AudioRecorder
     {MPH_ANDROIDSIMPLEBUFFERQUEUE, INTERFACE_EXPLICIT, offsetof(CAudioRecorder, mBufferQueue)},
     {MPH_ANDROIDCONFIGURATION, INTERFACE_EXPLICIT_PREREALIZE,
             offsetof(CAudioRecorder, mAndroidConfiguration)},
-    {MPH_ANDROIDACOUSTICECHOCANCELLATION, INTERFACE_OPTIONAL, offsetof(CAudioRecorder,
+    /* marked explicit for Android implementation, not an SL ES explicit interface */
+    {MPH_ANDROIDACOUSTICECHOCANCELLATION, INTERFACE_EXPLICIT, offsetof(CAudioRecorder,
                                                               mAcousticEchoCancellation)},
-    {MPH_ANDROIDAUTOMATICGAINCONTROL, INTERFACE_OPTIONAL, offsetof(CAudioRecorder,
+    /* marked explicit for Android implementation, not an SL ES explicit interface */
+    {MPH_ANDROIDAUTOMATICGAINCONTROL, INTERFACE_EXPLICIT, offsetof(CAudioRecorder,
                                                                    mAutomaticGainControl)},
-    {MPH_ANDROIDNOISESUPPRESSION, INTERFACE_OPTIONAL, offsetof(CAudioRecorder, mNoiseSuppression)},
+    /* marked explicit for Android implementation, not an SL ES explicit interface */
+    {MPH_ANDROIDNOISESUPPRESSION, INTERFACE_EXPLICIT, offsetof(CAudioRecorder, mNoiseSuppression)},
 #endif
 };
 

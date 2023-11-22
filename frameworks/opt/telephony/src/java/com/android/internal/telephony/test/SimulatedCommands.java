@@ -1957,6 +1957,16 @@ public class SimulatedCommands extends BaseCommands
     }
 
     @Override
+    public void setAllowedCarriers(List<CarrierIdentifier> carriers, Message result) {
+        unimplemented(result);
+    }
+
+    @Override
+    public void getAllowedCarriers(Message result) {
+        unimplemented(result);
+    }
+
+    @Override
     public void getRadioCapability(Message result) {
         SimulatedCommandsVerifier.getInstance().getRadioCapability(result);
         resultSuccess(result, new RadioCapability(0, 0, 0, 0xFFFF, null, 0));
@@ -2082,5 +2092,13 @@ public class SimulatedCommands extends BaseCommands
     @VisibleForTesting
     public boolean isDataAllowed() {
         return mAllowed.get();
+    }
+
+    @Override
+    public void registerForPcoData(Handler h, int what, Object obj) {
+    }
+
+    @Override
+    public void unregisterForPcoData(Handler h) {
     }
 }

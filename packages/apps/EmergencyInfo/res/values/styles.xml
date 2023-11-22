@@ -14,11 +14,12 @@
      limitations under the License.
 -->
 <resources>
-    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:preferenceCategoryStyle">@style/AppTheme.PreferenceCategoryStyle</item>
-        <item name="colorPrimary">@color/material_blue_grey_900</item>
-        <item name="colorPrimaryDark">@color/material_blue_grey_950</item>
-        <item name="tabIndicatorColor">@color/material_teal_200</item>
+        <item name="colorPrimary">@color/primary_color</item>
+        <item name="colorPrimaryDark">@color/primary_dark_color</item>
+        <item name="colorAccent">@color/accent_color_light</item>
+        <item name="tabIndicatorColor">@color/accent_color_dark</item>
         <item name="android:datePickerStyle">@style/AppTheme.DatePickerStyle</item>
     </style>
     <!-- Base emergency theme. -->
@@ -28,6 +29,11 @@
         <item name="colorPrimary">@color/emergency_primary</item>
         <item name="colorAccent">@color/emergency_accent</item>
         <item name="tabIndicatorColor">@color/emergency_accent</item>
+    </style>
+
+    <!-- ActionBar -->
+    <style name="ActionBarThemeOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar">
+        <item name="colorAccent">@color/accent_color_dark</item>
     </style>
 
     <!-- Tabs -->

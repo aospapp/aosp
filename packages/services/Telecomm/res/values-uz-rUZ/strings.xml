@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Ovozli pochta raqami ko‘rsatilmagan"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM kartada birorta ham ovozli pochta raqami yo‘q."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Raqam qo‘shish"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Birlamchi raqam terish ilovasi o‘zgartirilsinmi?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Raqam terish uchun birlamchi ilova sifatida <xliff:g id="CURRENT_APP">%2$s</xliff:g> o‘rniga <xliff:g id="NEW_APP">%1$s</xliff:g> ilovasi tanlansinmi?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g> raqam terish uchun birlamchi ilova sifatida tanlansinmi?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Qo‘ng‘iroq. uchun <xliff:g id="NEW_APP">%s</xliff:g> asosiy ilova sifatida o‘rnatilsinmi?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Asosiy ilova sifatida o‘rnatish"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Bekor qilish"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> ilovasi qo‘ng‘iroq qilishga yodam beradi va qo‘ng‘iroqlarga tegishli boshqa barcha parametrlarni boshqaradi. Qo‘ng‘iroqlar uchun faqat ishonarli ilovani asosiy ilova qilib o‘rnatish lozim."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Bloklangan raqamlar"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Bloklangan raqamlardan keladigan qo‘ng‘iroq yoki SMS xabarlar qabul qilinmaydi."</string>
     <string name="block_number" msgid="1101252256321306179">"Raqam qo‘shish"</string>

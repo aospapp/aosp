@@ -25,6 +25,8 @@
     <package>com.example.android.fingerprintdialog</package>
 
     <minSdk>23</minSdk>
+    <targetSdkVersion>24</targetSdkVersion>
+    <compileSdkVersion>24</compileSdkVersion>
 
     <strings>
         <intro>

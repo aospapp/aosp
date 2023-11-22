@@ -54,6 +54,12 @@ public interface ILauncherStrategy {
     public UiObject2 openAllApps(boolean reset);
 
     /**
+     * Returns a {@link BySelector} describing the button to open the all apps drawer
+     * @return
+     */
+    public BySelector getAllAppsButtonSelector();
+
+    /**
      * Returns a {@link BySelector} describing the all apps drawer
      * @return
      */

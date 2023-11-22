@@ -83,7 +83,10 @@ public abstract class AbstractGoogleCameraHelper extends AbstractStandardAppHelp
     /**
      * Setup expectation: GoogleCamera is open and idle in camera mode.
      *
-     * This method will set HDR to on(1), auto(-1), or off(0).
+     * This method will set HDR to one of the following:
+     * - on   (mode == HDR_MODE_ON)
+     * - auto (mode == HDR_MODE_AUTO)
+     * - off  (mode == HDR_MODE_OFF)
      * @param mode the integer value of the mode denoted above.
      */
     public abstract void setHdrMode(int mode);
@@ -91,7 +94,9 @@ public abstract class AbstractGoogleCameraHelper extends AbstractStandardAppHelp
     /**
      * Setup expectation: GoogleCamera is open and idle in video mode.
      *
-     * This method will set 4K mode to on(1), or off(0).
+     * This method will set 4K mode to one of the following:
+     * - on  (mode == VIDEO_4K_MODE_ON)
+     * - off (mode != VIDEO_4K_MODE_ON)
      * @param mode the integer value of the mode denoted above.
      */
     public abstract void set4KMode(int mode);
@@ -99,10 +104,58 @@ public abstract class AbstractGoogleCameraHelper extends AbstractStandardAppHelp
     /**
      * Setup expectation: GoogleCamera is open and idle in video mode.
      *
-     * This method will set HFR mode to 240 fps (2), 120 fps (1), or off(0).
+     * This method will set HFR mode to one of the following:
+     * - off     (mode == HFR_MODE_OFF)
+     * - 120 fps (mode == HFR_MODE_120_FPS)
+     * - 240 fps (mode == HFR_MODE_240_FPS)
      * @param mode the integer value of the mode denoted above.
      */
     public abstract void setHFRMode(int mode);
+
+    /**
+     *
+     * Setup expectations: GoogleCamera is open and idle in either camera/video mode.
+     *
+     * This method will set EIS to on(true), or off(false).
+     * @param mode the boolean value of the mode denoted above.
+     */
+    public abstract void setEIS(boolean mode);
+
+    /**
+     * Setup expectation: GoogleCamera is open and idle in either camera/video mode.
+     *
+     * This method will set front video capture resolution to one of the following:
+     * - SD 480p  (mode == VIDEO_SD_480)
+     * - HD 720p  (mode == VIDEO_HD_720)
+     * - HD 1080p (mode == VIDEO_HD_1080)
+     * - UHD 4K   (mode == VIDEO_4K_MODE_ON)
+     * @param mode the integer value of the mode denoted above.
+     */
+    public abstract void selectFrontVideoResolution(int mode);
+
+    /**
+     * Setup expectation: GoogleCamera is open and idle in either camera/video mode.
+     *
+     * This method will set back video capture resolution to one of the following:
+     * - SD 480p  (mode == VIDEO_SD_480)
+     * - HD 720p  (mode == VIDEO_HD_720)
+     * - HD 1080p (mode == VIDEO_HD_1080)
+     * - UHD 4K   (mode == VIDEO_4K_MODE_ON)
+     * @param mode the integer value of the mode denoted above.
+     */
+    public abstract void selectBackVideoResolution(int mode);
+
+    /**
+     *
+     * Setup expectations: GoogleCamera is open, idle, in video mode,
+     * using back camera, and not in 4k mode
+     *
+     * This method will set video capture framerate to one of the following:
+     * - 30 fps (mode == VIDEO_30FPS)
+     * - 60 fps (mode == VIDEO_60FPS)
+     * @param mode the integer value of the mode denoted above.
+     */
+    public abstract void setFrameRate(int mode);
 
     /**
      * Setup expectation: in Camera mode with the capture button present.

@@ -85,11 +85,6 @@ public class ScanDetailCache {
         return size() == 0;
     }
 
-    ScanDetail getFirst() {
-        Iterator<ScanDetail> it = mMap.values().iterator();
-        return it.hasNext() ? it.next() : null;
-    }
-
     Collection<String> keySet() {
         return mMap.keySet();
     }

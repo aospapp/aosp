@@ -270,21 +270,22 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
      */
     public void verifyHierarchy(AssistStructure structure, boolean isSecureWindow) {
         Log.i(TAG, "verifyHierarchy");
-        Window mWindow = mTestActivity.getWindow();
 
         int numWindows = structure.getWindowNodeCount();
         // TODO: multiple windows?
         assertEquals("Number of windows don't match", 1, numWindows);
+        int[] appLocationOnScreen = new int[2];
+        mView.getLocationOnScreen(appLocationOnScreen);
 
         for (int i = 0; i < numWindows; i++) {
             AssistStructure.WindowNode windowNode = structure.getWindowNodeAt(i);
             Log.i(TAG, "Title: " + windowNode.getTitle());
-            // verify top level window bounds are as big as the screen and pinned to 0,0
+            // Verify top level window bounds are as big as the app and pinned to its top-left
+            // corner.
             assertEquals("Window left position wrong: was " + windowNode.getLeft(),
-                    windowNode.getLeft(), 0);
+                    windowNode.getLeft(), appLocationOnScreen[0]);
             assertEquals("Window top position wrong: was " + windowNode.getTop(),
-                    windowNode.getTop(), 0);
-
+                    windowNode.getTop(), appLocationOnScreen[1]);
             traverseViewAndStructure(
                     mView,
                     windowNode.getRootViewNode(),

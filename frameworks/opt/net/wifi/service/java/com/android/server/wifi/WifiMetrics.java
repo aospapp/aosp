@@ -42,6 +42,11 @@ import java.util.List;
 public class WifiMetrics {
     private static final String TAG = "WifiMetrics";
     private static final boolean DBG = false;
+    /**
+     * Clamp the RSSI poll counts to values between [MIN,MAX]_RSSI_POLL
+     */
+    private static final int MAX_RSSI_POLL = 0;
+    private static final int MIN_RSSI_POLL = -127;
     private final Object mLock = new Object();
     private static final int MAX_CONNECTION_EVENTS = 256;
     private Clock mClock;
@@ -53,11 +58,11 @@ public class WifiMetrics {
      * runtime in member lists of this WifiMetrics class, with the final WifiLog proto being pieced
      * together at dump-time
      */
-    private final WifiMetricsProto.WifiLog mWifiLogProto;
+    private final WifiMetricsProto.WifiLog mWifiLogProto = new WifiMetricsProto.WifiLog();
     /**
      * Session information that gets logged for every Wifi connection attempt.
      */
-    private final List<ConnectionEvent> mConnectionEventList;
+    private final List<ConnectionEvent> mConnectionEventList = new ArrayList<>();
     /**
      * The latest started (but un-ended) connection attempt
      */
@@ -65,16 +70,17 @@ public class WifiMetrics {
     /**
      * Count of number of times each scan return code, indexed by WifiLog.ScanReturnCode
      */
-    private SparseIntArray mScanReturnEntries;
+    private final SparseIntArray mScanReturnEntries = new SparseIntArray();
     /**
      * Mapping of system state to the counts of scans requested in that wifi state * screenOn
      * combination. Indexed by WifiLog.WifiState * (1 + screenOn)
      */
-    private SparseIntArray mWifiSystemStateEntries;
+    private final SparseIntArray mWifiSystemStateEntries = new SparseIntArray();
     /**
      * Records the elapsedRealtime (in seconds) that represents the beginning of data
      * capture for for this WifiMetricsProto
      */
+    private final SparseIntArray mRssiPollCounts = new SparseIntArray();
     private long mRecordStartTimeSec;
 
     class RouterFingerPrint {
@@ -304,10 +310,6 @@ public class WifiMetrics {
 
     public WifiMetrics(Clock clock) {
         mClock = clock;
-        mWifiLogProto = new WifiMetricsProto.WifiLog();
-        mConnectionEventList = new ArrayList<>();
-        mScanReturnEntries = new SparseIntArray();
-        mWifiSystemStateEntries = new SparseIntArray();
         mCurrentConnectionEvent = null;
         mScreenOn = true;
         mWifiState = WifiMetricsProto.WifiLog.WIFI_DISABLED;
@@ -790,6 +792,20 @@ public class WifiMetrics {
         }
     }
 
+    /**
+     * Increment occurence count of RSSI level from RSSI poll.
+     * Ignores rssi values outside the bounds of [MIN_RSSI_POLL, MAX_RSSI_POLL]
+     */
+    public void incrementRssiPollRssiCount(int rssi) {
+        if (!(rssi >= MIN_RSSI_POLL && rssi <= MAX_RSSI_POLL)) {
+            return;
+        }
+        synchronized (mLock) {
+            int count = mRssiPollCounts.get(rssi);
+            mRssiPollCounts.put(rssi, count + 1);
+        }
+    }
+
     public static final String PROTO_DUMP_ARG = "wifiMetricsProto";
     /**
      * Dump all WifiMetrics. Collects some metrics from ConfigStore, Settings and WifiManager
@@ -907,6 +923,13 @@ public class WifiMetrics {
                         + mWifiLogProto.numLastResortWatchdogTriggersWithBadOther);
                 pw.println("mWifiLogProto.recordDurationSec="
                         + ((mClock.elapsedRealtime() / 1000) - mRecordStartTimeSec));
+                pw.println("mWifiLogProto.rssiPollRssiCount: Printing counts for [" + MIN_RSSI_POLL
+                        + ", " + MAX_RSSI_POLL + "]");
+                StringBuilder sb = new StringBuilder();
+                for (int i = MIN_RSSI_POLL; i <= MAX_RSSI_POLL; i++) {
+                    sb.append(mRssiPollCounts.get(i) + " ");
+                }
+                pw.println("  " + sb.toString());
             }
         }
     }
@@ -919,6 +942,7 @@ public class WifiMetrics {
      */
     private void consolidateProto(boolean incremental) {
         List<WifiMetricsProto.ConnectionEvent> events = new ArrayList<>();
+        List<WifiMetricsProto.RssiPollCount> rssis = new ArrayList<>();
         synchronized (mLock) {
             for (ConnectionEvent event : mConnectionEventList) {
                 // If this is not incremental, dump full ConnectionEvent list
@@ -964,6 +988,18 @@ public class WifiMetrics {
             }
             mWifiLogProto.recordDurationSec = (int) ((mClock.elapsedRealtime() / 1000)
                     - mRecordStartTimeSec);
+
+            /**
+             * Convert the SparseIntArray of RSSI poll rssi's and counts to the proto's repeated
+             * IntKeyVal array.
+             */
+            for (int i = 0; i < mRssiPollCounts.size(); i++) {
+                WifiMetricsProto.RssiPollCount keyVal = new WifiMetricsProto.RssiPollCount();
+                keyVal.rssi = mRssiPollCounts.keyAt(i);
+                keyVal.count = mRssiPollCounts.valueAt(i);
+                rssis.add(keyVal);
+            }
+            mWifiLogProto.rssiPollRssiCount = rssis.toArray(mWifiLogProto.rssiPollRssiCount);
         }
     }
 
@@ -979,6 +1015,7 @@ public class WifiMetrics {
             mScanReturnEntries.clear();
             mWifiSystemStateEntries.clear();
             mRecordStartTimeSec = mClock.elapsedRealtime() / 1000;
+            mRssiPollCounts.clear();
             mWifiLogProto.clear();
         }
     }

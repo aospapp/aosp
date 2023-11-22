@@ -42,6 +42,7 @@ public class LauncherStrategyFactory {
         registerLauncherStrategy(AospLauncherStrategy.class);
         registerLauncherStrategy(GoogleExperienceLauncherStrategy.class);
         registerLauncherStrategy(Launcher3Strategy.class);
+        registerLauncherStrategy(NexusLauncherStrategy.class);
         registerLauncherStrategy(LeanbackLauncherStrategy.class);
     }
 

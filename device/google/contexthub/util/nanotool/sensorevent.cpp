@@ -75,6 +75,7 @@ std::unique_ptr<SensorEvent> SensorEvent::FromBytes(
       case SensorType::DoubleTwist:
       case SensorType::DoubleTap:
       case SensorType::Vsync:
+      case SensorType::WristTilt:
           sensor_event = new SingleAxisIntSensorEvent();
           break;
 

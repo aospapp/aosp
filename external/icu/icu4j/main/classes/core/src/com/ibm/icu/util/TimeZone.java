@@ -921,19 +921,35 @@ abstract public class TimeZone implements Serializable, Cloneable, Freezable<Tim
      * @stable ICU 2.0
      */
     public static TimeZone getDefault() {
-        if (defaultZone == null) {
-            synchronized(TimeZone.class) {
-                if (defaultZone == null) {
-                    if (TZ_IMPL == TIMEZONE_JDK) {
-                        defaultZone = new JavaTimeZone();
-                    } else {
-                        java.util.TimeZone temp = java.util.TimeZone.getDefault();
-                        defaultZone = getFrozenTimeZone(temp.getID());
+        // Android patch (http://b/30979219) start.
+        // Avoid race condition by copying defaultZone to a local variable.
+        TimeZone result = defaultZone;
+        if (result == null) {
+            // Android patch (http://b/30937209) start.
+            // Avoid a deadlock by always acquiring monitors in order (1) java.util.TimeZone.class
+            // then (2) icu.util.TimeZone.class and not (2) then (1).
+            // Without the synchronized here there is a possible deadlock between threads calling
+            // this method and other threads calling methods on java.util.TimeZone. e.g.
+            // java.util.TimeZone.setDefault() calls back into
+            // icu.util.TimeZone.clearCachedDefault() so always acquires them in order (1) then (2).
+            synchronized (java.util.TimeZone.class) {
+                synchronized (TimeZone.class) {
+                    result = defaultZone;
+                    if (result == null) {
+                        if (TZ_IMPL == TIMEZONE_JDK) {
+                            result = new JavaTimeZone();
+                        } else {
+                            java.util.TimeZone temp = java.util.TimeZone.getDefault();
+                            result = getFrozenTimeZone(temp.getID());
+                        }
+                        defaultZone = result;
                     }
                 }
             }
+            // Android patch (http://b/30937209) end.
         }
-        return defaultZone.cloneAsThawed();
+        return result.cloneAsThawed();
+        // Android patch (http://b/30979219) end.
     }
 
     // Android patch (http://b/28949992) start.

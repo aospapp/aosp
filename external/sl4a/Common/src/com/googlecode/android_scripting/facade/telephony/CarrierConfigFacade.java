@@ -47,7 +47,9 @@ public class CarrierConfigFacade extends RpcReceiver {
     }
 
     @Rpc(description = "Tethering Entitlement Check")
-    public boolean carrierConfigIsTetheringModeAllowed(String mode, Integer timeout) {
+    public boolean carrierConfigIsTetheringModeAllowed(
+        @RpcParameter(name="mode") String mode,
+        @RpcParameter(name="timeout") Integer timeout) {
         String[] mProvisionApp = mService.getResources().getStringArray(
                 com.android.internal.R.array.config_mobile_hotspot_provision_app);
         /* following check defined in

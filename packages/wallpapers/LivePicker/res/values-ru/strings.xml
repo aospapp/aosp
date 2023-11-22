@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Загрузка живых обоев…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Главный экран"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Главный экран и экран блокировки"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"Свернуть панель с информацией об обоях"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"Развернуть панель с информацией об обоях"</string>
 </resources>

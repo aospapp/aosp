@@ -1041,7 +1041,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
 {
     unsigned i=0;
     int ret = WIFI_SUCCESS;
-    u32 status;
     wifi_scan_result *result = NULL;
     struct nlattr *tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_MAX + 1];
 
@@ -1070,7 +1069,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
 
             ALOGV("Event QCA_NL80211_VENDOR_SUBCMD_GSCAN_FULL_SCAN_RESULT "
                 "received.");
-
             if (!tbVendor[
                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_REQUEST_ID])
             {
@@ -1723,7 +1721,6 @@ int GScanCommandEventHandler::handleEvent(WifiEvent &event)
         case QCA_NL80211_VENDOR_SUBCMD_GSCAN_SCAN_EVENT:
         {
             wifi_scan_event scanEvent;
-            u32 scanEventStatus = 0;
             wifi_request_id reqId;
 
             if (!tbVendor[

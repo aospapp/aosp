@@ -29,6 +29,7 @@ public class ActivityManagerActivityVisiblityTests extends ActivityManagerTestBa
     private static final String TRANSLUCENT_ACTIVITY_NAME = "TranslucentActivity";
     private static final String DOCKED_ACTIVITY_NAME = "DockedActivity";
     private static final String TURN_SCREEN_ON_ACTIVITY_NAME = "TurnScreenOnActivity";
+    private static final String BROADCAST_RECEIVER_ACTIVITY = "BroadcastReceiverActivity";
 
     public void testVisibleBehindHomeActivity() throws Exception {
         executeShellCommand(getAmStartCmd(VISIBLE_BEHIND_ACTIVITY));
@@ -91,7 +92,6 @@ public class ActivityManagerActivityVisiblityTests extends ActivityManagerTestBa
         executeShellCommand(getAmStartCmd(TRANSLUCENT_ACTIVITY));
 
         mAmWmState.computeState(mDevice, new String[]{TRANSLUCENT_ACTIVITY});
-        mAmWmState.assertSanity();
         mAmWmState.assertFrontStack(
                 "Fullscreen stack must be the front stack.", FULLSCREEN_WORKSPACE_STACK_ID);
         mAmWmState.assertVisibility(TRANSLUCENT_ACTIVITY, true);
@@ -114,7 +114,6 @@ public class ActivityManagerActivityVisiblityTests extends ActivityManagerTestBa
         executeShellCommand(AM_MOVE_TOP_ACTIVITY_TO_PINNED_STACK_COMMAND);
 
         mAmWmState.computeState(mDevice, new String[]{TRANSLUCENT_ACTIVITY});
-        mAmWmState.assertSanity();
 
         mAmWmState.assertVisibility(TRANSLUCENT_ACTIVITY, true);
         mAmWmState.assertVisibility(TEST_ACTIVITY_NAME, false);
@@ -139,7 +138,24 @@ public class ActivityManagerActivityVisiblityTests extends ActivityManagerTestBa
         lockDevice();
         executeShellCommand(getAmStartCmd(TURN_SCREEN_ON_ACTIVITY_NAME));
         mAmWmState.computeState(mDevice, new String[] { TURN_SCREEN_ON_ACTIVITY_NAME });
-        mAmWmState.assertSanity();
         mAmWmState.assertVisibility(TURN_SCREEN_ON_ACTIVITY_NAME, true);
+    }
+
+    public void testFinishActivityInNonFocusedStack() throws Exception {
+        // Launch two activities in docked stack.
+        launchActivityInDockStack(LAUNCHING_ACTIVITY);
+        launchActivity(false /* toSide */, false /* randomData */, false /* multipleTaskFlag */,
+                BROADCAST_RECEIVER_ACTIVITY);
+        mAmWmState.computeState(mDevice, new String[] { BROADCAST_RECEIVER_ACTIVITY });
+        mAmWmState.assertVisibility(BROADCAST_RECEIVER_ACTIVITY, true);
+        // Launch something to fullscreen stack to make it focused.
+        launchActivityInStack(TEST_ACTIVITY_NAME, 1);
+        mAmWmState.computeState(mDevice, new String[] { TEST_ACTIVITY_NAME });
+        mAmWmState.assertVisibility(TEST_ACTIVITY_NAME, true);
+        // Finish activity in non-focused (docked) stack.
+        executeShellCommand("am broadcast -a trigger_broadcast --ez finish true");
+        mAmWmState.computeState(mDevice, new String[] { LAUNCHING_ACTIVITY });
+        mAmWmState.assertVisibility(LAUNCHING_ACTIVITY, true);
+        mAmWmState.assertVisibility(BROADCAST_RECEIVER_ACTIVITY, false);
     }
 }

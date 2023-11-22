@@ -15,6 +15,8 @@
 # the License.
 
 from acts.logger import LoggerProxy
+
+from acts.test_utils.bt.bt_test_utils import BtTestUtilsError
 from acts.test_utils.bt.bt_test_utils import get_mac_address_of_generic_advertisement
 from acts.test_utils.bt.GattEnum import GattCbErr
 from acts.test_utils.bt.GattEnum import GattCbStrings
@@ -22,6 +24,7 @@ from acts.test_utils.bt.GattEnum import GattConnectionState
 from acts.test_utils.bt.GattEnum import GattCharacteristic
 from acts.test_utils.bt.GattEnum import GattDescriptor
 from acts.test_utils.bt.GattEnum import GattService
+from acts.test_utils.bt.GattEnum import GattTransport
 from acts.test_utils.bt.GattEnum import GattConnectionPriority
 import pprint
 from queue import Empty
@@ -31,12 +34,17 @@ default_timeout = 10
 log = LoggerProxy()
 
 
-def setup_gatt_connection(cen_ad, mac_address, autoconnect):
+class GattTestUtilsError(Exception):
+    pass
+
+
+def setup_gatt_connection(cen_ad, mac_address, autoconnect,
+                          transport=GattTransport.TRANSPORT_AUTO):
     test_result = True
     gatt_callback = cen_ad.droid.gattCreateGattCallback()
     log.info("Gatt Connect to mac address {}.".format(mac_address))
     bluetooth_gatt = cen_ad.droid.gattClientConnectGatt(
-        gatt_callback, mac_address, autoconnect)
+        gatt_callback, mac_address, autoconnect, transport)
     expected_event = GattCbStrings.GATT_CONN_CHANGE.value.format(gatt_callback)
     try:
         event = cen_ad.ed.pop_event(expected_event, default_timeout)
@@ -66,22 +74,24 @@ def disconnect_gatt_connection(cen_ad, bluetooth_gatt, gatt_callback):
 
 def orchestrate_gatt_connection(cen_ad,
                                 per_ad,
-                                le=True,
+                                transport=GattTransport.TRANSPORT_LE,
                                 mac_address=None,
                                 autoconnect=False):
     adv_callback = None
     if mac_address is None:
-        if le:
-            mac_address, adv_callback = (
-                get_mac_address_of_generic_advertisement(cen_ad, per_ad))
+        if transport == GattTransport.TRANSPORT_LE:
+            try:
+                mac_address, adv_callback = (
+                    get_mac_address_of_generic_advertisement(cen_ad, per_ad))
+            except BtTestUtilsError as err:
+                raise GattTestUtilsError("Error in getting mac address: {}".format(err))
         else:
             mac_address = per_ad.droid.bluetoothGetLocalAddress()
             adv_callback = None
     test_result, bluetooth_gatt, gatt_callback = setup_gatt_connection(
-        cen_ad, mac_address, autoconnect)
+        cen_ad, mac_address, autoconnect, transport)
     if not test_result:
-        log.error("Could not connect to peripheral.")
-        return False, None, None
+        raise GattTestUtilsError("Could not connect to peripheral.")
     return bluetooth_gatt, gatt_callback, adv_callback
 
 

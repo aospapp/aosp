@@ -63,7 +63,8 @@ public class CarrierApiTest extends AndroidTestCase {
     private boolean hasCellular() {
         ConnectivityManager mgr =
                 (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
-        return mgr.isNetworkSupported(ConnectivityManager.TYPE_MOBILE);
+        return mgr.isNetworkSupported(ConnectivityManager.TYPE_MOBILE) &&
+               mTelephonyManager.isVoiceCapable();
     }
 
     private boolean isSimCardPresent() {

@@ -15,6 +15,9 @@
  */
 package android.support.test.launcherhelper;
 
+import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.BySelector;
+
 /**
  * Implementation of {@link ILauncherStrategy} to support Google experience launcher
  */
@@ -25,5 +28,13 @@ public class GoogleExperienceLauncherStrategy extends BaseLauncher3Strategy {
     @Override
     public String getSupportedLauncherPackage() {
         return LAUNCHER_PKG;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BySelector getAllAppsButtonSelector() {
+        return By.desc("Apps");
     }
 }

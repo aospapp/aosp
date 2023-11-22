@@ -43,6 +43,16 @@ public final class Common {
             "com.android.cts.net.hostside.app2.extra.RECEIVER_NAME";
     static final String EXTRA_NOTIFICATION_ID =
             "com.android.cts.net.hostside.app2.extra.NOTIFICATION_ID";
+    static final String EXTRA_NOTIFICATION_TYPE =
+            "com.android.cts.net.hostside.app2.extra.NOTIFICATION_TYPE";
+
+    static final String NOTIFICATION_TYPE_CONTENT = "CONTENT";
+    static final String NOTIFICATION_TYPE_DELETE = "DELETE";
+    static final String NOTIFICATION_TYPE_FULL_SCREEN = "FULL_SCREEN";
+    static final String NOTIFICATION_TYPE_BUNDLE = "BUNDLE";
+    static final String NOTIFICATION_TYPE_ACTION = "ACTION";
+    static final String NOTIFICATION_TYPE_ACTION_BUNDLE = "ACTION_BUNDLE";
+    static final String NOTIFICATION_TYPE_ACTION_REMOTE_INPUT = "ACTION_REMOTE_INPUT";
 
     static int getUid(Context context) {
         final String packageName = context.getPackageName();

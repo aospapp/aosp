@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"நேரலை வால்பேப்பரை ஏற்றுகிறது…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"முகப்புத் திரை"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"முகப்புத் திரையும் பூட்டுத் திரையும்"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"வால்பேப்பரின் தகவல் பேனலைச் சுருக்கும் பொத்தான்"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"வால்பேப்பரின் தகவல் பேனலை விரிக்கும் பொத்தான்"</string>
 </resources>

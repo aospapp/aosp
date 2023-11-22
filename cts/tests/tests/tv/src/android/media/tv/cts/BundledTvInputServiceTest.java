@@ -32,7 +32,6 @@ import android.tv.cts.R;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 /**
  * Test {@link android.media.tv.TvView}.
@@ -133,6 +132,7 @@ public class BundledTvInputServiceTest
             return;
         }
         for (final TvInputInfo info : mPassthroughInputList) {
+            mCallback.mVideoUnavailableReasonMap.remove(info.getId());
             runTestOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -161,13 +161,14 @@ public class BundledTvInputServiceTest
         // Component) and tuning should be completed within 3 seconds, which gives 15 seconds
         // for an input. Set 5 minutes of timeout for this test case and try 20 iterations.
         final int ITERATIONS = 20;
-        Random random = new Random();
         for (int i = 0; i < mPassthroughInputList.size() * ITERATIONS; ++i) {
             final TvInputInfo info =
-                    mPassthroughInputList.get(random.nextInt(mPassthroughInputList.size()));
+                    mPassthroughInputList.get(i % mPassthroughInputList.size());
+            mCallback.mVideoUnavailableReasonMap.remove(info.getId());
             runTestOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    mTvView.reset();
                     mTvView.tune(info.getId(),
                             TvContract.buildChannelUriForPassthroughInput(info.getId()));
                 }

@@ -44,6 +44,10 @@
         <item name="android:textAppearance">@style/TextAppearance.SuwDescription</item>
     </style>
 
+    <style name="SuwDescription.Glif" parent="SuwDescription">
+        <item name="android:layout_marginTop">@dimen/suw_description_glif_margin_top</item>
+    </style>
+
     <style name="TextAppearance.SuwDescription.Light" parent="TextAppearance.SuwDescription">
         <item name="android:fontFamily" tools:ignore="NewApi">sans-serif-light</item>
     </style>
@@ -122,6 +126,17 @@
     </style>
 
     <!-- Items styles -->
+
+    <style name="SuwItemContainer.Description" parent="SuwItemContainer">
+        <item name="android:paddingTop">@dimen/suw_description_margin_top</item>
+        <item name="android:paddingBottom">@dimen/suw_description_margin_bottom_lists</item>
+    </style>
+
+    <style name="SuwItemContainer.Description.Glif" parent="SuwItemContainer.Description">
+        <item name="android:minHeight">0dp</item>
+        <item name="android:paddingTop">@dimen/suw_description_glif_margin_top</item>
+        <item name="android:paddingBottom">@dimen/suw_description_glif_margin_bottom_lists</item>
+    </style>
 
     <style name="SuwItemContainer.Verbose" parent="SuwItemContainer">
         <item name="android:paddingBottom">@dimen/suw_items_verbose_padding_vertical</item>

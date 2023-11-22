@@ -17,8 +17,10 @@
 package android.view.inputmethod.cts;
 
 import android.app.Instrumentation;
+import android.content.ClipDescription;
 import android.content.Context;
 import android.cts.util.PollingCheck;
+import android.net.Uri;
 import android.os.Bundle;
 import android.test.ActivityInstrumentationTestCase2;
 import android.text.Editable;
@@ -34,6 +36,7 @@ import android.view.cts.R;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.ExtractedTextRequest;
+import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.cts.util.InputConnectionTestUtils;
 import android.widget.EditText;
@@ -486,5 +489,33 @@ public class BaseInputConnectionTest extends
         testDeleteSurroundingTextInCodePointsMain("01[><]456789", 1, 0, "0[><]456789");
         testDeleteSurroundingTextInCodePointsMain("01[><]456789", 0, 1, "01[><]56789");
         testDeleteSurroundingTextInCodePointsMain("01[><]456789", 1, 1, "0[><]56789");
+    }
+
+    public void testCloseConnection() {
+        final CharSequence source = "0123456789";
+        mConnection.commitText(source, source.length());
+        final Editable text = mConnection.getEditable();
+        BaseInputConnection.setComposingSpans(text, 2, 5);
+        assertEquals(2, BaseInputConnection.getComposingSpanStart(text));
+        assertEquals(5, BaseInputConnection.getComposingSpanEnd(text));
+
+        // BaseInputConnection#closeConnection() must clear the on-going composition.
+        mConnection.closeConnection();
+        assertEquals(-1, BaseInputConnection.getComposingSpanStart(text));
+        assertEquals(-1, BaseInputConnection.getComposingSpanEnd(text));
+    }
+
+    public void testGetHandler() {
+        // BaseInputConnection must not implement getHandler().
+        assertNull(mConnection.getHandler());
+    }
+
+    public void testCommitContent() {
+        final InputContentInfo inputContentInfo = new InputContentInfo(
+                Uri.parse("content://com.example/path"),
+                new ClipDescription("sample content", new String[]{"image/png"}),
+                Uri.parse("https://example.com"));
+        // The default implementation should do nothing and just return false.
+        assertFalse(mConnection.commitContent(inputContentInfo, 0 /* flags */, null /* opts */));
     }
 }

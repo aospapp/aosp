@@ -28,11 +28,10 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.managedprovisioning.common.MdmPackageInfo;
-import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.DeleteManagedProfileDialog;
 import com.android.managedprovisioning.DeviceOwnerProvisioningActivity;
 import com.android.managedprovisioning.LogoUtils;
@@ -41,8 +40,8 @@ import com.android.managedprovisioning.ProvisionLogger;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.SetupLayoutActivity;
 import com.android.managedprovisioning.UserConsentDialog;
+import com.android.managedprovisioning.common.MdmPackageInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
-import com.android.managedprovisioning.parser.MessageParser;
 
 public class PreProvisioningActivity extends SetupLayoutActivity
         implements UserConsentDialog.ConsentCallback,
@@ -201,7 +200,14 @@ public class PreProvisioningActivity extends SetupLayoutActivity
             ProvisioningParams params) {
         // Setup the UI.
         initializeLayoutParams(R.layout.user_consent, headerRes, false);
-        configureNavigationButtons(R.string.next, View.INVISIBLE, View.VISIBLE);
+        Button nextButton = (Button) findViewById(R.id.setup_button);
+        nextButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mController.afterNavigateNext();
+            }
+        });
+        nextButton.setText(R.string.next);
 
         mConsentMessageTextView = (TextView) findViewById(R.id.user_consent_message);
         mMdmInfoTextView = (TextView) findViewById(R.id.mdm_info_message);
@@ -212,7 +218,6 @@ public class PreProvisioningActivity extends SetupLayoutActivity
         setMdmIconAndLabel(params.inferDeviceAdminPackageName());
 
         maybeSetLogoAndMainColor(params.mainColor);
-        mNextButton.setVisibility(View.VISIBLE);
 
         setTitle(titleRes);
     }
@@ -352,10 +357,5 @@ public class PreProvisioningActivity extends SetupLayoutActivity
                             }
                         })
                 .show();
-    }
-
-    @Override
-    public void onNavigateNext() {
-        mController.afterNavigateNext();
     }
 }

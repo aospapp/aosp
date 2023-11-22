@@ -20,10 +20,14 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
+import android.view.View.OnLongClickListener;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import com.android.managedprovisioning.ProvisionLogger;
+import com.android.managedprovisioning.common.Utils;
 
 /**
  * This activity shows a web view, which loads the url indicated in the starting intent. By default
@@ -42,6 +46,7 @@ public class WebActivity extends Activity {
     private static final String EXTRA_ALLOWED_URL_BASE = "extra_allowed_url_base";
 
     private WebView mWebView;
+    private final Utils mUtils = new Utils();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -57,15 +62,24 @@ public class WebActivity extends Activity {
         }
         mWebView.loadUrl(extraUrl);
         mWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl().toString();
+                if (extraAllowedUrlBase != null && url.startsWith(extraAllowedUrlBase)) {
+                    view.loadUrl(url);
+                }
+                return true;
+            }
+        });
+        if (!mUtils.isUserSetupCompleted(this)) {
+            // User should not be able to escape provisioning if user setup isn't complete.
+            mWebView.setOnLongClickListener(new OnLongClickListener() {
                 @Override
-                public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                    if (extraAllowedUrlBase != null && url.startsWith(extraAllowedUrlBase)) {
-                        view.loadUrl(url);
-                    }
+                public boolean onLongClick(View v) {
                     return true;
                 }
             });
-
+        }
         this.setContentView(mWebView);
     }
 

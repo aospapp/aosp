@@ -47,14 +47,12 @@ def main():
                              its.caps.per_frame_control(props))
 
         white_level = float(props['android.sensor.info.whiteLevel'])
-        black_levels = props['android.sensor.blackLevelPattern']
         cfa_idxs = its.image.get_canonical_cfa_order(props)
-        black_levels = [black_levels[i] for i in cfa_idxs]
 
         # Expose for the scene with min sensitivity
         sens_min, sens_max = props['android.sensor.info.sensitivityRange']
         sens_step = (sens_max - sens_min) / NUM_STEPS
-        s_ae,e_ae,_,_,_  = cam.do_3a(get_results=True)
+        s_ae,e_ae,_,_,f_dist  = cam.do_3a(get_results=True)
         s_e_prod = s_ae * e_ae
         sensitivities = range(sens_min, sens_max, sens_step)
 
@@ -64,7 +62,7 @@ def main():
 
             # Capture a raw frame with the desired sensitivity.
             exp = int(s_e_prod / float(sens))
-            req = its.objects.manual_capture_request(sens, exp)
+            req = its.objects.manual_capture_request(sens, exp, f_dist)
             cap = cam.do_capture(req, cam.CAP_RAW)
 
             # Test each raw color channel (R, GR, GB, B):
@@ -79,8 +77,10 @@ def main():
                 # non-uniform lighting or vignetting doesn't affect the variance
                 # calculation).
                 plane = its.image.convert_capture_to_planes(cap, props)[ch]
-                plane = (plane * white_level - black_levels[ch]) / (
-                        white_level - black_levels[ch])
+                black_level = its.image.get_black_level(
+                    ch, props, cap["metadata"])
+                plane = (plane * white_level - black_level) / (
+                    white_level - black_level)
                 tile = its.image.get_image_patch(plane, 0.49,0.49,0.02,0.02)
                 mean = tile.mean()
 

@@ -460,7 +460,10 @@ public final class AgentOptions {
 	 */
 	public OutputMode getOutput() {
 		final String value = options.get(OUTPUT);
-		return value == null ? OutputMode.file : OutputMode.valueOf(value);
+// BEGIN android-change
+//		return value == null ? OutputMode.file : OutputMode.valueOf(value);
+		return value == null ? OutputMode.none : OutputMode.valueOf(value);
+// END android-change
 	}
 
 	/**

@@ -44,7 +44,7 @@ public class NavigationBarButton extends Button {
             Drawable[] drawables = getCompoundDrawablesRelative();
             for (int i = 0; i < drawables.length; i++) {
                 if (drawables[i] != null) {
-                    drawables[i] = TintedDrawable.wrap(drawables[i].mutate());
+                    drawables[i] = TintedDrawable.wrap(drawables[i]);
                 }
             }
             setCompoundDrawablesRelativeWithIntrinsicBounds(drawables[0], drawables[1],
@@ -54,10 +54,10 @@ public class NavigationBarButton extends Button {
 
     @Override
     public void setCompoundDrawables(Drawable left, Drawable top, Drawable right, Drawable bottom) {
-        if (left != null) left = TintedDrawable.wrap(left.mutate());
-        if (top != null) top = TintedDrawable.wrap(top.mutate());
-        if (right != null) right = TintedDrawable.wrap(right.mutate());
-        if (bottom != null) bottom = TintedDrawable.wrap(bottom.mutate());
+        if (left != null) left = TintedDrawable.wrap(left);
+        if (top != null) top = TintedDrawable.wrap(top);
+        if (right != null) right = TintedDrawable.wrap(right);
+        if (bottom != null) bottom = TintedDrawable.wrap(bottom);
         super.setCompoundDrawables(left, top, right, bottom);
         tintDrawables();
     }
@@ -65,10 +65,10 @@ public class NavigationBarButton extends Button {
     @Override
     public void setCompoundDrawablesRelative(Drawable start, Drawable top, Drawable end,
             Drawable bottom) {
-        if (start != null) start = TintedDrawable.wrap(start.mutate());
-        if (top != null) top = TintedDrawable.wrap(top.mutate());
-        if (end != null) end = TintedDrawable.wrap(end.mutate());
-        if (bottom != null) bottom = TintedDrawable.wrap(bottom.mutate());
+        if (start != null) start = TintedDrawable.wrap(start);
+        if (top != null) top = TintedDrawable.wrap(top);
+        if (end != null) end = TintedDrawable.wrap(end);
+        if (bottom != null) bottom = TintedDrawable.wrap(bottom);
         super.setCompoundDrawablesRelative(start, top, end, bottom);
         tintDrawables();
     }
@@ -114,7 +114,7 @@ public class NavigationBarButton extends Button {
             if (drawable instanceof TintedDrawable) {
                 return (TintedDrawable) drawable;
             }
-            return new TintedDrawable(drawable);
+            return new TintedDrawable(drawable.mutate());
         }
 
         private ColorStateList mTintList = null;

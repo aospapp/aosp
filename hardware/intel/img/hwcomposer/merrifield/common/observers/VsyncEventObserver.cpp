@@ -28,7 +28,8 @@ VsyncEventObserver::VsyncEventObserver(PhysicalDevice& disp)
       mDevice(IDisplayDevice::DEVICE_COUNT),
       mEnabled(false),
       mExitThread(false),
-      mInitialized(false)
+      mInitialized(false),
+      mFpsCounter(0)
 {
     CTRACE();
 }
@@ -126,8 +127,9 @@ bool VsyncEventObserver::threadLoop()
             return true;
         }
 
-        // notify device
-        mDisplayDevice.onVsync(timestamp);
+        // send vsync event notification every hwc.fps_divider
+        if ((mFpsCounter++) % mDisplayDevice.getFpsDivider() == 0)
+            mDisplayDevice.onVsync(timestamp);
     }
 
     return true;

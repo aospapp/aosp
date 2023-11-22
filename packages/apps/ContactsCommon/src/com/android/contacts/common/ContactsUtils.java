@@ -23,9 +23,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.provider.ContactsContract.CommonDataKinds.Im;
 import android.support.annotation.IntDef;
-import android.support.v4.os.BuildCompat;
 import android.provider.ContactsContract.DisplayPhoto;
-import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.Pair;
 
@@ -34,7 +32,6 @@ import com.android.contacts.common.model.dataitem.ImDataItem;
 import com.android.contacts.common.testing.NeededForTesting;
 import com.android.contacts.common.compat.ContactsCompat;
 import com.android.contacts.common.compat.DirectoryCompat;
-import com.android.contacts.common.compat.SdkSelectionUtils;
 import com.android.contacts.common.model.AccountTypeManager;
 
 import java.lang.annotation.Retention;
@@ -53,7 +50,7 @@ public class ContactsUtils {
 
     private static int sThumbnailSize = -1;
 
-    public static final boolean FLAG_N_FEATURE = BuildCompat.isAtLeastN();
+    public static final boolean FLAG_N_FEATURE = Build.VERSION.SDK_INT >= 24;
 
     // TODO find a proper place for the canonical version of these
     public interface ProviderNames {

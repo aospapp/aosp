@@ -56,34 +56,18 @@ public class UiBenchTextJankTests extends JankTestBase {
         mDevice.setOrientationNatural();
         mHelper = UiBenchJankTestsHelper.getInstance(mDevice,
              this.getInstrumentation().getContext());
+        mHelper.enableKeyboardIME(false);
     }
 
     @Override
     protected void tearDown() throws Exception {
         mDevice.unfreezeRotation();
+        mHelper.enableKeyboardIME(true);
         super.tearDown();
-    }
-
-    // TODO(kneas): After b/27897448 is fixed, remove method or TODO
-    public void forceDeviceHome() throws RemoteException {
-        // Put device to sleep to go back home
-        if (VERSION.SDK_INT >= 20) {
-            mDevice.pressKeyCode(KeyEvent.KEYCODE_SLEEP);
-        } else {
-            mDevice.sleep();
-        }
-        SystemClock.sleep(mHelper.LONG_TIMEOUT);
-        mDevice.wakeUp();
     }
 
     // Open Text Components
     public void openTextComponents(String componentName) throws RemoteException {
-        // TODO(kneas): Remove if statement after b/27897448 is fixed
-        // Needed in case the EditTextTyping tests fails, leaving it in the test with the keyboard
-        // open
-        if (mDevice.getProductName().equals("nemo")) {
-            forceDeviceHome();
-        }
         mHelper.launchUiBench();
         mHelper.openTextInList("Text");
         mHelper.openTextInList(componentName);
@@ -95,8 +79,7 @@ public class UiBenchTextJankTests extends JankTestBase {
     }
 
     // Measure jank metrics for EditText Typing
-    // TODO(kneas): Change afterTest to "goBackHome" after b/27897448 is fixed
-    @JankTest(beforeTest="openEditTextTyping", afterTest="goBackHomeEditText",
+    @JankTest(beforeTest="openEditTextTyping", afterTest="goBackHome",
         expectedFrames=EXPECTED_FRAMES)
     @GfxMonitor(processName=PACKAGE_NAME)
     public void testEditTextTyping() {
@@ -172,24 +155,7 @@ public class UiBenchTextJankTests extends JankTestBase {
     // Ensuring that we head back to the first screen before launching the app again
     public void goBackHome(Bundle metrics) throws UiObjectNotFoundException {
             mHelper.goBackHome();
-           super.afterTest(metrics);
+            super.afterTest(metrics);
     }
 
-    // Workaround for b/27897448 until investigation is complete
-    // TODO(kneas): Remove once b/27897448 is fixed
-    public void goBackHomeEditText(Bundle metrics)
-            throws RemoteException, UiObjectNotFoundException {
-        if (mDevice.getProductName() == "nemo") {
-            forceDeviceHome();
-            super.afterTest(metrics);
-            // Relaunch the app. Ideally we're still in EditText, but it's no longer typing
-            // goBackHome will now be able to use the back button, since the keyboard is hidden
-            SystemClock.sleep(mHelper.SHORT_TIMEOUT + mHelper.SHORT_TIMEOUT);
-            mHelper.launchUiBench();
-            mHelper.goBackHome();
-        }
-        else {
-            goBackHome(metrics);
-        }
-    }
 }

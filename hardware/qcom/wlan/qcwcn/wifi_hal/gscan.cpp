@@ -86,12 +86,11 @@ wifi_error cleanupGscanHandlers(hal_info *info)
 wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
        int band, int max_channels, wifi_channel *channels, int *num_channels)
 {
-    int requestId, ret = 0, i=0;
+    int requestId, ret = 0;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
-    hal_info *info = getHalInfo(wifiHandle);
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     /* Route GSCAN request through LOWI if supported */
@@ -179,7 +178,6 @@ wifi_error wifi_get_gscan_capabilities(wifi_interface_handle handle,
     int requestId, ret = 0;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
-    wifi_gscan_capabilities tCapabilities;
     interface_info *ifaceInfo = getIfaceInfo(handle);
     wifi_handle wifiHandle = getWifiHandle(handle);
     hal_info *info = getHalInfo(wifiHandle);
@@ -286,7 +284,6 @@ wifi_error wifi_start_gscan(wifi_request_id id,
     u32 num_scan_buckets, numChannelSpecs;
     wifi_scan_bucket_spec bucketSpec;
     struct nlattr *nlBuckectSpecList;
-    bool previousGScanRunning = false;
     hal_info *info = getHalInfo(wifiHandle);
     lowi_cb_table_t *lowiWifiHalApi = NULL;
     gscan_event_handlers* event_handlers;
@@ -601,7 +598,6 @@ wifi_error wifi_set_bssid_hotlist(wifi_request_id id,
     struct nlattr *nlData, *nlApThresholdParamList;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    bool previousGScanSetBssidRunning = false;
     hal_info *info = getHalInfo(wifiHandle);
     lowi_cb_table_t *lowiWifiHalApi = NULL;
     gscan_event_handlers* event_handlers;
@@ -870,7 +866,6 @@ wifi_error wifi_set_significant_change_handler(wifi_request_id id,
     struct nlattr *nlData, *nlApThresholdParamList;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    bool previousGScanSetSigChangeRunning = false;
     hal_info *info = getHalInfo(wifiHandle);
     lowi_cb_table_t *lowiWifiHalApi = NULL;
     gscan_event_handlers* event_handlers;
@@ -1151,14 +1146,8 @@ wifi_error wifi_get_cached_gscan_results(wifi_interface_handle iface,
                                             int *num)
 {
     int requestId, ret = 0, retRequestRsp = 0;
-    wifi_cached_scan_results *result = results;
-    u32 j = 0;
-    int i = 0;
-    u8 moreData = 0;
-    u16 waitTime = GSCAN_EVENT_WAIT_TIME_SECONDS;
     GScanCommand *gScanCommand;
     struct nlattr *nlData;
-    wifi_cached_scan_results *cached_results;
     lowi_cb_table_t *lowiWifiHalApi = NULL;
 
     interface_info *ifaceInfo = getIfaceInfo(iface);
@@ -1390,49 +1379,12 @@ out:
     return ret;
 }
 
-/* Callback handlers registered for nl message send */
-static int error_handler_gscan(struct sockaddr_nl *nla, struct nlmsgerr *err,
-                                   void *arg)
-{
-    struct sockaddr_nl *tmp;
-    int *ret = (int *)arg;
-    tmp = nla;
-    *ret = err->error;
-    ALOGE("%s: Error code:%d (%s)", __FUNCTION__, *ret, strerror(-(*ret)));
-    return NL_STOP;
-}
-
-/* Callback handlers registered for nl message send */
-static int ack_handler_gscan(struct nl_msg *msg, void *arg)
-{
-    int *ret = (int *)arg;
-    struct nl_msg * a;
-
-    ALOGE("%s: called", __FUNCTION__);
-    a = msg;
-    *ret = 0;
-    return NL_STOP;
-}
-
-/* Callback handlers registered for nl message send */
-static int finish_handler_gscan(struct nl_msg *msg, void *arg)
-{
-  int *ret = (int *)arg;
-  struct nl_msg * a;
-
-  ALOGE("%s: called", __FUNCTION__);
-  a = msg;
-  *ret = 0;
-  return NL_SKIP;
-}
-
 int GScanCommand::requestResponse()
 {
     return WifiCommand::requestResponse(mMsg);
 }
 
 int GScanCommand::handleResponse(WifiEvent &reply) {
-    u32 status;
     int i = 0;
     int ret = WIFI_SUCCESS;
     u32 val;
@@ -1474,10 +1426,10 @@ int GScanCommand::handleResponse(WifiEvent &reply) {
                     QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CHANNELS],
                     sizeof(wifi_channel) * (*mNumChannelsPtr));
             }
-            char buf[100];
+            char buf[256];
             size_t len = 0;
             for (i = 0; i < *mNumChannelsPtr && len < sizeof(buf); i++) {
-                 len +=  snprintf(buf + len, sizeof(buf)-len, "%u ",
+                 len +=  snprintf(buf + len, sizeof(buf) - len, "%u ",
                                   *(mChannels + i));
             }
             ALOGV("%s: Num Channels %d: List of valid channels are: %s",
@@ -1526,7 +1478,6 @@ int GScanCommand::handleResponse(WifiEvent &reply) {
         {
             wifi_request_id id;
             u32 numResults = 0;
-            u32 startingIndex;
             int firstScanIdInPatch = -1;
 
             if (!tbVendor[
@@ -2093,7 +2044,6 @@ wifi_error wifi_set_epno_list(wifi_request_id id,
     struct nlattr *nlData, *nlPnoParamList;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    bool previousGScanSetEpnoListRunning = false;
     hal_info *info = getHalInfo(wifiHandle);
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanSetPnoListCmdEventHandler;
@@ -2347,12 +2297,11 @@ wifi_error wifi_set_passpoint_list(wifi_request_id id,
                                    wifi_passpoint_network *networks,
                                    wifi_passpoint_event_handler handler)
 {
-    int i, numAp, ret = 0;
+    int i, ret = 0;
     GScanCommand *gScanCommand;
     struct nlattr *nlData, *nlPasspointNetworksParamList;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    bool previousGScanPnoSetPasspointListRunning = false;
     hal_info *info = getHalInfo(wifiHandle);
     gscan_event_handlers* event_handlers;
     GScanCommandEventHandler *gScanPnoSetPasspointListCmdEventHandler;
@@ -2602,8 +2551,6 @@ cleanup:
 int GScanCommand::allocCachedResultsTemp(int max,
                                      wifi_cached_scan_results *cached_results)
 {
-    wifi_cached_scan_results *tempCachedResults = NULL;
-
     /* Alloc memory for "max" number of cached results. */
     mGetCachedResultsRspParams->cached_results =
         (wifi_cached_scan_results*)
@@ -2664,9 +2611,6 @@ int GScanCommand::allocRspParams(eGScanRspRarams cmd)
 
 void GScanCommand::freeRspParams(eGScanRspRarams cmd)
 {
-    u32 i = 0;
-    wifi_cached_scan_results *cached_results = NULL;
-
     switch(cmd)
     {
         case eGScanGetCapabilitiesRspParams:

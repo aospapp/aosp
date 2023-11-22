@@ -102,7 +102,7 @@ public class HttpFacade extends RpcReceiver {
 
     @Rpc(description = "Start waiting for a connection request on a specified port.",
             returns = "The index of the connection.")
-    public Integer httpAcceptConnection(Integer port) throws IOException {
+    public Integer httpAcceptConnection(@RpcParameter(name = "port") Integer port) throws IOException {
         mServerSocket = new ServerSocket(port);
         if (mServerTimeout > 0) {
             mServerSocket.setSoTimeout(mServerTimeout);
@@ -114,7 +114,7 @@ public class HttpFacade extends RpcReceiver {
     }
 
     @Rpc(description = "Download a file from specified url.")
-    public void httpDownloadFile(String url) throws IOException {
+    public void httpDownloadFile(@RpcParameter(name = "url") String url) throws IOException {
         HttpURLConnection urlConnection = httpRequest(url);
         String filename = null;
         String contentDisposition = urlConnection.getHeaderField("Content-Disposition");

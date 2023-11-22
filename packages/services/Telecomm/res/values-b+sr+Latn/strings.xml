@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Nedostaje broj za govornu poštu"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Nije uskladišten nijedan broj govorne pošte na SIM kartici."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Dodaj broj"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Promeniti podrazumevanu aplikaciju Telefon?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Želite li da koristite aplikaciju <xliff:g id="NEW_APP">%1$s</xliff:g> umesto aplikacije <xliff:g id="CURRENT_APP">%2$s</xliff:g> kao podrazumevanu aplikaciju za pozivanje telefonskih brojeva?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Želite li da koristite aplikaciju <xliff:g id="NEW_APP">%s</xliff:g> kao podrazumevanu aplikaciju za pozivanje telefonskih brojeva?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Želite li da <xliff:g id="NEW_APP">%s</xliff:g> postane podrazumevana aplikacija Telefon?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Postavi kao podrazumevano"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Otkaži"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> će moći da upućuje pozive i kontroliše sve njihove aspekte. Aplikaciju podesite kao podrazumevanu za telefoniranje samo ako je smatrate pouzdanom."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Blokirani brojevi"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Nećete primati pozive ni SMS-ove sa blokiranih brojeva."</string>
     <string name="block_number" msgid="1101252256321306179">"Dodaj broj"</string>

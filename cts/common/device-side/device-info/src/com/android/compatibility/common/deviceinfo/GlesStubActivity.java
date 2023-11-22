@@ -29,10 +29,13 @@ import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
 import android.util.Log;
 
+import java.lang.reflect.Field;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -49,6 +52,8 @@ public final class GlesStubActivity extends Activity {
     private CountDownLatch mDone = new CountDownLatch(1);
     private HashSet<String> mOpenGlExtensions = new HashSet<String>();
     private HashSet<String> mFormats = new HashSet<String>();
+    private HashMap<String, Object> mImplVariables = new HashMap<String, Object>();
+    private HashSet<String> mDynamicArrayVariables = new HashSet<String>();
     private String mGraphicsVendor;
     private String mGraphicsRenderer;
 
@@ -145,6 +150,25 @@ public final class GlesStubActivity extends Activity {
         mGraphicsRenderer = renderer;
     }
 
+    public Set<String> getImplementationVariableNames() {
+        return mImplVariables.keySet();
+    }
+
+    public Object getImplementationVariable(String name) {
+        return mImplVariables.get(name);
+    }
+
+    public boolean isDynamicArrayVariable(String name) {
+        return mDynamicArrayVariables.contains(name);
+    }
+
+    void addImplementationVariable(String name, Object value, boolean isDynamicArray) {
+        mImplVariables.put(name, value);
+        if (isDynamicArray) {
+            mDynamicArrayVariables.add(name);
+        }
+    }
+
     static class GlesSurfaceView extends GLSurfaceView {
 
         public GlesSurfaceView(GlesStubActivity parent, int glVersion, CountDownLatch done) {
@@ -157,6 +181,200 @@ public final class GlesStubActivity extends Activity {
             setRenderer(new OpenGlesRenderer(parent, glVersion, done));
         }
     }
+
+    static abstract class ImplementationVariable {
+        private Field mField;
+        public ImplementationVariable(String fieldName) {
+            try {
+                mField = GLES30.class.getField(fieldName);
+            } catch (NoSuchFieldException e) {
+                Log.e(LOG_TAG, "Failed to get field reflection", e);
+            }
+        }
+
+        public String getName() {
+            return mField.getName();
+        }
+
+        public int getFieldIdValue() throws IllegalAccessException {
+            return mField.getInt(null);
+        }
+
+        abstract public Object getValue();
+
+        static protected int[] getIntValues(int fieldId, int count) throws IllegalAccessException{
+            int[] resultInts = new int[count];
+            GLES20.glGetIntegerv(fieldId, resultInts, 0);
+            return resultInts;
+        }
+    }
+
+    static class IntVectorValue extends ImplementationVariable {
+        private int mCount;
+
+        public IntVectorValue(String fieldName, int count) {
+            super(fieldName);
+            mCount = count;
+        }
+
+        @Override
+        public Object getValue() {
+            Log.i(LOG_TAG, "Getting : " + this.getName() + " " + mCount);
+            try {
+                return getIntValues(this.getFieldIdValue(), mCount);
+            } catch (IllegalAccessException e) {
+                Log.e(LOG_TAG, "Failed to read the GL field", e);
+            }
+            return null;
+        }
+    }
+
+    static class DynamicIntVectorValue extends ImplementationVariable {
+        private Field mCountField;
+
+        public DynamicIntVectorValue(String fieldName, String countFieldName) {
+            super(fieldName);
+            try {
+                mCountField = GLES30.class.getField(countFieldName);
+            } catch (NoSuchFieldException e) {
+                Log.e(LOG_TAG, "Failed to get field reflection", e);
+            }
+        }
+
+        @Override
+        public Object getValue() {
+            Log.i(LOG_TAG, "Getting : " + this.getName() + " " + mCountField.getName());
+            try {
+                int[] count = new int[] {0};
+                GLES20.glGetIntegerv(mCountField.getInt(null), count, 0);
+                Log.i(LOG_TAG, "Getting : " + mCountField.getName() + " " + count[0]);
+                return getIntValues(this.getFieldIdValue(), count[0]);
+            } catch (IllegalAccessException e) {
+                Log.e(LOG_TAG, "Failed to read the GL field", e);
+            }
+            return null;
+        }
+    }
+
+    static class FloatVectorValue extends ImplementationVariable {
+        private int mCount;
+
+        public FloatVectorValue(String fieldName, int count) {
+            super(fieldName);
+            mCount = count;
+        }
+
+        @Override
+        public Object getValue() {
+            Log.i(LOG_TAG, "Getting : " + this.getName() + " " + mCount);
+            try {
+                float[] result = new float[mCount];
+                GLES20.glGetFloatv(getFieldIdValue(), result, 0);
+                return result;
+            } catch (IllegalAccessException e) {
+                Log.e(LOG_TAG, "Failed to read the GL field", e);
+            }
+            return null;
+        }
+    }
+
+    static class LongVectorValue extends ImplementationVariable {
+        private int mCount;
+
+        public LongVectorValue(String fieldName, int count) {
+            super(fieldName);
+            mCount = count;
+        }
+
+        @Override
+        public Object getValue() {
+            Log.i(LOG_TAG, "Getting : " + this.getName() + " " + mCount);
+            try {
+                long result[] = new long[mCount];
+                GLES30.glGetInteger64v(getFieldIdValue(), result, 0);
+                return result;
+            } catch (IllegalAccessException e) {
+                Log.e(LOG_TAG, "Failed to read the GL field", e);
+            }
+            return null;
+        }
+    }
+
+    static class StringValue extends ImplementationVariable {
+        public StringValue(String fieldName) {
+            super(fieldName);
+        }
+
+        @Override
+        public Object getValue() {
+            Log.i(LOG_TAG, "Getting : " + this.getName());
+            String result = null;
+            try {
+                result = GLES20.glGetString(this.getFieldIdValue());
+            } catch (IllegalAccessException e) {
+                Log.e(LOG_TAG, "Failed to read the GL field", e);
+            }
+            return result;
+        }
+    }
+
+	// NOTE: Changes to the types of the variables will carry over to
+    // GraphicsDeviceInfo proto via GraphicsDeviceInfo. See
+    // go/edi-userguide for details.
+    static ImplementationVariable[] GLES2_IMPLEMENTATION_VARIABLES = {
+        new IntVectorValue("GL_SUBPIXEL_BITS", 1),
+        new IntVectorValue("GL_MAX_TEXTURE_SIZE", 1),
+        new IntVectorValue("GL_MAX_CUBE_MAP_TEXTURE_SIZE", 1),
+        new IntVectorValue("GL_MAX_VIEWPORT_DIMS", 2),
+        new FloatVectorValue("GL_ALIASED_POINT_SIZE_RANGE", 2),
+        new FloatVectorValue("GL_ALIASED_LINE_WIDTH_RANGE", 2),
+        new DynamicIntVectorValue("GL_COMPRESSED_TEXTURE_FORMATS", "GL_NUM_COMPRESSED_TEXTURE_FORMATS"),
+        new DynamicIntVectorValue("GL_SHADER_BINARY_FORMATS", "GL_NUM_SHADER_BINARY_FORMATS"),
+        new IntVectorValue("GL_SHADER_COMPILER", 1),
+        new StringValue("GL_SHADING_LANGUAGE_VERSION"),
+        new StringValue("GL_VERSION"),
+        new IntVectorValue("GL_MAX_VERTEX_ATTRIBS", 1),
+        new IntVectorValue("GL_MAX_VERTEX_UNIFORM_VECTORS", 1),
+        new IntVectorValue("GL_MAX_VARYING_VECTORS", 1),
+        new IntVectorValue("GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS", 1),
+        new IntVectorValue("GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS", 1),
+        new IntVectorValue("GL_MAX_TEXTURE_IMAGE_UNITS", 1),
+        new IntVectorValue("GL_MAX_FRAGMENT_UNIFORM_VECTORS", 1),
+        new IntVectorValue("GL_MAX_RENDERBUFFER_SIZE", 1)
+    };
+
+    static ImplementationVariable[] GLES3_IMPLEMENTATION_VARIABLES = {
+        new LongVectorValue("GL_MAX_ELEMENT_INDEX", 1),
+        new IntVectorValue("GL_MAX_3D_TEXTURE_SIZE", 1),
+        new IntVectorValue("GL_MAX_ARRAY_TEXTURE_LAYERS", 1),
+        new FloatVectorValue("GL_MAX_TEXTURE_LOD_BIAS", 1),
+        new IntVectorValue("GL_MAX_DRAW_BUFFERS", 1),
+        new IntVectorValue("GL_MAX_COLOR_ATTACHMENTS", 1),
+        new IntVectorValue("GL_MAX_ELEMENTS_INDICES", 1),
+        new IntVectorValue("GL_MAX_ELEMENTS_VERTICES", 1),
+        new DynamicIntVectorValue("GL_PROGRAM_BINARY_FORMATS", "GL_NUM_PROGRAM_BINARY_FORMATS"),
+        new LongVectorValue("GL_MAX_SERVER_WAIT_TIMEOUT", 1),
+        new IntVectorValue("GL_MAJOR_VERSION", 1),
+        new IntVectorValue("GL_MINOR_VERSION", 1),
+        new IntVectorValue("GL_MAX_VERTEX_UNIFORM_COMPONENTS", 1),
+        new IntVectorValue("GL_MAX_VERTEX_UNIFORM_BLOCKS", 1),
+        new IntVectorValue("GL_MAX_VERTEX_OUTPUT_COMPONENTS", 1),
+        new IntVectorValue("GL_MAX_FRAGMENT_UNIFORM_COMPONENTS", 1),
+        new IntVectorValue("GL_MAX_FRAGMENT_UNIFORM_BLOCKS", 1),
+        new IntVectorValue("GL_MAX_FRAGMENT_INPUT_COMPONENTS", 1),
+        new IntVectorValue("GL_MIN_PROGRAM_TEXEL_OFFSET", 1),
+        new IntVectorValue("GL_MAX_PROGRAM_TEXEL_OFFSET", 1),
+        new IntVectorValue("GL_MAX_UNIFORM_BUFFER_BINDINGS", 1),
+        new LongVectorValue("GL_MAX_UNIFORM_BLOCK_SIZE", 1),
+        new IntVectorValue("GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT", 1),
+        new IntVectorValue("GL_MAX_COMBINED_UNIFORM_BLOCKS", 1),
+        new LongVectorValue("GL_MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS", 1),
+        new LongVectorValue("GL_MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS", 1),
+        new IntVectorValue("GL_MAX_VARYING_COMPONENTS", 1),
+        new IntVectorValue("GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS", 1),
+        new IntVectorValue("GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS", 1),
+        new IntVectorValue("GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS", 1)
+    };
 
     static class OpenGlesRenderer implements GLSurfaceView.Renderer {
 
@@ -179,10 +397,12 @@ public final class GlesStubActivity extends Activity {
                 extensions = GLES20.glGetString(GLES20.GL_EXTENSIONS);
                 vendor = GLES20.glGetString(GLES20.GL_VENDOR);
                 renderer = GLES20.glGetString(GLES20.GL_RENDERER);
+                collectImplementationVariables(GLES2_IMPLEMENTATION_VARIABLES);
             } else if (mGlVersion == 3) {
                 extensions = GLES30.glGetString(GLES30.GL_EXTENSIONS);
                 vendor = GLES30.glGetString(GLES30.GL_VENDOR);
                 renderer = GLES30.glGetString(GLES30.GL_RENDERER);
+                collectImplementationVariables(GLES3_IMPLEMENTATION_VARIABLES);
             } else {
                 extensions = gl.glGetString(GL10.GL_EXTENSIONS);
                 vendor = gl.glGetString(GL10.GL_VENDOR);
@@ -202,6 +422,7 @@ public final class GlesStubActivity extends Activity {
                 }
             }
             scanner.close();
+
             mDone.countDown();
         }
 
@@ -210,5 +431,14 @@ public final class GlesStubActivity extends Activity {
 
         @Override
         public void onDrawFrame(GL10 gl) {}
+
+        private void collectImplementationVariables(ImplementationVariable[] variables) {
+            for (int i = 0; i < variables.length; i++) {
+                String name = variables[i].getName();
+                Object value = variables[i].getValue();
+                boolean dynamicArray = variables[i] instanceof DynamicIntVectorValue;
+                mParent.addImplementationVariable(name, value, dynamicArray);
+            }
+        }
     }
 }

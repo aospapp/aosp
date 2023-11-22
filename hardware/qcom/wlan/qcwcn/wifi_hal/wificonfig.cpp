@@ -44,7 +44,6 @@ wifi_error wifi_extended_dtim_config_set(wifi_request_id id,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    hal_info *info = getHalInfo(wifiHandle);
 
     ALOGV("%s: extended_dtim:%d", __FUNCTION__, extended_dtim);
 
@@ -110,10 +109,7 @@ wifi_error wifi_set_country_code(wifi_interface_handle iface,
 {
     int requestId, ret = 0;
     WiFiConfigCommand *wifiConfigCommand;
-    struct nlattr *nlData;
-    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    hal_info *info = getHalInfo(wifiHandle);
 
     ALOGV("%s: %s", __FUNCTION__, country_code);
 
@@ -168,7 +164,6 @@ wifi_error wifi_set_beacon_wifi_iface_stats_averaging_factor(
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    hal_info *info = getHalInfo(wifiHandle);
 
     ALOGV("%s factor:%u", __FUNCTION__, factor);
     wifiConfigCommand = new WiFiConfigCommand(
@@ -236,7 +231,6 @@ wifi_error wifi_set_guard_time(wifi_request_id id,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    hal_info *info = getHalInfo(wifiHandle);
 
     ALOGV("%s : guard_time:%u", __FUNCTION__, guard_time);
 

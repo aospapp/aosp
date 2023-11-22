@@ -53,7 +53,7 @@ bool SoftVsyncObserver::initialize()
 
     mExitThread = false;
     mEnabled = false;
-    mRefreshRate = 60;
+    mRefreshRate = 60/mDisplayDevice.getFpsDivider();
     mDevice = mDisplayDevice.getType();
     mThread = new VsyncEventPollThread(this);
     if (!mThread.get()) {
@@ -122,7 +122,7 @@ bool SoftVsyncObserver::threadLoop()
     }
 
 
-    const nsecs_t period = mRefreshPeriod;
+    const nsecs_t period = mRefreshPeriod * mDisplayDevice.getFpsDivider();
     const nsecs_t now = systemTime(CLOCK_MONOTONIC);
     nsecs_t next_vsync = mNextFakeVSync;
     nsecs_t sleep = next_vsync - now;

@@ -22,6 +22,7 @@
 #include "mat.h"
 #include "quat.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -51,6 +52,9 @@ struct Fusion {
     uint32_t mCount[3];
     uint32_t flags;
 
+    float trustedMagDuration;
+    bool    lastMagInvalid;
+
     float  fake_mag_decimation;
     struct FusionParam param;
 };
@@ -61,16 +65,27 @@ enum FusionFlagBits {
     FUSION_REINITIALIZE = 1 << 2,
 };
 
+enum MagTrustMode {
+    NORMAL,
+    INITIALIZATION,  // right after initialization of fusion
+    BACK_TO_VALID,   // when the mag value goes from invalid to valid
+    MANUAL_MAG_CAL   // right after a manual calibration
+};
+
 void initFusion(struct Fusion *fusion, uint32_t flags);
 
 void fusionHandleGyro(struct Fusion *fusion, const struct Vec3 *w, float dT);
 int fusionHandleAcc(struct Fusion *fusion, const struct Vec3 *a, float dT);
-int fusionHandleMag(struct Fusion *fusion, const struct Vec3 *m);
+int fusionHandleMag(struct Fusion *fusion, const struct Vec3 *m, float dT);
+
+// set trust mode of mag sensors depending on scenarios, see MagTrustMode
+void fusionSetMagTrust(struct Fusion *fusion, int mode);
 
 void fusionGetAttitude(const struct Fusion *fusion, struct Vec4 *attitude);
 void fusionGetBias(const struct Fusion *fusion, struct Vec3 *bias);
 void fusionGetRotationMatrix(const struct Fusion *fusion, struct Mat33 *R);
 int fusionHasEstimate(const struct Fusion *fusion);
+
 
 #ifdef __cplusplus
 }

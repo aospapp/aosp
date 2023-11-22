@@ -18,7 +18,10 @@ package com.android.cts.apicoverage;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
 
 /** Representation of a method in the API with parameters (arguments) and a return value. */
 class ApiMethod implements Comparable<ApiMethod> {
@@ -39,7 +42,8 @@ class ApiMethod implements Comparable<ApiMethod> {
 
     private final boolean mAbstractMethod;
 
-    private boolean mIsCovered;
+    // A list of test APKs (aka CTS modules) that use this method.
+    private final Set<String> mCoveredWith = new HashSet<>();
 
     ApiMethod(
             String name,
@@ -82,7 +86,7 @@ class ApiMethod implements Comparable<ApiMethod> {
     }
 
     public boolean isCovered() {
-        return mIsCovered;
+        return !mCoveredWith.isEmpty();
     }
 
     public String getVisibility() { return mVisibility; }
@@ -93,7 +97,13 @@ class ApiMethod implements Comparable<ApiMethod> {
 
     public boolean isFinalMethod() { return mFinalMethod; }
 
-    public void setCovered(boolean covered) {
-        mIsCovered = covered;
+    public Set<String> getCoveredWith() { return mCoveredWith; }
+
+    public void setCovered(String coveredWithModule) {
+        if (coveredWithModule.endsWith(".apk")) {
+            coveredWithModule = coveredWithModule.substring(0, coveredWithModule.length() - 4);
+        }
+
+        mCoveredWith.add(coveredWithModule);
     }
 }

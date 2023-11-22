@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Falta el número de la bústia de veu"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"No hi ha cap número de bústia de veu emmagatzemat a la targeta SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Afegeix número"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Vols canviar l\'aplicació de marcador predeterminada?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Vols fer servir <xliff:g id="NEW_APP">%1$s</xliff:g> en lloc de <xliff:g id="CURRENT_APP">%2$s</xliff:g> com a aplicació de marcador predeterminada?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Vols fer servir <xliff:g id="NEW_APP">%s</xliff:g> com a aplicació de marcador predeterminada?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Vols que <xliff:g id="NEW_APP">%s</xliff:g> sigui l\'aplicació per a mòbils predetermin.?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Defineix com a predeterminat"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Cancel·la"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> podrà fer les teves trucades i controlar-ne tots els aspectes. Només les aplicacions de confiança s\'han de definir com a l\'aplicació per a mòbils predeterminada."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Números bloquejats"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"No rebràs trucades ni missatges de text dels números bloquejats."</string>
     <string name="block_number" msgid="1101252256321306179">"Afegeix un número"</string>

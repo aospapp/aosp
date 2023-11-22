@@ -28,14 +28,21 @@
 #include <brillo/strings/string_utils.h>
 
 #include "update_engine/common/constants.h"
-#include "update_engine/common/libcurl_http_fetcher.h"
+#include "update_engine/common/file_fetcher.h"
 #include "update_engine/common/multi_range_http_fetcher.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/daemon_state_android.h"
+#include "update_engine/daemon_state_interface.h"
+#include "update_engine/network_selector.h"
 #include "update_engine/payload_consumer/download_action.h"
 #include "update_engine/payload_consumer/filesystem_verifier_action.h"
 #include "update_engine/payload_consumer/postinstall_runner_action.h"
 #include "update_engine/update_status_utils.h"
+
+#ifndef _UE_SIDELOAD
+// Do not include support for external HTTP(s) urls when building
+// update_engine_sideload.
+#include "update_engine/libcurl_http_fetcher.h"
+#endif
 
 using base::Bind;
 using base::TimeDelta;
@@ -70,7 +77,7 @@ bool LogAndSetError(brillo::ErrorPtr* error,
 }  // namespace
 
 UpdateAttempterAndroid::UpdateAttempterAndroid(
-    DaemonStateAndroid* daemon_state,
+    DaemonStateInterface* daemon_state,
     PrefsInterface* prefs,
     BootControlInterface* boot_control,
     HardwareInterface* hardware)
@@ -79,6 +86,7 @@ UpdateAttempterAndroid::UpdateAttempterAndroid(
       boot_control_(boot_control),
       hardware_(hardware),
       processor_(new ActionProcessor()) {
+  network_selector_ = network::CreateNetworkSelector();
 }
 
 UpdateAttempterAndroid::~UpdateAttempterAndroid() {
@@ -168,12 +176,30 @@ bool UpdateAttempterAndroid::ApplyPayload(
 
   install_plan_.source_slot = boot_control_->GetCurrentSlot();
   install_plan_.target_slot = install_plan_.source_slot == 0 ? 1 : 0;
-  install_plan_.powerwash_required = false;
+
+  int data_wipe = 0;
+  install_plan_.powerwash_required =
+      base::StringToInt(headers[kPayloadPropertyPowerwash], &data_wipe) &&
+      data_wipe != 0;
+
+  NetworkId network_id = kDefaultNetworkId;
+  if (!headers[kPayloadPropertyNetworkId].empty()) {
+    if (!base::StringToUint64(headers[kPayloadPropertyNetworkId],
+                              &network_id)) {
+      return LogAndSetError(
+          error,
+          FROM_HERE,
+          "Invalid network_id: " + headers[kPayloadPropertyNetworkId]);
+    }
+    if (!network_selector_->SetProcessNetwork(network_id)) {
+      LOG(WARNING) << "Unable to set network_id, continuing with the update.";
+    }
+  }
 
   LOG(INFO) << "Using this install plan:";
   install_plan_.Dump();
 
-  BuildUpdateActions();
+  BuildUpdateActions(payload_url);
   SetupDownload();
   // Setup extra headers.
   HttpFetcher* fetcher = download_action_->http_fetcher();
@@ -255,13 +281,30 @@ void UpdateAttempterAndroid::ProcessingDone(const ActionProcessor* processor,
                                             ErrorCode code) {
   LOG(INFO) << "Processing Done.";
 
-  if (code == ErrorCode::kSuccess) {
-    // Update succeeded.
-    WriteUpdateCompletedMarker();
-    prefs_->SetInt64(kPrefsDeltaUpdateFailures, 0);
-    DeltaPerformer::ResetUpdateProgress(prefs_, false);
+  switch (code) {
+    case ErrorCode::kSuccess:
+      // Update succeeded.
+      WriteUpdateCompletedMarker();
+      prefs_->SetInt64(kPrefsDeltaUpdateFailures, 0);
+      DeltaPerformer::ResetUpdateProgress(prefs_, false);
 
-    LOG(INFO) << "Update successfully applied, waiting to reboot.";
+      LOG(INFO) << "Update successfully applied, waiting to reboot.";
+      break;
+
+    case ErrorCode::kFilesystemCopierError:
+    case ErrorCode::kNewRootfsVerificationError:
+    case ErrorCode::kNewKernelVerificationError:
+    case ErrorCode::kFilesystemVerifierError:
+    case ErrorCode::kDownloadStateInitializationError:
+      // Reset the ongoing update for these errors so it starts from the
+      // beginning next time.
+      DeltaPerformer::ResetUpdateProgress(prefs_, false);
+      LOG(INFO) << "Resetting update progress.";
+      break;
+
+    default:
+      // Ignore all other error codes.
+      break;
   }
 
   TerminateUpdateAndNotify(code);
@@ -382,7 +425,7 @@ void UpdateAttempterAndroid::SetStatusAndNotify(UpdateStatus status) {
   last_notify_time_ = TimeTicks::Now();
 }
 
-void UpdateAttempterAndroid::BuildUpdateActions() {
+void UpdateAttempterAndroid::BuildUpdateActions(const string& url) {
   CHECK(!processor_->IsRunning());
   processor_->set_delegate(this);
 
@@ -390,9 +433,20 @@ void UpdateAttempterAndroid::BuildUpdateActions() {
   shared_ptr<InstallPlanAction> install_plan_action(
       new InstallPlanAction(install_plan_));
 
-  LibcurlHttpFetcher* download_fetcher =
-      new LibcurlHttpFetcher(&proxy_resolver_, hardware_);
-  download_fetcher->set_server_to_check(ServerToCheck::kDownload);
+  HttpFetcher* download_fetcher = nullptr;
+  if (FileFetcher::SupportedUrl(url)) {
+    DLOG(INFO) << "Using FileFetcher for file URL.";
+    download_fetcher = new FileFetcher();
+  } else {
+#ifdef _UE_SIDELOAD
+    LOG(FATAL) << "Unsupported sideload URI: " << url;
+#else
+    LibcurlHttpFetcher* libcurl_fetcher =
+        new LibcurlHttpFetcher(&proxy_resolver_, hardware_);
+    libcurl_fetcher->set_server_to_check(ServerToCheck::kDownload);
+    download_fetcher = libcurl_fetcher;
+#endif  // _UE_SIDELOAD
+  }
   shared_ptr<DownloadAction> download_action(new DownloadAction(
       prefs_,
       boot_control_,
@@ -404,10 +458,11 @@ void UpdateAttempterAndroid::BuildUpdateActions() {
                                    VerifierMode::kVerifyTargetHash));
 
   shared_ptr<PostinstallRunnerAction> postinstall_runner_action(
-      new PostinstallRunnerAction(boot_control_));
+      new PostinstallRunnerAction(boot_control_, hardware_));
 
   download_action->set_delegate(this);
   download_action_ = download_action;
+  postinstall_runner_action->set_delegate(this);
 
   actions_.push_back(shared_ptr<AbstractAction>(install_plan_action));
   actions_.push_back(shared_ptr<AbstractAction>(download_action));

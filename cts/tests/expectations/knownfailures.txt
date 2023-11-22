@@ -151,13 +151,6 @@
   bug: 17530117
 },
 {
-  description: "Current implementation of uninstallAllUserCaCerts does not throw expected security exception, wait for fix from framework",
-  names: [
-    "android.admin.cts.DevicePolicyManagerTest#testUninstallAllUserCaCerts_failIfNotProfileOwner"
-  ],
-  bug: 17508787
-},
-{
   description: "Test is not yet properly implemented",
   names: [
     "android.voicesettings.cts.ZenModeTest#testAll"

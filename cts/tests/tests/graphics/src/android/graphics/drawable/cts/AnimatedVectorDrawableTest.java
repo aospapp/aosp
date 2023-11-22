@@ -147,24 +147,25 @@ public class AnimatedVectorDrawableTest extends ActivityInstrumentationTestCase2
         mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                mActivity.setContentView(mLayoutId);
+                ImageView imageView = (ImageView) mActivity.findViewById(mImageViewId);
+                imageView.setImageDrawable(d1);
                 d1.start();
                 d1.stop();
-
+                d1.setBounds(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+                mBitmap.eraseColor(0);
+                d1.draw(mCanvas);
             }
         });
+
         getInstrumentation().waitForIdleSync();
-
-        d1.setBounds(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
-        mBitmap.eraseColor(0);
-        d1.draw(mCanvas);
-
         int endColor = mBitmap.getPixel(IMAGE_WIDTH / 2, IMAGE_HEIGHT / 2);
-
-        assertEquals("Center point's color must be green", 0xFF00FF00, endColor);
 
         if (DBG_DUMP_PNG) {
             saveVectorDrawableIntoPNG(mBitmap, resId);
         }
+
+        assertEquals("Center point's color must be green", 0xFF00FF00, endColor);
     }
 
     @SmallTest

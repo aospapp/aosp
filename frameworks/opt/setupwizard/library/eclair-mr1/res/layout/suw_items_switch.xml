@@ -45,7 +45,7 @@
         android:layout_weight="1"
         android:orientation="vertical">
 
-        <TextView
+        <com.android.setupwizardlib.view.RichTextView
             android:id="@+id/suw_items_title"
             style="@style/SuwItemTitle.Verbose"
             android:layout_width="match_parent"
@@ -54,7 +54,7 @@
             android:textAlignment="viewStart"
             tools:ignore="UnusedAttribute" />
 
-        <TextView
+        <com.android.setupwizardlib.view.RichTextView
             android:id="@+id/suw_items_summary"
             style="@style/SuwItemSummary"
             android:layout_width="match_parent"

@@ -97,6 +97,7 @@ QCameraPostProcessor::QCameraPostProcessor(QCamera2HardwareInterface *cam_ctrl)
     memset(mPPChannels, 0, sizeof(mPPChannels));
     m_DataMem = NULL;
     mOfflineDataBufs = NULL;
+    pthread_mutex_init(&m_reprocess_lock,NULL);
 }
 
 /*===========================================================================
@@ -124,6 +125,7 @@ QCameraPostProcessor::~QCameraPostProcessor()
         }
     }
     mPPChannelCount = 0;
+    pthread_mutex_destroy(&m_reprocess_lock);
 }
 
 /*===========================================================================
@@ -1435,9 +1437,11 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
         }
 
         // free pp job buf
+        pthread_mutex_lock(&m_reprocess_lock);
         if (job) {
             free(job);
         }
+        pthread_mutex_unlock(&m_reprocess_lock);
     }
 
     LOGD("");
@@ -2455,6 +2459,12 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
                     jpg_job.encode_job.cam_exif_params.debug_params->asd_debug_params_valid;
             jpg_job.encode_job.p_metadata->is_statsdebug_stats_params_valid =
                     jpg_job.encode_job.cam_exif_params.debug_params->stats_debug_params_valid;
+            jpg_job.encode_job.p_metadata->is_statsdebug_bestats_params_valid =
+                    jpg_job.encode_job.cam_exif_params.debug_params->bestats_debug_params_valid;
+            jpg_job.encode_job.p_metadata->is_statsdebug_bhist_params_valid =
+                    jpg_job.encode_job.cam_exif_params.debug_params->bhist_debug_params_valid;
+            jpg_job.encode_job.p_metadata->is_statsdebug_3a_tuning_params_valid =
+                    jpg_job.encode_job.cam_exif_params.debug_params->q3a_tuning_debug_params_valid;
 
             if (jpg_job.encode_job.cam_exif_params.debug_params->ae_debug_params_valid) {
                 jpg_job.encode_job.p_metadata->statsdebug_ae_data =
@@ -2475,6 +2485,18 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
             if (jpg_job.encode_job.cam_exif_params.debug_params->stats_debug_params_valid) {
                 jpg_job.encode_job.p_metadata->statsdebug_stats_buffer_data =
                         jpg_job.encode_job.cam_exif_params.debug_params->stats_debug_params;
+            }
+            if (jpg_job.encode_job.cam_exif_params.debug_params->bestats_debug_params_valid) {
+                jpg_job.encode_job.p_metadata->statsdebug_bestats_buffer_data =
+                        jpg_job.encode_job.cam_exif_params.debug_params->bestats_debug_params;
+            }
+            if (jpg_job.encode_job.cam_exif_params.debug_params->bhist_debug_params_valid) {
+                jpg_job.encode_job.p_metadata->statsdebug_bhist_data =
+                        jpg_job.encode_job.cam_exif_params.debug_params->bhist_debug_params;
+            }
+            if (jpg_job.encode_job.cam_exif_params.debug_params->q3a_tuning_debug_params_valid) {
+                jpg_job.encode_job.p_metadata->statsdebug_3a_tuning_data =
+                        jpg_job.encode_job.cam_exif_params.debug_params->q3a_tuning_debug_params;
             }
         }
 
@@ -3108,9 +3130,11 @@ int32_t QCameraPostProcessor::doReprocess()
         if ((m_parent->isRegularCapture()) || (ppreq_job->offline_buffer)) {
             m_bufCountPPQ++;
             if (m_ongoingPPQ.enqueue((void *)ppreq_job)) {
+                pthread_mutex_lock(&m_reprocess_lock);
                 ret = mPPChannels[mCurChannelIdx]->doReprocessOffline(ppInputFrame,
                         meta_buf, m_parent->mParameters);
                 if (ret != NO_ERROR) {
+                    pthread_mutex_unlock(&m_reprocess_lock);
                     goto end;
                 }
 
@@ -3119,6 +3143,7 @@ int32_t QCameraPostProcessor::doReprocess()
                     mPPChannels[mCurChannelIdx]->doReprocessOffline(
                             ppreq_job->offline_reproc_buf, meta_buf);
                 }
+                pthread_mutex_unlock(&m_reprocess_lock);
             } else {
                 LOGW("m_ongoingPPQ is not active!!!");
                 ret = UNKNOWN_ERROR;

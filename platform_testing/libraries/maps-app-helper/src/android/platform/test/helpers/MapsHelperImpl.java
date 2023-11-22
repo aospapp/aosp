@@ -17,7 +17,6 @@
 package android.platform.test.helpers;
 
 import android.app.Instrumentation;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.SystemClock;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
@@ -35,16 +34,17 @@ public class MapsHelperImpl extends AbstractMapsHelper {
 
     private static final String UI_CLOSE_NAVIGATION_DESC = "Close navigation";
     private static final String UI_DIRECTIONS_BUTTON_ID = "placepage_directions_button";
-    private static String UI_PACKAGE;
     private static final String UI_START_NAVIGATION_BUTTON_ID = "start_button";
     private static final String UI_TEXTVIEW_CLASS = "android.widget.TextView";
     private static final String UI_PROGRESSBAR_CLASS = "android.widget.ProgressBar";
+    private static final String UI_PACKAGE = "com.google.android.apps.maps";
+    private static final String UI_SIDE_MENU_ID = "layers_menu_container";
+    private static final String UI_SELECTABLE_SEARCHBAR_ID = "search_omnibox_text_box";
+    private static final String UI_EDITABLE_SEARCHBAR_ID = "search_omnibox_edit_text";
 
     private static final int UI_RESPONSE_WAIT = 5000;
     private static final int SEARCH_RESPONSE_WAIT = 25000;
     private static final int MAP_SERVER_CONNECT_WAIT = 120000;
-
-    private boolean mIsVersion9p30;
 
     private static final int MAX_CONNECT_TO_SERVER_RETRY = 5;
     private static final int MAX_START_NAV_RETRY = 5;
@@ -52,17 +52,6 @@ public class MapsHelperImpl extends AbstractMapsHelper {
 
     public MapsHelperImpl(Instrumentation instr) {
         super(instr);
-
-        try {
-            mIsVersion9p30 = getVersion().startsWith("9.30.");
-            if (mIsVersion9p30) {
-                UI_PACKAGE = "com.google.android.apps.maps";
-            } else {
-                UI_PACKAGE = "com.google.android.apps.gmm";
-            }
-        } catch (NameNotFoundException e) {
-            Log.e(LOG_TAG, String.format("Unable to find package by name, %s", getPackage()));
-        }
     }
 
     /**
@@ -115,10 +104,8 @@ public class MapsHelperImpl extends AbstractMapsHelper {
             throw new IllegalStateException("Unable to dismiss initial dialogs");
         }
 
-        if (mIsVersion9p30) {
-            exit();
-            open();
-        }
+        exit();
+        open();
 
         // Location services dialog
         text = "YES, I'M IN";
@@ -130,30 +117,6 @@ public class MapsHelperImpl extends AbstractMapsHelper {
             mDevice.waitForIdle();
         } else {
             Log.e(LOG_TAG, "Did not find a location services dialog.");
-        }
-
-        if (!mIsVersion9p30) {
-            // Tap here dialog
-            UiObject2 cling = mDevice.wait(
-                                Until.findObject(By.res(UI_PACKAGE, "tapherehint_textbox")),
-                                UI_RESPONSE_WAIT);
-            if (cling != null) {
-                cling.click();
-                mDevice.waitForIdle();
-            } else {
-                Log.e(LOG_TAG, "Did not find 'tap here' dialog");
-            }
-
-            // Reset map dialog
-            UiObject2 resetView = mDevice.wait(
-                                     Until.findObject(By.res(UI_PACKAGE, "mylocation_button")),
-                                     UI_RESPONSE_WAIT);
-            if (resetView != null) {
-                resetView.click();
-                mDevice.waitForIdle();
-            } else {
-                Log.e(LOG_TAG, "Did not find 'reset map' dialog.");
-            }
         }
 
         // 'Side menu' dialog
@@ -286,6 +249,15 @@ public class MapsHelperImpl extends AbstractMapsHelper {
     }
 
     private void goToQueryScreen() {
+        // First check if side menu is opened, if it is, back out.
+        // Search bar may still be partially visible because side menu
+        // only covers part of screen
+        if (mDevice.wait(Until.hasObject(By.res(UI_PACKAGE, UI_SIDE_MENU_ID)),
+                         UI_RESPONSE_WAIT)) {
+            Log.e(LOG_TAG, "Found side menu, backing out");
+            mDevice.pressBack();
+        }
+
         for (int backup = 5; backup > 0; backup--) {
             if (hasSearchBar(0)) {
                 return;
@@ -297,12 +269,12 @@ public class MapsHelperImpl extends AbstractMapsHelper {
     }
 
     private UiObject2 getSelectableSearchBar(int wait_time) {
-        return mDevice.wait(Until.findObject(By.res(UI_PACKAGE, "search_omnibox_text_box")),
+        return mDevice.wait(Until.findObject(By.res(UI_PACKAGE, UI_SELECTABLE_SEARCHBAR_ID)),
                             wait_time);
     }
 
     private UiObject2 getEditableSearchBar(int wait_time) {
-        return mDevice.wait(Until.findObject(By.res(UI_PACKAGE, "search_omnibox_edit_text")),
+        return mDevice.wait(Until.findObject(By.res(UI_PACKAGE, UI_EDITABLE_SEARCHBAR_ID)),
                             wait_time);
     }
 

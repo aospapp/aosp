@@ -40,8 +40,9 @@ public class SettingsFlingJankTest extends JankTestBase {
     // Settings app resources
     private static final String CLOCK_SETTINGS_PACKAGE =
         "com.google.android.apps.wearable.settings";
+
     private static final String CLOCK_SETTINGS_ACTIVITY =
-        "com.google.android.clockwork.settings.SettingsActivity";
+        "com.google.android.clockwork.settings.MainSettingsActivity";
 
     /*
      * (non-Javadoc)
@@ -70,11 +71,12 @@ public class SettingsFlingJankTest extends JankTestBase {
         expectedFrames = SysAppTestHelper.EXPECTED_FRAMES)
     @GfxMonitor(processName = CLOCK_SETTINGS_PACKAGE)
     public void testSettingsApp() throws TimeoutException {
-          UiObject2 recyclerViewContents = mDevice.wait(Until.findObject(
-              By.res(CLOCK_SETTINGS_PACKAGE,"wheel")), SysAppTestHelper.SHORT_TIMEOUT);
+          UiObject2 listViewContents = mDevice.wait(Until.findObject(
+              By.res("android", "list")),
+              SysAppTestHelper.SHORT_TIMEOUT);
           for (int i = 0; i < 3; i++) {
-              recyclerViewContents.fling(Direction.DOWN, SysAppTestHelper.FLING_SPEED);
-              recyclerViewContents.fling(Direction.UP, SysAppTestHelper.FLING_SPEED);
+              listViewContents.fling(Direction.DOWN, SysAppTestHelper.FLING_SPEED);
+              listViewContents.fling(Direction.UP, SysAppTestHelper.FLING_SPEED);
          }
     }
 

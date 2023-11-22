@@ -16,10 +16,12 @@
 
 package com.android.server.wifi;
 
+import android.content.Context;
 import android.util.Base64;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.R;
 import com.android.server.wifi.util.ByteArrayRingBuffer;
 import com.android.server.wifi.util.StringUtil;
 
@@ -89,13 +91,13 @@ class WifiLogger extends BaseWifiLogger {
     /** minimum buffer size for each of the log levels */
     private static final int MinBufferSizes[] = new int[] { 0, 16384, 16384, 65536 };
 
-    @VisibleForTesting public static final int RING_BUFFER_BYTE_LIMIT_SMALL = 32 * 1024;
-    @VisibleForTesting public static final int RING_BUFFER_BYTE_LIMIT_LARGE = 1024 * 1024;
     @VisibleForTesting public static final String FIRMWARE_DUMP_SECTION_HEADER =
             "FW Memory dump";
     @VisibleForTesting public static final String DRIVER_DUMP_SECTION_HEADER =
             "Driver state dump";
 
+    private final int RING_BUFFER_BYTE_LIMIT_SMALL;
+    private final int RING_BUFFER_BYTE_LIMIT_LARGE;
     private int mLogLevel = VERBOSE_NO_LOG;
     private boolean mIsLoggingEventHandlerRegistered;
     private WifiNative.RingBufferStatus[] mRingBuffers;
@@ -103,15 +105,20 @@ class WifiLogger extends BaseWifiLogger {
     private WifiStateMachine mWifiStateMachine;
     private final WifiNative mWifiNative;
     private final BuildProperties mBuildProperties;
-    private int mMaxRingBufferSizeBytes = RING_BUFFER_BYTE_LIMIT_SMALL;
+    private int mMaxRingBufferSizeBytes;
 
-    public WifiLogger(
-            WifiStateMachine wifiStateMachine, WifiNative wifiNative,
-            BuildProperties buildProperties) {
+    public WifiLogger(Context context, WifiStateMachine wifiStateMachine, WifiNative wifiNative,
+                      BuildProperties buildProperties) {
+        RING_BUFFER_BYTE_LIMIT_SMALL = context.getResources().getInteger(
+                R.integer.config_wifi_logger_ring_buffer_default_size_limit_kb) * 1024;
+        RING_BUFFER_BYTE_LIMIT_LARGE = context.getResources().getInteger(
+                R.integer.config_wifi_logger_ring_buffer_verbose_size_limit_kb) * 1024;
+
         mWifiStateMachine = wifiStateMachine;
         mWifiNative = wifiNative;
         mBuildProperties = buildProperties;
         mIsLoggingEventHandlerRegistered = false;
+        mMaxRingBufferSizeBytes = RING_BUFFER_BYTE_LIMIT_SMALL;
     }
 
     @Override
@@ -224,8 +231,11 @@ class WifiLogger extends BaseWifiLogger {
         }
 
         dumpPacketFates(pw);
-
         pw.println("--------------------------------------------------------------------");
+
+        pw.println("WifiNative - Log Begin ----");
+        mWifiNative.getLocalLog().dump(fd, pw, args);
+        pw.println("WifiNative - Log End ----");
     }
 
     /* private methods and data */
@@ -536,7 +546,7 @@ class WifiLogger extends BaseWifiLogger {
         String result;
         //compress
         Deflater compressor = new Deflater();
-        compressor.setLevel(Deflater.BEST_COMPRESSION);
+        compressor.setLevel(Deflater.BEST_SPEED);
         compressor.setInput(input);
         compressor.finish();
         ByteArrayOutputStream bos = new ByteArrayOutputStream(input.length);

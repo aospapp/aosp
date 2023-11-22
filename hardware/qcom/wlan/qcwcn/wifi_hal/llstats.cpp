@@ -32,7 +32,6 @@ LLStatsCommand* LLStatsCommand::mLLStatsCommandInstance  = NULL;
 // This function implements creation of Vendor command
 // For LLStats just call base Vendor command create
 int LLStatsCommand::create() {
-    int ifindex;
     int ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
     if (ret < 0) {
         return ret;
@@ -110,7 +109,6 @@ static wifi_error get_wifi_interface_info(wifi_interface_link_layer_info *stats,
                                           struct nlattr **tb_vendor)
 {
     u32 len = 0;
-    u8 *data;
 
     if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_IFACE_INFO_MODE])
     {
@@ -686,7 +684,6 @@ static wifi_error get_wifi_radio_stats(wifi_radio_stat *stats,
     struct nlattr *chInfo;
     wifi_channel_stat *pChStats;
     int rem;
-    wifi_error ret = WIFI_SUCCESS;
 
     if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_RADIO_ID])
     {

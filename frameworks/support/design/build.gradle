@@ -7,10 +7,10 @@ dependencies {
     compile project(':support-appcompat-v7')
     compile project(':support-recyclerview-v7')
 
-    androidTestCompile ('com.android.support.test:runner:0.4.1') {
+    androidTestCompile ("com.android.support.test:runner:${project.rootProject.ext.testRunnerVersion}") {
         exclude module: 'support-annotations'
     }
-    androidTestCompile ('com.android.support.test.espresso:espresso-core:2.2.1') {
+    androidTestCompile ("com.android.support.test.espresso:espresso-core:${project.rootProject.ext.espressoVersion}") {
         exclude module: 'support-annotations'
     }
     androidTestCompile 'org.mockito:mockito-core:1.9.5'
@@ -23,7 +23,7 @@ android {
     compileSdkVersion project.ext.currentSdk
 
     defaultConfig {
-        minSdkVersion 7
+        minSdkVersion 9
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         // This disables the builds tools automatic vector -> PNG generation
         generatedDensities = []
@@ -31,7 +31,7 @@ android {
 
     sourceSets {
         main.manifest.srcFile 'AndroidManifest.xml'
-        main.java.srcDirs = ['base', 'eclair-mr1', 'honeycomb', 'honeycomb-mr1', 'ics', 'lollipop', 'src']
+        main.java.srcDirs = ['base', 'gingerbread', 'honeycomb', 'honeycomb-mr1', 'ics', 'lollipop', 'src']
         main.res.srcDirs 'res', 'res-public'
         main.assets.srcDir 'assets'
         main.resources.srcDir 'src'
@@ -40,6 +40,8 @@ android {
         androidTest.java.srcDir 'tests/src'
         androidTest.res.srcDir 'tests/res'
         androidTest.manifest.srcFile 'tests/AndroidManifest.xml'
+
+        test.java.srcDir 'jvm-tests/src'
     }
 
     compileOptions {

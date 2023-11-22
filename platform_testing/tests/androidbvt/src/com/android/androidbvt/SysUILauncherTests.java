@@ -20,8 +20,7 @@ import android.app.WallpaperManager;
 import android.content.Context;
 import android.graphics.Point;
 import android.graphics.drawable.Drawable;
-import android.os.RemoteException;
-import android.provider.Settings;
+import android.platform.test.annotations.HermeticTest;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
@@ -31,22 +30,25 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import android.test.suitebuilder.annotation.LargeTest;
-
+import java.io.IOException;
+import java.util.regex.Pattern;
 import junit.framework.TestCase;
 
-import java.io.IOException;
-import java.util.List;
-
+@HermeticTest
 public class SysUILauncherTests extends TestCase {
     private static final int LONG_TIMEOUT = 5000;
-    private static final String APP_NAME = "Clock";
+    private static final String APP_NAME = "Calendar";
     private static final String PKG_NAME = "com.google.android.deskclock";
     private static final String WIDGET_PREVIEW = "widget_preview";
     private static final String APP_WIDGET_VIEW = "android.appwidget.AppWidgetHostView";
     private static final String WIDGET_TEXT_VIEW = "android.widget.TextView";
+    private static final String WALLPAPER_PKG = "com.google.android.apps.wallpaper";
+    private static final String GOOGLE_SEARCH_PKG = "com.google.android.googlequicksearchbox";
     private UiDevice mDevice = null;
     private Context mContext;
     private ILauncherStrategy mLauncherStrategy = null;
+    private AndroidBvtHelper mABvtHelper = null;
+    private boolean mIsMr1Device = false;
 
     @Override
     public void setUp() throws Exception {
@@ -55,6 +57,8 @@ public class SysUILauncherTests extends TestCase {
         mContext = InstrumentationRegistry.getTargetContext();
         mDevice.setOrientationNatural();
         mLauncherStrategy = LauncherStrategyFactory.getInstance(mDevice).getLauncherStrategy();
+        mABvtHelper = AndroidBvtHelper.getInstance(mDevice, mContext,  InstrumentationRegistry.getInstrumentation().getUiAutomation());
+        mIsMr1Device = mABvtHelper.isMr1Device();
     }
 
     @Override
@@ -107,14 +111,7 @@ public class SysUILauncherTests extends TestCase {
             mDevice.wait(Until.findObject(By.clazz(WIDGET_TEXT_VIEW)
                     .text("WALLPAPERS")), LONG_TIMEOUT).click();
             Thread.sleep(LONG_TIMEOUT);
-            // set second wall paper as current wallpaper for home screen and lockscreen
-            mDevice.wait(Until.findObject(By.descContains("Wallpaper 2")), LONG_TIMEOUT).click();
-            mDevice.wait(Until.findObject(By.text("Set wallpaper")), LONG_TIMEOUT).click();
-            UiObject2 homeScreen = mDevice
-                    .wait(Until.findObject(By.text("Home screen and lock screen")), LONG_TIMEOUT);
-            if (homeScreen != null) {
-                homeScreen.click();
-            }
+            testWallPaper(mIsMr1Device);
             Thread.sleep(LONG_TIMEOUT);
             WallpaperManager wallpaperManagerPost = WallpaperManager.getInstance(mContext);
             Drawable wallPaperPost = wallpaperManagerPost.getDrawable().getCurrent();
@@ -135,7 +132,7 @@ public class SysUILauncherTests extends TestCase {
         Thread.sleep(LONG_TIMEOUT);
         // This is a long press and should add the shortcut to the Home screen
         mDevice.wait(Until.findObject(By.clazz("android.widget.TextView")
-                .desc(APP_NAME)), LONG_TIMEOUT).click(1000);
+                .desc(APP_NAME)), LONG_TIMEOUT).click(2000);
         // Searching for the object on the Home screen
         UiObject2 app = mDevice.wait(Until.findObject(By.text(APP_NAME)), LONG_TIMEOUT);
         assertNotNull("Apps has been added", app);
@@ -149,9 +146,37 @@ public class SysUILauncherTests extends TestCase {
      */
     private void removeObject(UiObject2 app) throws InterruptedException {
         // Drag shortcut/widget icon to Remove button which behinds Google Search bar
-        UiObject2 removeButton = mDevice.wait(Until.findObject(By.desc("Google Search")),
+        String remove = mIsMr1Device ? "Search" : "Google Search";
+        UiObject2 removeButton = mDevice.wait(Until.findObject(By.desc(remove)),
                 LONG_TIMEOUT);
-        app.drag(new Point(removeButton.getVisibleCenter().x, removeButton.getVisibleCenter().y),
+        app.drag(new Point(mDevice.getDisplayWidth() / 2, removeButton.getVisibleCenter().y),
                 1000);
+    }
+
+    private void testWallPaper(boolean mIsMr1Device)  throws InterruptedException {
+        if (mIsMr1Device){ //test marlin and sailfish
+            UiObject2 viewScroll = mDevice.wait(Until.findObject(By.clazz("android.support.v7.widget.RecyclerView")), LONG_TIMEOUT);
+            while(viewScroll.scroll(Direction.DOWN, 1.0f));
+            UiObject2 wallpaperSets = mDevice.wait(Until.findObject(By.res(WALLPAPER_PKG,"tile")), LONG_TIMEOUT);
+            assertNotNull("No wallpaper sets has been found", wallpaperSets);
+            wallpaperSets.click();
+            Thread.sleep(LONG_TIMEOUT);
+            mDevice.wait(Until.findObject(By.res(WALLPAPER_PKG,"tile")), LONG_TIMEOUT).click();
+        }else{//test other devices
+            // set second wall paper as current wallpaper for home screen and lockscreen
+            mDevice.wait(Until.findObject(By.descContains("Wallpaper 2")), LONG_TIMEOUT).click();
+        }
+        Thread.sleep(LONG_TIMEOUT);
+        String s1= GOOGLE_SEARCH_PKG + ":id/set_wallpaper_button";
+        String s2= WALLPAPER_PKG+ ":id/set_wallpaper";
+        Pattern p = Pattern.compile(s1+"|"+s2);
+        UiObject2 button = mDevice.wait(Until.findObject(By.res(p)), LONG_TIMEOUT * 2);
+        assertNotNull("Can not find Set Wallpaper");
+        button.click();
+        UiObject2 homeScreen = mDevice
+                .wait(Until.findObject(By.text("Home screen")), LONG_TIMEOUT);
+        if (homeScreen != null) {
+            homeScreen.click();
+        }
     }
 }

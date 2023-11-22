@@ -81,7 +81,9 @@ union OsApiSlabItem { //main OS "things" slab must fit this
 #define SYSCALL_OS_MAIN_TIME              3
 #define SYSCALL_OS_MAIN_HEAP              4
 #define SYSCALL_OS_MAIN_SLAB              5
-#define SYSCALL_OS_MAIN_LAST              6 // always last. holes are allowed, but not immediately before this
+#define SYSCALL_OS_MAIN_HOST              6
+#define SYSCALL_OS_MAIN_RTC               7
+#define SYSCALL_OS_MAIN_LAST              8 // always last. holes are allowed, but not immediately before this
 
 //level 3 indices in the OS.main.event_queue table
 #define SYSCALL_OS_MAIN_EVTQ_SUBCRIBE        0 // (uint32_t tid, uint32_t evtType) -> bool success
@@ -107,7 +109,8 @@ union OsApiSlabItem { //main OS "things" slab must fit this
 #define SYSCALL_OS_MAIN_SENSOR_RELEASE       7 // (uint32_t clientId, uint32_t sensorHandle) -> bool success
 #define SYSCALL_OS_MAIN_SENSOR_TRIGGER       8 // (uint32_t clientId, uint32_t sensorHandle) -> bool success
 #define SYSCALL_OS_MAIN_SENSOR_GET_RATE      9 // (uint32_t sensorHandle) -> uint32_t rate
-#define SYSCALL_OS_MAIN_SENSOR_LAST         10 // always last. holes are allowed, but not immediately before this
+#define SYSCALL_OS_MAIN_SENSOR_GET_TIME     10 // (uint64_t *timeNanos) -> void
+#define SYSCALL_OS_MAIN_SENSOR_LAST         11 // always last. holes are allowed, but not immediately before this
 
 //level 3 indices in the OS.main.timer table
 #define SYSCALL_OS_MAIN_TIME_GET_TIME     0 // (uint64_t *timeNanos) -> void
@@ -127,6 +130,13 @@ union OsApiSlabItem { //main OS "things" slab must fit this
 #define SYSCALL_OS_MAIN_SLAB_FREE         3 // (struct SlabAllocator *slab, void *mem) -> void
 #define SYSCALL_OS_MAIN_SLAB_LAST         4 // always last. holes are allowed, but not immediately before this
 
+//level 3 indices in the OS.main.host table
+#define SYSCALL_OS_MAIN_HOST_GET_TIME     0 // (uint64_t *timeNanos) -> void
+#define SYSCALL_OS_MAIN_HOST_LAST         1
+
+//level 3 indices in the OS.main.rtc table
+#define SYSCALL_OS_MAIN_RTC_GET_TIME      0 // (uint64_t *timeNanos) -> void
+#define SYSCALL_OS_MAIN_RTC_LAST          1
 
 //called by os entry point to export the api
 void osApiExport(struct SlabAllocator *mainSlubAllocator);

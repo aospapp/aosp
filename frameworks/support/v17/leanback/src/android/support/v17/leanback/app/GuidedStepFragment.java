@@ -103,7 +103,7 @@ import java.util.List;
  * </ul>
  * <p>
  * If the theme is provided in multiple ways, the onProvideTheme override has priority, followed by
- * the Activty's theme.  (Themes whose parent theme is already set to the guided step theme do not
+ * the Activity's theme.  (Themes whose parent theme is already set to the guided step theme do not
  * need to set the guidedStepTheme attribute; if set, it will be ignored.)
  * <p>
  * If themes do not provide enough customizability, the stylists themselves may be subclassed and
@@ -246,7 +246,6 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
         }
     }
 
-    private int mTheme;
     private ContextThemeWrapper mThemeWrapper;
     private GuidanceStylist mGuidanceStylist;
     private GuidedActionsStylist mActionsStylist;
@@ -262,9 +261,6 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
     private int entranceTransitionType = SLIDE_FROM_SIDE;
 
     public GuidedStepFragment() {
-        // We need to supply the theme before any potential call to onInflate in order
-        // for the defaulting to work properly.
-        mTheme = onProvideTheme();
         mGuidanceStylist = onCreateGuidanceStylist();
         mActionsStylist = onCreateActionsStylist();
         mButtonActionsStylist = onCreateButtonActionsStylist();
@@ -859,16 +855,25 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
             if (uiStyle == UI_STYLE_REPLACE) {
                 Object enterTransition = TransitionHelper.createFadeAndShortSlide(Gravity.END);
                 TransitionHelper.exclude(enterTransition, R.id.guidedstep_background, true);
+                TransitionHelper.exclude(enterTransition, R.id.guidedactions_sub_list_background,
+                        true);
                 TransitionHelper.setEnterTransition(this, enterTransition);
 
+                Object fade = TransitionHelper.createFadeTransition(TransitionHelper.FADE_IN |
+                        TransitionHelper.FADE_OUT);
+                TransitionHelper.include(fade, R.id.guidedactions_sub_list_background);
                 Object changeBounds = TransitionHelper.createChangeBounds(false);
-                TransitionHelper.setSharedElementEnterTransition(this, changeBounds);
+                Object sharedElementTransition = TransitionHelper.createTransitionSet(false);
+                TransitionHelper.addTransition(sharedElementTransition, fade);
+                TransitionHelper.addTransition(sharedElementTransition, changeBounds);
+                TransitionHelper.setSharedElementEnterTransition(this, sharedElementTransition);
             } else if (uiStyle == UI_STYLE_ENTRANCE) {
                 if (entranceTransitionType == SLIDE_FROM_SIDE) {
                     Object fade = TransitionHelper.createFadeTransition(TransitionHelper.FADE_IN |
                             TransitionHelper.FADE_OUT);
                     TransitionHelper.include(fade, R.id.guidedstep_background);
-                    Object slideFromSide = TransitionHelper.createFadeAndShortSlide(Gravity.END | Gravity.START);
+                    Object slideFromSide = TransitionHelper.createFadeAndShortSlide(Gravity.END |
+                            Gravity.START);
                     TransitionHelper.include(slideFromSide, R.id.content_fragment);
                     TransitionHelper.include(slideFromSide, R.id.action_fragment_root);
                     Object enterTransition = TransitionHelper.createTransitionSet(false);
@@ -876,7 +881,8 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
                     TransitionHelper.addTransition(enterTransition, slideFromSide);
                     TransitionHelper.setEnterTransition(this, enterTransition);
                 } else {
-                    Object slideFromBottom = TransitionHelper.createFadeAndShortSlide(Gravity.BOTTOM);
+                    Object slideFromBottom = TransitionHelper.createFadeAndShortSlide(
+                            Gravity.BOTTOM);
                     TransitionHelper.include(slideFromBottom, R.id.guidedstep_background_view_root);
                     Object enterTransition = TransitionHelper.createTransitionSet(false);
                     TransitionHelper.addTransition(enterTransition, slideFromBottom);
@@ -885,7 +891,7 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
                 // No shared element transition
                 TransitionHelper.setSharedElementEnterTransition(this, null);
             } else if (uiStyle == UI_STYLE_ACTIVITY_ROOT) {
-                // for Activity root, we dont need enter transition, use activity transition
+                // for Activity root, we don't need enter transition, use activity transition
                 TransitionHelper.setEnterTransition(this, null);
                 // No shared element transition
                 TransitionHelper.setSharedElementEnterTransition(this, null);
@@ -893,6 +899,8 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
             // exitTransition is same for all style
             Object exitTransition = TransitionHelper.createFadeAndShortSlide(Gravity.START);
             TransitionHelper.exclude(exitTransition, R.id.guidedstep_background, true);
+            TransitionHelper.exclude(exitTransition, R.id.guidedactions_sub_list_background,
+                    true);
             TransitionHelper.setExitTransition(this, exitTransition);
         }
     }
@@ -1094,7 +1102,7 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
         }
         mButtonActionsStylist.getActionsGridView().setAdapter(mButtonAdapter);
         if (mButtonActions.size() == 0) {
-            // when there is no button actions, we dont need show the second panel, but keep
+            // when there is no button actions, we don't need show the second panel, but keep
             // the width zero to run ChangeBounds transition.
             LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams)
                     buttonActionsView.getLayoutParams();
@@ -1293,12 +1301,12 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
      * Currently we provide 2 different variations for animation - slide in from
      * side (default) or bottom.
      *
-     * Ideally we can retireve the screen mode settings from the theme attribute
+     * Ideally we can retrieve the screen mode settings from the theme attribute
      * {@code Theme.Leanback.GuidedStep#guidedStepHeightWeight} and use that to
      * determine the transition. But the fragment context to retrieve the theme
      * isn't available on platform v23 or earlier.
      *
-     * For now clients(subclasses) can call this method inside the contructor.
+     * For now clients(subclasses) can call this method inside the constructor.
      * @hide
      */
     public void setEntranceTransitionType(int transitionType) {
@@ -1309,7 +1317,8 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
         // Look up the guidedStepTheme in the currently specified theme.  If it exists,
         // replace the theme with its value.
         Activity activity = getActivity();
-        if (mTheme == -1 && !isGuidedStepTheme(activity)) {
+        int theme = onProvideTheme();
+        if (theme == -1 && !isGuidedStepTheme(activity)) {
             // Look up the guidedStepTheme in the activity's currently specified theme.  If it
             // exists, replace the theme with its value.
             int resId = R.attr.guidedStepTheme;
@@ -1320,7 +1329,6 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
                 ContextThemeWrapper themeWrapper =
                         new ContextThemeWrapper(activity, typedValue.resourceId);
                 if (isGuidedStepTheme(themeWrapper)) {
-                    mTheme = typedValue.resourceId;
                     mThemeWrapper = themeWrapper;
                 } else {
                     found = false;
@@ -1330,13 +1338,13 @@ public class GuidedStepFragment extends Fragment implements GuidedActionAdapter.
             if (!found) {
                 Log.e(TAG, "GuidedStepFragment does not have an appropriate theme set.");
             }
-        } else if (mTheme != -1) {
-            mThemeWrapper = new ContextThemeWrapper(activity, mTheme);
+        } else if (theme != -1) {
+            mThemeWrapper = new ContextThemeWrapper(activity, theme);
         }
     }
 
     private LayoutInflater getThemeInflater(LayoutInflater inflater) {
-        if (mTheme == -1) {
+        if (mThemeWrapper == null) {
             return inflater;
         } else {
             return inflater.cloneInContext(mThemeWrapper);

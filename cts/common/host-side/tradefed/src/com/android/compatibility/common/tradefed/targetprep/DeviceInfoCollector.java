@@ -18,6 +18,7 @@ package com.android.compatibility.common.tradefed.targetprep;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.testtype.CompatibilityTest;
+import com.android.compatibility.common.tradefed.util.CollectorUtil;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -105,22 +106,9 @@ public class DeviceInfoCollector extends ApkInstrumentationPreparer {
                 return;
             }
             String resultPath = resultDir.getAbsolutePath();
-            pull(device, mSrcDir, resultPath);
+            CollectorUtil.pullFromDevice(device, mSrcDir, resultPath);
         } catch (FileNotFoundException fnfe) {
             fnfe.printStackTrace();
-        }
-    }
-
-    private void pull(ITestDevice device, String src, String dest) {
-        String command = String.format("adb -s %s pull %s %s", device.getSerialNumber(), src, dest);
-        try {
-            Process p = Runtime.getRuntime().exec(new String[] {"/bin/bash", "-c", command});
-            if (p.waitFor() != 0) {
-                CLog.e("Failed to run %s", command);
-            }
-        } catch (Exception e) {
-            CLog.e("Caught exception during pull.");
-            CLog.e(e);
         }
     }
 }

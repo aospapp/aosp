@@ -96,6 +96,9 @@ When viewing event logs, you can search this section for specific process ID
 ...</pre></p>
   </div>
 </div>
+<p>&nbsp;</p>
+<p>For other useful event log tags, refer to
+<a href="https://android.googlesource.com/platform/frameworks/base/+/master/services/core/java/com/android/server/EventLogTags.logtags">/services/core/java/com/android/server/EventLogTags.logtags</a>.</p>
 
 <h2 id="anrs-deadlocks">ANRs and deadlocks</h2>
 <p>Bugreports can help you identify what's causing
@@ -121,7 +124,7 @@ blocked or busy main thread, the system kills the process and dumps the stack to
   </div>
 </div>
 <p></p>
-<p>You can also grep for <code>ANR in</code> in the <code>logcat</code>log,
+<p>You can also grep for <code>ANR in</code> in the <code>logcat</code> log,
 which contains more information about what was using CPU at the time of the ANR.
 </p>
 
@@ -800,7 +803,7 @@ ACTIVITY MANAGER BROADCAST STATE (dumpsys activity broadcasts)
   </div>
 </div>
 
-<h2 id="monitor contention">Monitor Contention</h2>
+<h2 id="monitor contention">Monitor contention</h2>
 <p>Monitor contention logging can sometimes indicate actual monitor contention,
 but most often indicates the system is so loaded that everything has slowed down.
 You might see long monitor events logged by ART in system or event log.</p>
@@ -811,7 +814,7 @@ You might see long monitor events logged by ART in system or event log.</p>
 <p>In the event log:</p>
 <p><pre>10-01 18:12:44.364 29761 29914 I dvm_lock_sample: [com.google.android.youtube,0,pool-3-thread-9,3914,ScheduledTaskMaster.java,138,SQLiteClosable.java,52,100]</pre></p>
 
-<h2 id="background-compilation">Background Compilation</h2>
+<h2 id="background-compilation">Background compilation</h2>
 <p>Compilation can be expensive and load the device.</p>
 
 <div class="toggle-content closed">
@@ -937,6 +940,24 @@ screen on, and 2 is for keyguard done.</p>
 10-18 15:36:37.660  3283  3283 I screen_toggled: 2</pre></p>
   </div>
 </div>
+<p></p>
+<p>Bug reports also contain statistics about wake locks, a mechanism used by
+application developers to indicate their application needs to have the device
+stay on. (For details on wake locks, refer to
+<a href="https://developer.android.com/reference/android/os/PowerManager.WakeLock.html">PowerManager.WakeLock</a>
+and <a href="https://developer.android.com/training/scheduling/wakelock.html#cpu">Keep
+the CPU on</a>.)
+
+<p>The aggregated wake lock duration statistics track <strong>only</strong> the
+time a wake lock is actually responsible for keeping the device awake and
+<strong>do not</strong> include time with the screen on. In addition, if
+multiple wake locks are held simultaneously, the wake lock duration time is
+distributed across those wake locks.</p>
+
+<p>For more help visualizing power status, use
+<a href="https://github.com/google/battery-historian">Battery Historian</a>, a
+Google open source tool to analyze battery consumers using Android bugreport
+files.</p>
 
 <h2 id="packages">Packages</h2>
 <p>The DUMP OF SERVICE package contains application versions (and other useful
@@ -1132,5 +1153,29 @@ Process LRU list (sorted by oom_adj, 34 total, non-act at 14, non-svc at 14):
     Proc #21: cch+6 B/ /CE trm: 0 995:com.google.android.partnersetup/u0a18 (cch-empty)></pre></p>
   </div>
 </div>
-</body>
-</html>
+
+<h2 id=scans>Scans</h2>
+<p>Use the following steps to identify applications performing excessive
+Bluetooth Low Energy (BLE) scans:</p>
+<ul>
+<li>Find log messages for <code>BluetoothLeScanner</code>:
+<pre>
+$ grep 'BluetoothLeScanner' ~/downloads/bugreport.txt
+07-28 15:55:19.090 24840 24851 D BluetoothLeScanner: onClientRegistered() - status=0 clientIf=5
+</pre></li>
+<li>Locate the PID in the log messages. In this example, "24840" and
+"24851" are PID (process ID) and TID (thread ID).</li>
+<li>Locate the application associated with the PID:
+<pre>
+PID #24840: ProcessRecord{4fe996a 24840:com.badapp/u0a105}
+</pre>
+<p>In this example, the package name is <code>com.badapp</code>.</li>
+<li>Look up the package name on Google Play to identify the responsible
+application:
+<strong>https://play.google.com/store/apps/details?id=com.badapp</strong>.</li>
+</ul>
+<p class=note><strong>Note</strong>: For devices running Android 7.0, the
+system collects data for BLE scans and associates these activities
+with the initiating application. For details, see
+<a href="{@docRoot}devices/tech/power/values.html#le-bt-scans">Low Energy (LE)
+and Bluetooth scans</a>.</p>

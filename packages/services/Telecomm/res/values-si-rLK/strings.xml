@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"හඬ තැපැල් අංකය නැත"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM කාඩ් පතෙහි හඬ තැපැල් අංකයක් ආචිත වී නැත."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"අංකයක් එක් කරන්න"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"සුපුරුදු දුරකථන යෙදුම වෙනස් කරන්න ද?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="CURRENT_APP">%2$s</xliff:g> වෙනුවට <xliff:g id="NEW_APP">%1$s</xliff:g> ඔබගේ සුපුරුදු දුරකථන යෙදුම ලෙස භාවිතා කරන්නද?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g> ඔබගේ සුපුරුදු දුරකථන යෙදුම ලෙස භාවිතා කරන්නද?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g> ඔබේ පෙරනිමි දුරකථන යෙදුම කරන්නද?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"පෙරනිමිය සකසන්න"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"අවලංගු කරන්න"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> ඇමතුම් ලබා ගැනීමට සහ එවායේ සියලු අංග පාලනය කිරීමට හැකි වනු ඇත. ඔබ විශ්වාස කරන යෙදුම් පමණක් පෙරනිමි දුරකථන යෙදුම ලෙස සැකසිය යුතුය."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"අවහිර කළ අංක"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"ඔබට අවහිර කළ අංකයවලින් ඇමතුම් හෝ පෙළ නොලැබෙනු ඇත."</string>
     <string name="block_number" msgid="1101252256321306179">"අංකයක් එක් කරන්න"</string>

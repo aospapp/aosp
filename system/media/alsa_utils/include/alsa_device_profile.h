@@ -81,10 +81,14 @@ bool profile_is_format_valid(alsa_device_profile* profile, enum pcm_format fmt);
 
 /* Channel Methods */
 unsigned profile_get_default_channel_count(alsa_device_profile* profile);
+unsigned profile_get_closest_channel_count(alsa_device_profile* profile, unsigned count);
 bool profile_is_channel_count_valid(alsa_device_profile* profile, unsigned count);
 
 /* Utility */
 unsigned profile_calc_min_period_size(alsa_device_profile* profile, unsigned sample_rate);
 unsigned int profile_get_period_size(alsa_device_profile* profile, unsigned sample_rate);
+
+/* Debugging */
+void profile_dump(const alsa_device_profile* profile, int fd);
 
 #endif /* ANDROID_SYSTEM_MEDIA_ALSA_UTILS_ALSA_DEVICE_PROFILE_H */

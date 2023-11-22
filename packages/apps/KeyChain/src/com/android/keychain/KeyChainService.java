@@ -30,7 +30,6 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.os.Process;
 import android.os.UserHandle;
-import android.os.UserManager;
 import android.security.Credentials;
 import android.security.IKeyChainService;
 import android.security.KeyChain;
@@ -143,7 +142,6 @@ public class KeyChainService extends IntentService {
 
         @Override public void installCaCertificate(byte[] caCertificate) {
             checkCertInstallerOrSystemCaller();
-            checkUserRestriction();
             try {
                 synchronized (mTrustedCertificateStore) {
                     mTrustedCertificateStore.installCertificate(parseCertificate(caCertificate));
@@ -222,7 +220,6 @@ public class KeyChainService extends IntentService {
         @Override public boolean reset() {
             // only Settings should be able to reset
             checkSystemCaller();
-            checkUserRestriction();
             removeAllGrants(mDatabaseHelper.getWritableDatabase());
             boolean ok = true;
             synchronized (mTrustedCertificateStore) {
@@ -242,7 +239,6 @@ public class KeyChainService extends IntentService {
         @Override public boolean deleteCaCertificate(String alias) {
             // only Settings should be able to delete
             checkSystemCaller();
-            checkUserRestriction();
             boolean ok = true;
             synchronized (mTrustedCertificateStore) {
                 ok = deleteCertificateEntry(alias);
@@ -275,12 +271,6 @@ public class KeyChainService extends IntentService {
             String actual = checkCaller("android.uid.system:1000");
             if (actual != null) {
                 throw new IllegalStateException(actual);
-            }
-        }
-        private void checkUserRestriction() {
-            UserManager um = (UserManager) getSystemService(USER_SERVICE);
-            if (um.hasUserRestriction(UserManager.DISALLOW_CONFIG_CREDENTIALS)) {
-                throw new SecurityException("User cannot modify credentials");
             }
         }
         /**

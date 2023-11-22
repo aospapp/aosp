@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"വോയ്‌സ്മെയിൽ നമ്പർ കാണുന്നില്ല"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"സിം കാർഡിൽ വോയ്‌സ്‌മെയിൽ നമ്പറൊന്നും സംഭരിച്ചിട്ടില്ല."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"നമ്പർ ചേർക്കുക"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"സ്ഥിര ഡയലർ ആപ്പ് മാറ്റണോ?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="CURRENT_APP">%2$s</xliff:g> എന്നതിനുപകരം <xliff:g id="NEW_APP">%1$s</xliff:g> എന്നതിനെ നിങ്ങളുടെ സ്ഥിര ഡയലർ ആപ്പ് ആയി ഉപയോഗിക്കണോ?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g> എന്നതിനെ നിങ്ങളുടെ സ്ഥിര ഡയലർ ആപ്പ് ആയി ഉപയോഗിക്കണോ?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g> എന്നതിനെ നിങ്ങളുടെ ഡിഫോൾട്ട് ഫോൺ ആപ്പാക്കണോ?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"ഡിഫോൾട്ട് ഫോൺ ആപ്പ് സജ്ജമാക്കുക"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"റദ്ദാക്കുക"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> ആപ്പിന് എല്ലാ തരത്തിലുമുള്ള കോളുകൾ ചെയ്യാനും നിയന്ത്രിക്കാനുമാവും. നിങ്ങൾക്ക് വിശ്വാസമുള്ള ആപ്‌സിനെ മാത്രമേ ഡിഫോൾട്ട് ഫോൺ ആപ്പായി സജ്ജമാക്കാവൂ."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"ബ്ലോക്കുചെയ്ത നമ്പറുകൾ"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"ബ്ലോക്കുചെയ്‌ത നമ്പറുകളിൽ നിന്ന് നിങ്ങൾക്ക് കോളുകളോ സന്ദേശങ്ങളോ ലഭിക്കില്ല."</string>
     <string name="block_number" msgid="1101252256321306179">"ഒരു നമ്പർ ചേർക്കുക"</string>

@@ -36,10 +36,10 @@ cts-combined-xml-coverage-report := $(coverage_out)/combined-coverage.xml
 
 cts_api_coverage_dependencies := $(cts_api_coverage_exe) $(dexdeps_exe) $(api_xml_description)
 
-android_cts_zip := $(HOST_OUT)/old-cts/old-android-cts.zip
+android_cts_zip := $(HOST_OUT)/cts/android-cts.zip
 cts_verifier_apk := $(call intermediates-dir-for,APPS,CtsVerifier)/package.apk
 
-$(cts-test-coverage-report): PRIVATE_TEST_CASES := $(CTS_TESTCASES_OUT)
+$(cts-test-coverage-report): PRIVATE_TEST_CASES := $(COMPATIBILITY_TESTCASES_OUT_cts)
 $(cts-test-coverage-report): PRIVATE_CTS_API_COVERAGE_EXE := $(cts_api_coverage_exe)
 $(cts-test-coverage-report): PRIVATE_DEXDEPS_EXE := $(dexdeps_exe)
 $(cts-test-coverage-report): PRIVATE_API_XML_DESC := $(api_xml_description)
@@ -55,7 +55,7 @@ $(cts-verifier-coverage-report) : $(cts_verifier_apk) $(cts_api_coverage_depende
 	$(call generate-coverage-report,"CTS Verifier API Coverage Report",\
 			$(PRIVATE_TEST_CASES),html)
 
-$(cts-combined-coverage-report): PRIVATE_TEST_CASES := $(foreach c, $(cts_verifier_apk) $(CTS_TESTCASES_OUT), $(c))
+$(cts-combined-coverage-report): PRIVATE_TEST_CASES := $(foreach c, $(cts_verifier_apk) $(COMPATIBILITY_TESTCASES_OUT_cts), $(c))
 $(cts-combined-coverage-report): PRIVATE_CTS_API_COVERAGE_EXE := $(cts_api_coverage_exe)
 $(cts-combined-coverage-report): PRIVATE_DEXDEPS_EXE := $(dexdeps_exe)
 $(cts-combined-coverage-report): PRIVATE_API_XML_DESC := $(api_xml_description)
@@ -63,7 +63,7 @@ $(cts-combined-coverage-report) : $(android_cts_zip) $(cts_verifier_apk) $(cts_a
 	$(call generate-coverage-report,"CTS Combined API Coverage Report",\
 			$(PRIVATE_TEST_CASES),html)
 
-$(cts-combined-xml-coverage-report): PRIVATE_TEST_CASES := $(foreach c, $(cts_verifier_apk) $(CTS_TESTCASES_OUT), $(c))
+$(cts-combined-xml-coverage-report): PRIVATE_TEST_CASES := $(foreach c, $(cts_verifier_apk) $(COMPATIBILITY_TESTCASES_OUT_cts), $(c))
 $(cts-combined-xml-coverage-report): PRIVATE_CTS_API_COVERAGE_EXE := $(cts_api_coverage_exe)
 $(cts-combined-xml-coverage-report): PRIVATE_DEXDEPS_EXE := $(dexdeps_exe)
 $(cts-combined-xml-coverage-report): PRIVATE_API_XML_DESC := $(api_xml_description)

@@ -29,11 +29,7 @@ import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.ZipUtil;
 
 import java.awt.Dimension;
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.net.URL;
@@ -103,8 +99,8 @@ public class MediaPreparer extends PreconditionPreparer {
      *
      * These fields are exposed for unit testing
      */
-    protected String baseDeviceShortDir;
-    protected String baseDeviceFullDir;
+    protected String mBaseDeviceShortDir;
+    protected String mBaseDeviceFullDir;
 
     /*
      * Returns a string representation of the dimension
@@ -181,8 +177,8 @@ public class MediaPreparer extends PreconditionPreparer {
                 break; // we don't need to check for resolutions greater than or equal to this
             }
             String resString = resolutionString(copiedResolution);
-            String deviceShortFilePath = baseDeviceShortDir + resString;
-            String deviceFullFilePath = baseDeviceFullDir + resString;
+            String deviceShortFilePath = mBaseDeviceShortDir + resString;
+            String deviceFullFilePath = mBaseDeviceFullDir + resString;
             if (!device.doesFileExist(deviceShortFilePath) ||
                     !device.doesFileExist(deviceFullFilePath)) { // media files must be copied
                 return false;
@@ -205,10 +201,9 @@ public class MediaPreparer extends PreconditionPreparer {
         String[] subDirs = mediaFolder.list();
         if (subDirs.length != 1) {
             throw new TargetSetupError(String.format(
-                    "Unexpected contents in directory %s", mLocalMediaPath));
+                    "Unexpected contents in directory %s", mediaFolder.getAbsolutePath()));
         }
-        File newMediaFolder = new File(mediaFolder, subDirs[0]);
-        mLocalMediaPath = newMediaFolder.toString();
+        mLocalMediaPath = new File(mediaFolder, subDirs[0]).getAbsolutePath();
     }
 
     /*
@@ -216,47 +211,35 @@ public class MediaPreparer extends PreconditionPreparer {
      * Updates mLocalMediaPath to be the pathname of the directory containing bbb_short and
      * bbb_full media directories.
      */
-    private void downloadMediaToHost() throws TargetSetupError {
+    private void downloadMediaToHost(File mediaFolder) throws TargetSetupError {
 
         URL url;
         try {
+            // Get download URL from dynamic configuration service
             DynamicConfigHostSide config = new DynamicConfigHostSide(DYNAMIC_CONFIG_MODULE);
             String mediaUrlString = config.getValue(MEDIA_FILES_URL_KEY);
             url = new URL(mediaUrlString);
         } catch (IOException | XmlPullParserException e) {
             throw new TargetSetupError("Trouble finding media file download location with " +
-                    "dynamic configuration");
+                    "dynamic configuration", e);
         }
 
-        File mediaFolder = new File(mLocalMediaPath);
-        File mediaFolderZip = new File(mediaFolder.getName() + ".zip");
+        File mediaFolderZip = new File(mediaFolder.getAbsolutePath() + ".zip");
         try {
-
-            mediaFolder.mkdirs();
-            mediaFolderZip.createNewFile();
-
+            logInfo("Downloading media files from %s", url.toString());
             URLConnection conn = url.openConnection();
             InputStream in = conn.getInputStream();
-            BufferedOutputStream out =
-                    new BufferedOutputStream(new FileOutputStream(mediaFolderZip));
-            byte[] buffer = new byte[1024];
-            int count;
-            logInfo("Downloading media files to host from %s", url.toString());
-            while ((count = in.read(buffer)) >= 0) {
-                out.write(buffer, 0, count);
-            }
-            out.flush();
-            out.close();
-            in.close();
-
+            mediaFolderZip.createNewFile();
+            FileUtil.writeToFile(in, mediaFolderZip);
             logInfo("Unzipping media files");
             ZipUtil.extractZip(new ZipFile(mediaFolderZip), mediaFolder);
 
         } catch (IOException e) {
             FileUtil.recursiveDelete(mediaFolder);
-            FileUtil.recursiveDelete(mediaFolderZip);
             throw new TargetSetupError("Failed to download and open media files on host, the"
-                    + " device requires these media files for CTS media tests");
+                    + " device requires these media files for CTS media tests", e);
+        } finally {
+            FileUtil.deleteFile(mediaFolderZip);
         }
     }
 
@@ -280,8 +263,8 @@ public class MediaPreparer extends PreconditionPreparer {
                         resString);
                 return;
             }
-            String deviceShortFilePath = baseDeviceShortDir + resString;
-            String deviceFullFilePath = baseDeviceFullDir + resString;
+            String deviceShortFilePath = mBaseDeviceShortDir + resString;
+            String deviceFullFilePath = mBaseDeviceFullDir + resString;
             if (!device.doesFileExist(deviceShortFilePath) ||
                     !device.doesFileExist(deviceFullFilePath)) {
                 logInfo("Copying files of resolution %s to device", resString);
@@ -305,8 +288,8 @@ public class MediaPreparer extends PreconditionPreparer {
     // Initialize directory strings where media files live on device
     protected void setMountPoint(ITestDevice device) {
         String mountPoint = device.getMountPoint(IDevice.MNT_EXTERNAL_STORAGE);
-        baseDeviceShortDir = String.format("%s/test/bbb_short/", mountPoint);
-        baseDeviceFullDir = String.format("%s/test/bbb_full/", mountPoint);
+        mBaseDeviceShortDir = String.format("%s/test/bbb_short/", mountPoint);
+        mBaseDeviceFullDir = String.format("%s/test/bbb_full/", mountPoint);
     }
 
     @Override
@@ -314,8 +297,7 @@ public class MediaPreparer extends PreconditionPreparer {
             BuildError, DeviceNotAvailableException {
 
         if (mSkipMediaDownload) {
-            // skip this precondition
-            return;
+            return; // skip this precondition
         }
 
         setMountPoint(device);
@@ -326,25 +308,18 @@ public class MediaPreparer extends PreconditionPreparer {
             return;
         }
 
-        File mediaFolder;
         if (mLocalMediaPath == null) {
             // Option 'local-media-path' has not been defined
-            try {
-                // find system's temp directory, create folder MEDIA_FOLDER_NAME inside
-                File tmpFile = File.createTempFile(MEDIA_FOLDER_NAME, null);
-                String tmpDir = tmpFile.getParent();
-                mediaFolder = new File(tmpDir, MEDIA_FOLDER_NAME);
-                // delete temp file used for locating temp directory
-                tmpFile.delete();
-            } catch (IOException e) {
-                throw new TargetSetupError("Unable to create host temp directory for media files");
+            // Get directory to store media files on this host
+            File mediaFolder = new File(System.getProperty("java.io.tmpdir"), MEDIA_FOLDER_NAME);
+            if(!mediaFolder.exists() || mediaFolder.list().length == 0){
+                // If directory already exists and contains files, it has been created by previous
+                // runs of MediaPreparer. Assume media files exist inside.
+                // Else, create directory if needed and download/extract media files inside.
+                mediaFolder.mkdirs();
+                downloadMediaToHost(mediaFolder);
             }
-            mLocalMediaPath = mediaFolder.getAbsolutePath();
-            if(!mediaFolder.exists()){
-                // directory has not been created by previous runs of MediaPreparer
-                // download media into mLocalMediaPath
-                downloadMediaToHost();
-            }
+            // set mLocalMediaPath to where the CTS media files have been extracted
             updateLocalMediaPath(mediaFolder);
         }
 

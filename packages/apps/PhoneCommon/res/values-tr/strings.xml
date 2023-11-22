@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"Geçersiz numara"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"Sesli mesaj numarası bilinmiyor"</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY etkin olduğunda video görüşmesi yapılamaz."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"Çağrı başka bir cihaza aktarıldı."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"Yok"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Bilinmeyen zil sesi"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Mevcut tüm hatlar kullanımda. Telefon etmek için bu cihazdaki veya diğer cihazlarınızdan birindeki bir çağrıyı sonlandırın."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

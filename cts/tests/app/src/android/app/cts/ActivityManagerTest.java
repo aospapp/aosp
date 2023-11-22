@@ -173,6 +173,11 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         recentTaskList = mActivityManager.getRecentTasks(maxNum, flags);
         int numberOfEntriesSecondRun = recentTaskList.size();
         assertTrue(numberOfEntriesSecondRun == numberOfEntriesFirstRun);
+
+        // Tell the activity to finalize.
+        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.putExtra("finish", true);
+        mContext.startActivity(intent);
     }
 
     // The receiver filter needs to be instantiated with the command to filter for before calling
@@ -505,7 +510,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
 
         // The application finished tracker.
         ActivityReceiverFilter appEndReceiver = new ActivityReceiverFilter(
-                ACTIVITY_LAUNCHED_ACTION);
+                ACTIVITY_CHAIN_EXIT_ACTION);
 
         // The filter for the time event.
         ActivityReceiverFilter timeReceiver = new ActivityReceiverFilter(ACTIVITY_TIME_TRACK_INFO);

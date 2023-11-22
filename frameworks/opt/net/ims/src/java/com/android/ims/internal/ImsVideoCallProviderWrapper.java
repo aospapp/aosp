@@ -21,13 +21,17 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.os.RegistrantList;
 import android.os.RemoteException;
 import android.telecom.Connection;
 import android.telecom.VideoProfile;
-import android.telecom.VideoProfile.CameraCapabilities;
 import android.view.Surface;
 
 import com.android.internal.os.SomeArgs;
+
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Subclass implementation of {@link Connection.VideoProvider}. This intermediates and
@@ -41,6 +45,12 @@ import com.android.internal.os.SomeArgs;
  * @hide
  */
 public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
+
+    public interface ImsVideoProviderWrapperCallback {
+        void onReceiveSessionModifyResponse(int status, VideoProfile requestProfile,
+                VideoProfile responseProfile);
+    }
+
     private static final int MSG_RECEIVE_SESSION_MODIFY_REQUEST = 1;
     private static final int MSG_RECEIVE_SESSION_MODIFY_RESPONSE = 2;
     private static final int MSG_HANDLE_CALL_SESSION_EVENT = 3;
@@ -51,6 +61,9 @@ public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
 
     private final IImsVideoCallProvider mVideoCallProvider;
     private final ImsVideoCallCallback mBinder;
+    private RegistrantList mDataUsageUpdateRegistrants = new RegistrantList();
+    private final Set<ImsVideoProviderWrapperCallback> mCallbacks = Collections.newSetFromMap(
+            new ConcurrentHashMap<ImsVideoProviderWrapperCallback, Boolean>(8, 0.9f, 1));
 
     private IBinder.DeathRecipient mDeathRecipient = new IBinder.DeathRecipient() {
         @Override
@@ -110,6 +123,22 @@ public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
         }
     }
 
+    public void registerForDataUsageUpdate(Handler h, int what, Object obj) {
+        mDataUsageUpdateRegistrants.addUnique(h, what, obj);
+    }
+
+    public void unregisterForDataUsageUpdate(Handler h) {
+        mDataUsageUpdateRegistrants.remove(h);
+    }
+
+    public void addImsVideoProviderCallback(ImsVideoProviderWrapperCallback callback) {
+        mCallbacks.add(callback);
+    }
+
+    public void removeImsVideoProviderCallback(ImsVideoProviderWrapperCallback callback) {
+        mCallbacks.remove(callback);
+    }
+
     /** Default handler used to consolidate binder method calls onto a single thread. */
     private final Handler mHandler = new Handler(Looper.getMainLooper()) {
         @Override
@@ -127,6 +156,14 @@ public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
                         VideoProfile responseProfile = (VideoProfile) args.arg3;
 
                         receiveSessionModifyResponse(status, requestProfile, responseProfile);
+
+                        // Notify any local Telephony components interested in upgrade responses.
+                        for (ImsVideoProviderWrapperCallback callback : mCallbacks) {
+                            if (callback != null) {
+                                callback.onReceiveSessionModifyResponse(status, requestProfile,
+                                        responseProfile);
+                            }
+                        }
                     } finally {
                         args.recycle();
                     }
@@ -145,7 +182,9 @@ public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
                     }
                     break;
                 case MSG_CHANGE_CALL_DATA_USAGE:
-                    changeCallDataUsage((long) msg.obj);
+                    // TODO: We should use callback in the future.
+                    setCallDataUsage((long) msg.obj);
+                    mDataUsageUpdateRegistrants.notifyResult(msg.obj);
                     break;
                 case MSG_CHANGE_CAMERA_CAPABILITIES:
                     changeCameraCapabilities((VideoProfile.CameraCapabilities) msg.obj);

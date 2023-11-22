@@ -24,71 +24,93 @@ page.title=Sensor types
   </div>
 </div>
 
-<h2 id="sensor_axis_definition">Sensor axis definition</h2>
-<p>Sensor event values from many sensors are expressed in a specific frame that is
-  static relative to the phone. This API is relative only to the NATURAL
-  orientation of the screen. In other words, the axes are not swapped when the
-  device's screen orientation changes.</p>
+<p>This section describes sensor axes, base sensors, and composite sensors
+(activity, attitude, uncalibrated, and interaction).</p>
 
-<div class="figure" style="width:269px">
-  <img src="http://developer.android.com/images/axis_device.png"
-alt="Coordinate system of sensor API" height="225" />
-  <p class="img-caption">
-    <strong>Figure 1.</strong> Coordinate system (relative to a device) that's
-     used by the Sensor API.
-  </p>
-</div>
+<h2 id="sensor_axis_definition">Sensor axes</h2>
+<p>Sensor event values from many sensors are expressed in a specific frame that
+is static relative to the device.
+
+<h3 id=phone_axes>Mobile device axes</h3>
+<p>The Sensor API is relative only to the natural orientation of the screen
+(axes are not swapped when the device's screen orientation changes.</p>
+
+<img src="http://developer.android.com/images/axis_device.png" alt="Coordinate
+system of sensor API for mobile devices"/>
+<p class="img-caption"><strong>Figure 1.</strong> Coordinate system (relative to
+a mobile device) used by the Sensor API.</p>
+
+<h3 id=auto_axes>Automotive axes</h3>
+<p>In Android Automotive implementations, axes are defined with respect to the
+vehicle body frame:</p>
+
+<img src="images/axis_auto.png" alt="Coordinate system of sensor API for
+automotive devices"/>
+<p class="img-caption"><strong>Figure 2.</strong> Coordinate system (relative to
+an automotive device) used by the Sensor API.</p>
+
+<ul>
+<li>X increases towards the right of the vehicle</li>
+<li>Y increases towards the nose of the body frame</li>
+<li>Z increases towards the roof of the body frame</li>
+</ul>
+
+<p>When looking from the positive direction of an axis, positive rotations are
+counterclockwise. Thus, when a vehicle is making a left turn, the z-axis
+gyroscope rate of turn is expected to be a positive value.</p>
 
 <h2 id="base_sensors">Base sensors</h2>
-<p>Some sensor types are named directly after the physical sensors they represent.
-  Sensors with such types are called “base” sensors, referring to the fact they
-  relay data from a single physical sensor, contrary to “composite” sensors, for
-  which the data is generated out of other sensors.</p>
-<p>Examples of base sensor types:</p>
+<p>Base sensor types are named after the physical sensors they represent. These
+sensors relay data from a single physical sensor (as opposed to composite
+sensors that generate data out of other sensors). Examples of base sensor types
+include:</p>
 <ul>
   <li><code>SENSOR_TYPE_ACCELEROMETER</code></li>
   <li><code>SENSOR_TYPE_GYROSCOPE</code></li>
   <li><code>SENSOR_TYPE_MAGNETOMETER</code></li>
 </ul>
-  <p> See the list of Android sensor types below for more details on each
-<h3 id="base_sensors_=_not_equal_to_physical_sensors">Base sensors != (not equal to) physical sensors</h3>
-<p>Base sensors are not to be confused with their underlying physical sensor. The
-  data from a base sensor is not the raw output of the physical sensor:
-  corrections are be applied, such as bias compensation and temperature
-  compensation.</p>
-<p>The characteristics of a base sensor might be different from the
-  characteristics of its underlying physical sensor.</p>
+
+<p class='note'><strong>Note:</strong> For details on each Android sensor type,
+review the following sections.</p>
+
+<p>However, base sensors are not equal to and should not be confused with their
+underlying physical sensor. The data from a base sensor is <strong>not</strong>
+the raw output of the physical sensor because corrections (such as bias
+compensation and temperature compensation) are applied.</p>
+
+<p>For example, the characteristics of a base sensor might be different from the
+characteristics of its underlying physical sensor in the following use cases:</p>
 <ul>
-  <li> For example, a gyroscope chip might be rated to have a bias range of 1 deg/sec.
-    <ul>
-      <li> After factory calibration, temperature compensation and bias compensation are
-        applied, the actual bias of the Android sensor will be reduced, may be to a
-        point where the bias is guaranteed to be below 0.01deg/sec. </li>
-      <li> In this situation, we say that the Android sensor has a bias below 0.01
-        deg/sec, even though the data sheet of the underlying sensor said 1 deg/sec. </li>
-    </ul>
-  </li>
-  <li> As another example, a barometer might have a power consumption of 100uW.
-    <ul>
-      <li> Because the generated data needs to be transported from the chip to the SoC,
-        the actual power cost to gather data from the barometer Android sensor might be
-        much higher, for example 1000uW. </li>
-      <li> In this situation, we say that the Android sensor has a power consumption of
-        1000uW, even though the power consumption measured at the barometer chip leads
-        is 100uW. </li>
-    </ul>
-  </li>
-  <li> As a third example, a magnetometer might consume 100uW when calibrated, but
-    consume more when calibrating.
-    <ul>
-      <li> Its calibration routine might require activating the gyroscope, consuming
-        5000uW, and running some algorithm, costing another 900uW. </li>
-      <li> In this situation, we say that the maximum power consumption of the
-        (magnetometer) Android sensor is 6000uW. </li>
-      <li> In this case, the average power consumption is the more useful measure, and it
-        is what is reported in the sensor static characteristics through the HAL. </li>
-    </ul>
-  </li>
+<li>A gyroscope chip rated to have a bias range of 1 deg/sec.
+  <ul>
+    <li>After factory calibration, temperature compensation and bias compensation are
+      applied, the actual bias of the Android sensor will be reduced, may be to a
+      point where the bias is guaranteed to be below 0.01deg/sec.</li>
+    <li>In this situation, we say that the Android sensor has a bias below 0.01
+      deg/sec, even though the data sheet of the underlying sensor said 1 deg/sec.</li>
+  </ul>
+</li>
+<li>A barometer with a power consumption of 100uW.
+  <ul>
+    <li>Because the generated data needs to be transported from the chip to the SoC,
+      the actual power cost to gather data from the barometer Android sensor might be
+      much higher, for example 1000uW.</li>
+    <li>In this situation, we say that the Android sensor has a power consumption of
+      1000uW, even though the power consumption measured at the barometer chip leads
+      is 100uW.</li>
+  </ul>
+</li>
+<li>A magnetometer that consumes 100uW when calibrated, but consumes more when
+calibrating.
+  <ul>
+    <li>Its calibration routine might require activating the gyroscope, consuming
+      5000uW, and running some algorithm, costing another 900uW.</li>
+    <li> In this situation, we say that the maximum power consumption of the
+      (magnetometer) Android sensor is 6000uW.</li>
+    <li>In this case, the average power consumption is the more useful measure, and it
+      is what is reported in the sensor static characteristics through the HAL.</li>
+  </ul>
+</li>
 </ul>
 <h3 id="accelerometer">Accelerometer</h3>
 <p>Reporting-mode: <em><a href="report-modes.html#continuous">Continuous</a></em></p>
@@ -227,45 +249,44 @@ href="http://developer.android.com/reference/android/hardware/SensorManager.html
 <p><code>getDefaultSensor(SENSOR_TYPE_RELATIVE_HUMIDITY)</code> <em>returns a non-wake-up sensor</em></p>
 <p>A relative humidity sensor measures relative ambient air humidity and returns a
   value in percent.</p>
+
 <h2 id="composite_sensor_types">Composite sensor types</h2>
-<p>Any sensor that is not a base sensor is called a composite sensor. Composite
-  sensors generate their data by processing and/or fusing data from one or
-  several physical sensors.</p>
-<p>Examples of composite sensor types:</p>
+<p>A composite sensor generates data by processing and/or fusing data from one
+or several physical sensors. (Any sensor that is not a base sensor is called a
+composite sensor.) Examples of composite sensors include:</p>
 <ul>
-  <li><a href="#step_detector">Step detector</a> and <a href="#significant_motion">Significant motion</a>, which are usually based on an accelerometer, but could be based on other
-    sensors as well, if the power consumption and accuracy was acceptable. </li>
-  <li><a href="#game_rotation_vector">Game rotation vector</a>, based on an
-    accelerometer and a gyroscope. </li>
-  <li><a href="#gyroscope_uncalibrated">Uncalibrated gyroscope</a>, which is
-    similar to the gyroscope base sensor, but with
-    the bias calibration being reported separately instead of being corrected in
-    the measurement. </li>
+<li><a href="#step_detector">Step detector</a> and
+<a href="#significant_motion">Significant motion</a>, which are usually based on
+an accelerometer, but could be based on other sensors as well, if the power
+consumption and accuracy was acceptable.</li>
+<li><a href="#game_rotation_vector">Game rotation vector</a>, based on an
+accelerometer and a gyroscope.</li>
+<li><a href="#gyroscope_uncalibrated">Uncalibrated gyroscope</a>, which is
+similar to the gyroscope base sensor, but with the bias calibration being
+reported separately instead of being corrected in the measurement.</li>
 </ul>
-<p>Just like base sensors, the characteristics of the composite sensors come from
-  the characteristics of their final data.</p>
-<ul>
-  <li> For example, the power consumption of a game rotation vector is probably equal
-    to the sum of the power consumptions of: the accelerometer chip, the gyroscope
-    chip, the chip processing the data, and the buses transporting the data. </li>
-  <li> As another example, the drift of a game rotation vector will depend as much on
-    the quality of the calibration algorithm as on the physical sensor
-    characteristics. </li>
-</ul>
-<h2 id="composite_sensor_type_summary">Composite sensor type summary</h2>
-<p>The following table lists the composite sensor types. Each composite sensor
-  relies on data from one or several physical sensors. Choosing other underlying
-  physical sensors to approximate results should be avoided as they will provide
-  a poor user experience.</p>
-<p>When there is no gyroscope on the device, and only when there is no gyroscope,
-  you may implement the rotation vector, linear acceleration and gravity sensors
-  without using the gyroscope.</p>
+<p>As with base sensors, the characteristics of the composite sensors come from
+the characteristics of their final data. For example, the power consumption of a
+game rotation vector is probably equal to the sum of the power consumptions of
+the accelerometer chip, the gyroscope chip, the chip processing the data, and
+the buses transporting the data. As another example, the drift of a game
+rotation vector depends as much on the quality of the calibration algorithm as
+on the physical sensor characteristics.</p>
+
+<p>The following table lists available composite sensor types. Each composite
+sensor relies on data from one or several physical sensors. Avoid choosing other
+underlying physical sensors to approximate results as they provide a poor user
+experience.</p>
+<p class="note"><strong>Note:</strong> When there is no gyroscope on the device
+(and only when there is no gyroscope), you may implement the rotation vector,
+linear acceleration, and gravity sensors without using the gyroscope.</p>
+
 <table>
   <tr>
-    <th><p>Sensor type</p></th>
-    <th><p>Category</p></th>
-    <th><p>Underlying physical sensors</p></th>
-    <th><p>Reporting mode</p></th>
+    <th width=34%>Sensor type</th>
+    <th width=10%>Category</th>
+    <th width=34%>Underlying physical sensors</th>
+    <th width=19%>Reporting mode</th>
   </tr>
   <tr>
     <td><p><a href="#game_rotation_vector">Game rotation vector</a></p></td>
@@ -631,7 +652,7 @@ href="http://developer.android.com/reference/android/hardware/SensorManager.html
   <img src="images/axis_positive_roll.png" alt="Depiction of orientation
    relative to a device" height="253" />
   <p class="img-caption">
-    <strong>Figure 2.</strong> Orientation relative to a device.
+    <strong>Figure 3.</strong> Orientation relative to a device.
   </p>
 </div>
 <p>This definition is different from yaw, pitch and roll used in aviation where

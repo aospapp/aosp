@@ -192,6 +192,21 @@ unsigned profile_get_default_channel_count(alsa_device_profile* profile)
     return profile_is_valid(profile) ? profile->channel_counts[0] : DEFAULT_CHANNEL_COUNT;
 }
 
+unsigned profile_get_closest_channel_count(alsa_device_profile* profile, unsigned count)
+{
+    if (profile_is_valid(profile)) {
+        if (count < profile->min_channel_count) {
+            return profile->min_channel_count;
+        } else if (count > profile->max_channel_count) {
+            return profile->max_channel_count;
+        } else {
+            return count;
+        }
+    } else {
+        return 0;
+    }
+}
+
 bool profile_is_channel_count_valid(alsa_device_profile* profile, unsigned count)
 {
     if (profile_is_initialized(profile)) {
@@ -565,4 +580,60 @@ char * profile_get_channel_count_strs(alsa_device_profile* profile)
     }
 
     return strdup(buffer);
+}
+
+void profile_dump(const alsa_device_profile* profile, int fd)
+{
+    if (profile == NULL) {
+        dprintf(fd, "  %s\n", "No USB Profile");
+        return; /* bail early */
+    }
+
+    if (!profile->is_valid) {
+        dprintf(fd, "  Profile is INVALID");
+    }
+
+    /* card/device/direction */
+    dprintf(fd, "  card:%d, device:%d - %s\n",
+                profile->card, profile->device, profile->direction == PCM_OUT ? "OUT" : "IN");
+
+    /* formats */
+    dprintf(fd, "  Formats: ");
+    for (int fmtIndex = 0;
+          profile->formats[fmtIndex] != PCM_FORMAT_INVALID && fmtIndex < MAX_PROFILE_FORMATS;
+          fmtIndex++) {
+        dprintf(fd, "%d ", profile->formats[fmtIndex]);
+    }
+    dprintf(fd, "\n");
+
+    /* sample rates */
+    dprintf(fd, "  Rates: ");
+    for (int rateIndex = 0;
+          profile->sample_rates[rateIndex] != 0 && rateIndex < MAX_PROFILE_SAMPLE_RATES;
+          rateIndex++) {
+        dprintf(fd, "%u ", profile->sample_rates[rateIndex]);
+    }
+    dprintf(fd, "\n");
+
+    // channel counts
+    dprintf(fd, "  Channel Counts: ");
+    for (int cntIndex = 0;
+          profile->channel_counts[cntIndex] != 0 && cntIndex < MAX_PROFILE_CHANNEL_COUNTS;
+          cntIndex++) {
+        dprintf(fd, "%u ", profile->channel_counts[cntIndex]);
+    }
+    dprintf(fd, "\n");
+
+    dprintf(fd, "  min/max period size [%u : %u]\n",
+            profile->min_period_size,profile-> max_period_size);
+    dprintf(fd, "  min/max channel count [%u : %u]\n",
+            profile->min_channel_count, profile->max_channel_count);
+
+    // struct pcm_config default_config;
+    dprintf(fd, "  Default Config:\n");
+    dprintf(fd, "    channels: %d\n", profile->default_config.channels);
+    dprintf(fd, "    rate: %d\n", profile->default_config.rate);
+    dprintf(fd, "    period_size: %d\n", profile->default_config.period_size);
+    dprintf(fd, "    period_count: %d\n", profile->default_config.period_count);
+    dprintf(fd, "    format: %d\n", profile->default_config.format);
 }

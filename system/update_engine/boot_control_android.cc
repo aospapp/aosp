@@ -22,33 +22,19 @@
 #include <base/strings/string_util.h>
 #include <brillo/make_unique_ptr.h>
 #include <brillo/message_loops/message_loop.h>
-#include <cutils/properties.h>
-#include <fs_mgr.h>
 
 #include "update_engine/common/utils.h"
+#include "update_engine/utils_android.h"
 
 using std::string;
 
-namespace {
-
-// Open the appropriate fstab file and fallback to /fstab.device if
-// that's what's being used.
-static struct fstab* OpenFSTab() {
-  char propbuf[PROPERTY_VALUE_MAX];
-  struct fstab* fstab;
-
-  property_get("ro.hardware", propbuf, "");
-  string fstab_name = string("/fstab.") + propbuf;
-  fstab = fs_mgr_read_fstab(fstab_name.c_str());
-  if (fstab != nullptr)
-    return fstab;
-
-  fstab = fs_mgr_read_fstab("/fstab.device");
-  return fstab;
-}
-
-}  // namespace
-
+#ifdef _UE_SIDELOAD
+// When called from update_engine_sideload, we don't attempt to dynamically load
+// the right boot_control HAL, instead we use the only HAL statically linked in
+// via the PRODUCT_STATIC_BOOT_CONTROL_HAL make variable and access the module
+// struct directly.
+extern const hw_module_t HAL_MODULE_INFO_SYM;
+#endif  // _UE_SIDELOAD
 
 namespace chromeos_update_engine {
 
@@ -69,7 +55,18 @@ bool BootControlAndroid::Init() {
   const hw_module_t* hw_module;
   int ret;
 
+#ifdef _UE_SIDELOAD
+  // For update_engine_sideload, we simulate the hw_get_module() by accessing it
+  // from the current process directly.
+  hw_module = &HAL_MODULE_INFO_SYM;
+  ret = 0;
+  if (!hw_module ||
+      strcmp(BOOT_CONTROL_HARDWARE_MODULE_ID, hw_module->id) != 0) {
+    ret = -EINVAL;
+  }
+#else  // !_UE_SIDELOAD
   ret = hw_get_module(BOOT_CONTROL_HARDWARE_MODULE_ID, &hw_module);
+#endif  // _UE_SIDELOAD
   if (ret != 0) {
     LOG(ERROR) << "Error loading boot_control HAL implementation.";
     return false;
@@ -97,9 +94,6 @@ BootControlInterface::Slot BootControlAndroid::GetCurrentSlot() const {
 bool BootControlAndroid::GetPartitionDevice(const string& partition_name,
                                             Slot slot,
                                             string* device) const {
-  struct fstab* fstab;
-  struct fstab_rec* record;
-
   // We can't use fs_mgr to look up |partition_name| because fstab
   // doesn't list every slot partition (it uses the slotselect option
   // to mask the suffix).
@@ -119,20 +113,9 @@ bool BootControlAndroid::GetPartitionDevice(const string& partition_name,
   // of misc and then finding an entry in /dev matching the sysfs
   // entry.
 
-  fstab = OpenFSTab();
-  if (fstab == nullptr) {
-    LOG(ERROR) << "Error opening fstab file.";
+  base::FilePath misc_device;
+  if (!utils::DeviceForMountPoint("/misc", &misc_device))
     return false;
-  }
-  record = fs_mgr_get_entry_for_mount_point(fstab, "/misc");
-  if (record == nullptr) {
-    LOG(ERROR) << "Error finding /misc entry in fstab file.";
-    fs_mgr_free_fstab(fstab);
-    return false;
-  }
-
-  base::FilePath misc_device = base::FilePath(record->blk_device);
-  fs_mgr_free_fstab(fstab);
 
   if (!utils::IsSymlink(misc_device.value().c_str())) {
     LOG(ERROR) << "Device file " << misc_device.value() << " for /misc "

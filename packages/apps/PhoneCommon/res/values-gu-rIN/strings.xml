@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"અમાન્ય નંબર"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"વૉઇસમેઇલ નંબર અજાણ."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"જ્યારે TTY સક્ષમ કરેલ હોય ત્યારે વિડિઓ કૉલ્સ કરી શકતાં નથી."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"કૉલ બીજા ઉપકરણ પર સ્થાનાંતરિત કર્યો."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"કોઈ નહીં"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"અજાણ રિંગટોન"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"તમામ ઉપલબ્ધ લાઇન ઉપયોગમાં છે. કૉલ કરવા માટે, આ ઉપકરણ પરના અથવા તમારા અન્ય ઉપકરણોમાંના એક ઉપકરણ પરના કૉલ્સમાંના એક કૉલને ડિસ્કનેક્ટ કરો."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

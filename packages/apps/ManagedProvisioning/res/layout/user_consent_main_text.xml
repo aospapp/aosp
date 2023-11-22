@@ -27,4 +27,14 @@
         android:id="@+id/mdm_info_message"
         style="@style/MainText"/>
     <include layout="@layout/device_manager_icon_label"/>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="right"
+        android:orientation="horizontal" >
+        <Button
+            android:id="@+id/setup_button"
+            style="@style/TransparentButton"
+            android:paddingTop="@dimen/button_padding_top"/>
+    </LinearLayout>
 </LinearLayout>

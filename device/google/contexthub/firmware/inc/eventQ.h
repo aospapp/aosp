@@ -20,6 +20,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <plat/inc/taggedPtr.h>
 
 
 #define EVENT_TYPE_BIT_DISCARDABLE_COMPAT    0x80000000 /* some external apps are using this one */
@@ -27,14 +28,14 @@
 
 struct EvtQueue;
 
-typedef void (*EvtQueueForciblyDiscardEvtCbkF)(uint32_t evtType, void *evtData, uintptr_t evtFreeData);
+typedef void (*EvtQueueForciblyDiscardEvtCbkF)(uint32_t evtType, void *evtData, TaggedPtr evtFreeData);
 
 //multi-producer, SINGLE consumer queue
 
 struct EvtQueue* evtQueueAlloc(uint32_t size, EvtQueueForciblyDiscardEvtCbkF forceDiscardCbk);
 void evtQueueFree(struct EvtQueue* q);
-bool evtQueueEnqueue(struct EvtQueue* q, uint32_t evtType, void *evtData, uintptr_t evtFreeData, bool atFront /* do not set this unless you know the repercussions. read: never set this in new code */);
-bool evtQueueDequeue(struct EvtQueue* q, uint32_t *evtTypeP, void **evtDataP, uintptr_t *evtFreeDataP, bool sleepIfNone);
+bool evtQueueEnqueue(struct EvtQueue* q, uint32_t evtType, void *evtData, TaggedPtr evtFreeData, bool atFront /* do not set this unless you know the repercussions. read: never set this in new code */);
+bool evtQueueDequeue(struct EvtQueue* q, uint32_t *evtTypeP, void **evtDataP, TaggedPtr *evtFreeDataP, bool sleepIfNone);
 
 
 #endif

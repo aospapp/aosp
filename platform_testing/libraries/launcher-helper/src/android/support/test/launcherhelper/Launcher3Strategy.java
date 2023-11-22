@@ -16,6 +16,7 @@
 package android.support.test.launcherhelper;
 
 import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiObject2;
 
 public class Launcher3Strategy extends BaseLauncher3Strategy {
@@ -42,5 +43,13 @@ public class Launcher3Strategy extends BaseLauncher3Strategy {
         if (gotItButton != null) {
             gotItButton.click();
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BySelector getAllAppsButtonSelector() {
+        return By.desc("Apps");
     }
 }

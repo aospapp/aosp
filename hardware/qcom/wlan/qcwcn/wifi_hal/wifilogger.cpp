@@ -163,7 +163,6 @@ wifi_error wifi_get_ring_buffers_status(wifi_interface_handle iface,
                                         wifi_ring_buffer_status *status)
 {
     int ret = 0;
-    interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
     hal_info *info = getHalInfo(wifiHandle);
     wifi_ring_buffer_status *rbs;
@@ -223,7 +222,6 @@ wifi_error wifi_get_logger_supported_feature_set(wifi_interface_handle iface,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    hal_info *info = getHalInfo(wifiHandle);
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
@@ -358,7 +356,6 @@ wifi_error wifi_get_firmware_version(wifi_interface_handle iface,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    hal_info *info = getHalInfo(wifiHandle);
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
@@ -422,7 +419,6 @@ wifi_error wifi_get_driver_version(wifi_interface_handle iface,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    hal_info *info = getHalInfo(wifiHandle);
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
@@ -485,7 +481,6 @@ wifi_error wifi_get_firmware_memory_dump(wifi_interface_handle iface,
     struct nlattr *nlData;
     interface_info *ifaceInfo = getIfaceInfo(iface);
     wifi_handle wifiHandle = getWifiHandle(iface);
-    hal_info *info = getHalInfo(wifiHandle);
 
     /* No request id from caller, so generate one and pass it on to the driver.
      * Generate one randomly.
@@ -988,9 +983,6 @@ int WifiLoggerCommand::requestResponse()
 }
 
 int WifiLoggerCommand::handleResponse(WifiEvent &reply) {
-    u32 status;
-    int ret = WIFI_SUCCESS;
-    int i = 0;
     int len = 0, version;
     char version_type[20];
     char* memBuffer = NULL;
@@ -1052,7 +1044,6 @@ int WifiLoggerCommand::handleResponse(WifiEvent &reply) {
 
         case QCA_NL80211_VENDOR_SUBCMD_WIFI_LOGGER_MEMORY_DUMP:
         {
-            int id = 0;
             u32 memDumpSize = 0;
             int numRecordsRead = 0;
             u32 remaining = 0;
@@ -1329,7 +1320,6 @@ int WifiLoggerCommand::handleEvent(WifiEvent &event)
            break;
     }
 
-cleanup:
     return NL_SKIP;
 }
 
@@ -1353,7 +1343,6 @@ void WifiLoggerCommand::unregisterHandler(u32 subCmd)
 int WifiLoggerCommand::timed_wait(u16 wait_time)
 {
     struct timespec absTime;
-    int res;
     absTime.tv_sec = wait_time;
     absTime.tv_nsec = 0;
     return mCondition.wait(absTime);

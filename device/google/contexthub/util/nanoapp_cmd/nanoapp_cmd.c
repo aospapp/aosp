@@ -36,7 +36,12 @@
 #define SENSOR_RATE_ONESHOT     0xFFFFFF02UL
 #define SENSOR_HZ(_hz)          ((uint32_t)((_hz) * 1024.0f))
 #define MAX_INSTALL_CNT         8
-#define MAX_DOWNLOAD_RETRIES    3
+#define MAX_DOWNLOAD_RETRIES    4
+
+#define LOGE(fmt, ...) do { \
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, fmt, ##__VA_ARGS__); \
+        printf(fmt "\n", ##__VA_ARGS__); \
+    } while (0)
 
 enum ConfigCmds
 {
@@ -165,8 +170,7 @@ FILE *openFile(const char *fname, const char *mode)
 {
     FILE *f = fopen(fname, mode);
     if (f == NULL) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to open %s: err=%d [%s]", fname, errno, strerror(errno));
-        printf("\nFailed to open %s: err=%d [%s]\n", fname, errno, strerror(errno));
+        LOGE("Failed to open %s: err=%d [%s]", fname, errno, strerror(errno));
     }
     return f;
 }
@@ -186,7 +190,7 @@ void parseInstalledAppInfo()
 
     while ((numRead = getline(&line, &len, fp)) != -1) {
         struct AppInfo *currApp = &apps[appCount++];
-        sscanf(line, "app: %d id: %" PRIx64 " ver: %d size: %d\n", &currApp->num, &currApp->id, &currApp->version, &currApp->size);
+        sscanf(line, "app: %d id: %" PRIx64 " ver: %" PRIx32 " size: %" PRIx32 "\n", &currApp->num, &currApp->id, &currApp->version, &currApp->size);
     }
 
     fclose(fp);
@@ -228,7 +232,7 @@ int parseConfigAppInfo()
         uint32_t appVersion;
         struct AppInfo* installedApp;
 
-        sscanf(line, "%32s %" PRIx64 " %d\n", appsToInstall[installCnt], &appId, &appVersion);
+        sscanf(line, "%32s %" PRIx64 " %" PRIx32 "\n", appsToInstall[installCnt], &appId, &appVersion);
 
         installedApp = findApp(appId);
         if (!installedApp || (installedApp->version < appVersion)) {
@@ -251,15 +255,13 @@ bool fileWriteData(const char *fname, const void *data, size_t size)
 
     fd = open(fname, O_WRONLY);
     if (fd < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to open %s: err=%d [%s]", fname, errno, strerror(errno));
-        printf("\nFailed to open %s: err=%d [%s]\n", fname, errno, strerror(errno));
+        LOGE("Failed to open %s: err=%d [%s]", fname, errno, strerror(errno));
         return false;
     }
 
     result = true;
     if ((size_t)write(fd, data, size) != size) {
-        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to write to %s; err=%d [%s]", fname, errno, strerror(errno));
-        printf("\nFailed to write %s; err=%d [%s]\n", fname, errno, strerror(errno));
+        LOGE("Failed to write to %s; err=%d [%s]", fname, errno, strerror(errno));
         result = false;
     }
     close(fd);
@@ -289,6 +291,16 @@ void downloadApps(int updateCnt)
     }
 }
 
+void eraseSharedArea()
+{
+    char c = '1';
+
+    printf("Erasing entire nanohub shared area...");
+    fflush(stdout);
+    if (fileWriteData("/sys/class/nanohub/nanohub/erase_shared", &c, sizeof(c)))
+        printf("done\n");
+}
+
 void resetHub()
 {
     char c = '1';
@@ -305,7 +317,7 @@ int main(int argc, char *argv[])
     int fd;
     int i;
 
-    if (argc < 3 && strcmp(argv[1], "download") != 0) {
+    if (argc < 3 && (argc < 2 || strcmp(argv[1], "download") != 0)) {
         printf("usage: %s <action> <sensor> <data> -d\n", argv[0]);
         printf("       action: config|calibrate|flush|download\n");
         printf("       sensor: accel|(uncal_)gyro|(uncal_)mag|als|prox|baro|temp|orien\n");
@@ -383,6 +395,11 @@ int main(int argc, char *argv[])
         for (i = 0; i < MAX_DOWNLOAD_RETRIES; i++) {
             int updateCnt = parseConfigAppInfo();
             if (updateCnt > 0) {
+                if (i == MAX_DOWNLOAD_RETRIES - 1) {
+                    LOGE("Download failed after %d retries; erasing all apps "
+                         "before final attempt", i);
+                    eraseSharedArea();
+                }
                 downloadApps(updateCnt);
                 resetHub();
             } else if (!updateCnt){
@@ -391,8 +408,7 @@ int main(int argc, char *argv[])
         }
 
         if (parseConfigAppInfo() != 0) {
-            __android_log_write(ANDROID_LOG_ERROR, LOG_TAG, "Failed to download all apps!");
-            printf("Failed to download all apps!\n");
+            LOGE("Failed to download all apps!");
         }
         return 1;
     } else {

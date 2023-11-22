@@ -691,13 +691,15 @@ static WORD32 ihevcd_parse_vui_parameters(bitstrm_t *ps_bitstrm,
     ps_vui->u1_video_format = VID_FMT_UNSPECIFIED;
     ps_vui->u1_video_full_range_flag = 0;
     ps_vui->u1_colour_description_present_flag = 0;
+    ps_vui->u1_colour_primaries = 2;
+    ps_vui->u1_transfer_characteristics = 2;
+    ps_vui->u1_matrix_coefficients = 2;
+
     if(ps_vui->u1_video_signal_type_present_flag)
     {
         BITS_PARSE("video_format", ps_vui->u1_video_format, ps_bitstrm, 3);
         BITS_PARSE("video_full_range_flag", ps_vui->u1_video_full_range_flag, ps_bitstrm, 1);
         BITS_PARSE("colour_description_present_flag", ps_vui->u1_colour_description_present_flag, ps_bitstrm, 1);
-        ps_vui->u1_colour_primaries = 2;
-        ps_vui->u1_transfer_characteristics = 2;
         if(ps_vui->u1_colour_description_present_flag)
         {
             BITS_PARSE("colour_primaries", ps_vui->u1_colour_primaries, ps_bitstrm, 8);

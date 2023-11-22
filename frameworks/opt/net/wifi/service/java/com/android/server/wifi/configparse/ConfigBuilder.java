@@ -173,26 +173,25 @@ public class ConfigBuilder {
                                                  List<X509Certificate> clientChain, PrivateKey key)
             throws IOException, GeneralSecurityException {
 
-        Credential credential = homeSP.getCredential();
-
         WifiConfiguration config;
 
-        EAP.EAPMethodID eapMethodID = credential.getEAPMethod().getEAPMethodID();
+        EAP.EAPMethodID eapMethodID = homeSP.getCredential().getEAPMethod().getEAPMethodID();
         switch (eapMethodID) {
             case EAP_TTLS:
                 if (key != null || clientChain != null) {
-                    Log.w(TAG, "Client cert and/or key included with EAP-TTLS profile");
+                    Log.w(TAG, "Client cert and/or key unnecessarily included with EAP-TTLS "+
+                            "profile");
                 }
-                config = buildTTLSConfig(homeSP);
+                config = buildTTLSConfig(homeSP, caCert);
                 break;
             case EAP_TLS:
-                config = buildTLSConfig(homeSP, clientChain, key);
+                config = buildTLSConfig(homeSP, clientChain, key, caCert);
                 break;
             case EAP_AKA:
             case EAP_AKAPrim:
             case EAP_SIM:
                 if (key != null || clientChain != null || caCert != null) {
-                    Log.i(TAG, "Client/CA cert and/or key included with " +
+                    Log.i(TAG, "Client/CA cert and/or key unnecessarily included with " +
                             eapMethodID + " profile");
                 }
                 config = buildSIMConfig(homeSP);
@@ -200,11 +199,6 @@ public class ConfigBuilder {
             default:
                 throw new IOException("Unsupported EAP Method: " + eapMethodID);
         }
-
-        WifiEnterpriseConfig enterpriseConfig = config.enterpriseConfig;
-
-        enterpriseConfig.setCaCertificate(caCert);
-        enterpriseConfig.setAnonymousIdentity("anonymous@" + credential.getRealm());
 
         return config;
     }
@@ -233,7 +227,28 @@ public class ConfigBuilder {
     }
     */
 
-    private static WifiConfiguration buildTTLSConfig(HomeSP homeSP)
+    private static void setAnonymousIdentityToNaiRealm(
+            WifiConfiguration config, Credential credential) {
+        /**
+         * Set WPA supplicant's anonymous identity field to a string containing the NAI realm, so
+         * that this value will be sent to the EAP server as part of the EAP-Response/ Identity
+         * packet. WPA supplicant will reset this field after using it for the EAP-Response/Identity
+         * packet, and revert to using the (real) identity field for subsequent transactions that
+         * request an identity (e.g. in EAP-TTLS).
+         *
+         * This NAI realm value (the portion of the identity after the '@') is used to tell the
+         * AAA server which AAA/H to forward packets to. The hardcoded username, "anonymous", is a
+         * placeholder that is not used--it is set to this value by convention. See Section 5.1 of
+         * RFC3748 for more details.
+         *
+         * NOTE: we do not set this value for EAP-SIM/AKA/AKA', since the EAP server expects the
+         * EAP-Response/Identity packet to contain an actual, IMSI-based identity, in order to
+         * identify the device.
+         */
+        config.enterpriseConfig.setAnonymousIdentity("anonymous@" + credential.getRealm());
+    }
+
+    private static WifiConfiguration buildTTLSConfig(HomeSP homeSP, X509Certificate caCert)
             throws IOException {
         Credential credential = homeSP.getCredential();
 
@@ -255,13 +270,17 @@ public class ConfigBuilder {
         enterpriseConfig.setPhase2Method(remapInnerMethod(ttlsParam.getType()));
         enterpriseConfig.setIdentity(credential.getUserName());
         enterpriseConfig.setPassword(credential.getPassword());
+        enterpriseConfig.setCaCertificate(caCert);
+
+        setAnonymousIdentityToNaiRealm(config, credential);
 
         return config;
     }
 
     private static WifiConfiguration buildTLSConfig(HomeSP homeSP,
                                                     List<X509Certificate> clientChain,
-                                                    PrivateKey clientKey)
+                                                    PrivateKey clientKey,
+                                                    X509Certificate caCert)
             throws IOException, GeneralSecurityException {
 
         Credential credential = homeSP.getCredential();
@@ -296,6 +315,9 @@ public class ConfigBuilder {
         WifiEnterpriseConfig enterpriseConfig = config.enterpriseConfig;
         enterpriseConfig.setClientCertificateAlias(alias);
         enterpriseConfig.setClientKeyEntry(clientKey, clientCertificate);
+        enterpriseConfig.setCaCertificate(caCert);
+
+        setAnonymousIdentityToNaiRealm(config, credential);
 
         return config;
     }

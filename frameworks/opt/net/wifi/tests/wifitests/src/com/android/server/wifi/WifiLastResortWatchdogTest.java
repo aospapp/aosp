@@ -19,6 +19,7 @@ package com.android.server.wifi;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
+import static org.mockito.MockitoAnnotations.*;
 
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiSsid;
@@ -27,6 +28,7 @@ import android.util.Pair;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,7 +40,8 @@ import java.util.List;
 @SmallTest
 public class WifiLastResortWatchdogTest {
     WifiLastResortWatchdog mLastResortWatchdog;
-    WifiMetrics mWifiMetrics;
+    @Mock WifiMetrics mWifiMetrics;
+    @Mock WifiController mWifiController;
     private String[] mSsids = {"\"test1\"", "\"test2\"", "\"test3\"", "\"test4\""};
     private String[] mBssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4", "de:ad:ba:b1:e5:55",
             "c0:ff:ee:ee:e3:ee"};
@@ -51,8 +54,9 @@ public class WifiLastResortWatchdogTest {
 
     @Before
     public void setUp() throws Exception {
-        mWifiMetrics = mock(WifiMetrics.class);
+        initMocks(this);
         mLastResortWatchdog = new WifiLastResortWatchdog(mWifiMetrics);
+        mLastResortWatchdog.setWifiController(mWifiController);
     }
 
     private List<Pair<ScanDetail, WifiConfiguration>> createFilteredQnsCandidates(String[] ssids,
@@ -1276,6 +1280,8 @@ public class WifiLastResortWatchdogTest {
                     ssids[ssids.length - 1], bssids[ssids.length - 1],
                     WifiLastResortWatchdog.FAILURE_CODE_ASSOCIATION);
         assertEquals(true, watchdogTriggered);
+        verify(mWifiController).sendMessage(WifiController.CMD_RESTART_WIFI);
+        reset(mWifiController);
     }
 
     /**

@@ -1089,6 +1089,13 @@ struct pkg_info *package_info_lookup(const char *name)
     return NULL;
 }
 
+/* The contents of these paths are encrypted on FBE devices until user
+ * credentials are presented (filenames inside are mangled), so we need
+ * to delay restorecon of those until vold explicitly requests it. */
+// NOTE: these paths need to be kept in sync with vold
+#define DATA_SYSTEM_CE_PREFIX "/data/system_ce/"
+#define DATA_MISC_CE_PREFIX "/data/misc_ce/"
+
 /* The path prefixes of package data directories. */
 #define DATA_DATA_PATH "/data/data"
 #define DATA_USER_PATH "/data/user"
@@ -1279,6 +1286,7 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
     bool recurse = (flags & SELINUX_ANDROID_RESTORECON_RECURSE) ? true : false;
     bool force = (flags & SELINUX_ANDROID_RESTORECON_FORCE) ? true : false;
     bool datadata = (flags & SELINUX_ANDROID_RESTORECON_DATADATA) ? true : false;
+    bool skipce = (flags & SELINUX_ANDROID_RESTORECON_SKIPCE) ? true : false;
     bool issys;
     bool setrestoreconlast = true;
     struct stat sb;
@@ -1406,6 +1414,14 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
             if (issys && !selabel_partial_match(fc_sehandle, ftsent->fts_path)) {
                 fts_set(fts, ftsent, FTS_SKIP);
                 continue;
+            }
+
+            if (skipce &&
+                (!strncmp(ftsent->fts_path, DATA_SYSTEM_CE_PREFIX, sizeof(DATA_SYSTEM_CE_PREFIX)-1) ||
+                 !strncmp(ftsent->fts_path, DATA_MISC_CE_PREFIX, sizeof(DATA_MISC_CE_PREFIX)-1))) {
+                // Don't label anything below this directory.
+                fts_set(fts, ftsent, FTS_SKIP);
+                // but fall through and make sure we label the directory itself
             }
 
             if (!datadata &&

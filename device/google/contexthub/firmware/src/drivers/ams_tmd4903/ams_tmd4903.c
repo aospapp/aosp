@@ -36,7 +36,7 @@
 #include <variant/inc/variant.h>
 
 #define AMS_TMD4903_APP_ID      APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 12)
-#define AMS_TMD4903_APP_VERSION 6
+#define AMS_TMD4903_APP_VERSION 14
 
 #ifndef PROX_INT_PIN
 #error "PROX_INT_PIN is not defined; please define in variant.h"
@@ -46,9 +46,9 @@
 #error "PROX_IRQ is not defined; please define in variant.h"
 #endif
 
-#define I2C_BUS_ID                              0
-#define I2C_SPEED                               400000
-#define I2C_ADDR                                0x39
+#define I2C_BUS_ID                             0
+#define I2C_SPEED                              400000
+#define I2C_ADDR                               0x39
 
 #define AMS_TMD4903_REG_ENABLE                 0x80
 #define AMS_TMD4903_REG_ATIME                  0x81
@@ -100,9 +100,16 @@
 
 #define AMS_TMD4903_ATIME_SETTING              0xdc
 #define AMS_TMD4903_ATIME_MS                   ((256 - AMS_TMD4903_ATIME_SETTING) * 2.78) // in milliseconds
+#define AMS_TMD4903_MAX_ALS_CHANNEL_COUNT      ((256 - AMS_TMD4903_ATIME_SETTING) * 1024) // in ALS data units
+#define AMS_TMD4903_ALS_MAX_REPORT_VALUE       150000.0f // in lux
 #define AMS_TMD4903_PTIME_SETTING              0x11
 #define AMS_TMD4903_PGCFG0_SETTING             0x41 // pulse length: 8 us, pulse count: 2
 #define AMS_TMD4903_PGCFG1_SETTING             0x04 // gain: 1x, drive: 50 mA
+
+#define AMS_TMD4903_ALS_DEBOUNCE_SAMPLES       5
+#define AMS_TMD4903_ALS_GAIN_4X_THOLD          4000.0f
+#define AMS_TMD4903_ALS_GAIN_16X_THOLD         1000.0f
+#define AMS_TMD4903_ALS_GAIN_64X_THOLD         250.0f
 
 /* AMS_TMD4903_REG_ENABLE */
 #define PROX_INT_ENABLE_BIT                    (1 << 5)
@@ -114,15 +121,20 @@
 /* AMS_TMD4903_REG_INTENAB */
 #define CAL_INT_ENABLE_BIT                     (1 << 1)
 
-
 #define AMS_TMD4903_REPORT_NEAR_VALUE          0.0f // centimeters
 #define AMS_TMD4903_REPORT_FAR_VALUE           5.0f // centimeters
 #define AMS_TMD4903_PROX_THRESHOLD_HIGH        350  // value in PS_DATA
-#define AMS_TMD4903_PROX_THRESHOLD_LOW         250  // value in PS_DATA
+#define AMS_TMD4903_PROX_THRESHOLD_LOW         150  // value in PS_DATA
 
 #define AMS_TMD4903_ALS_INVALID                UINT32_MAX
 
 #define AMS_TMD4903_ALS_TIMER_DELAY            200000000ULL
+
+#define AMS_TMD4903_MAX_PENDING_I2C_REQUESTS   8
+#define AMS_TMD4903_MAX_I2C_TRANSFER_SIZE      18
+
+#define MIN2(a,b) (((a) < (b)) ? (a) : (b))
+#define MAX2(a,b) (((a) > (b)) ? (a) : (b))
 
 // NOTE: Define this to be 1 to enable streaming of proximity samples instead of
 // using the interrupt
@@ -165,9 +177,11 @@ enum SensorState
     SENSOR_STATE_ENABLING_ALS,
     SENSOR_STATE_ENABLING_PROX,
     SENSOR_STATE_DISABLING_ALS,
+    SENSOR_STATE_DISABLING_ALS_2,
     SENSOR_STATE_DISABLING_PROX,
     SENSOR_STATE_DISABLING_PROX_2,
     SENSOR_STATE_DISABLING_PROX_3,
+    SENSOR_STATE_ALS_CHANGING_GAIN,
     SENSOR_STATE_ALS_SAMPLING,
     SENSOR_STATE_PROX_SAMPLING,
     SENSOR_STATE_PROX_TRANSITION_0,
@@ -189,12 +203,25 @@ enum ProxOffsetIndex
     PROX_OFFSET_EAST  = 3
 };
 
+enum AlsGain
+{
+    ALS_GAIN_1X  = 0,
+    ALS_GAIN_4X  = 1,
+    ALS_GAIN_16X = 2,
+    ALS_GAIN_64X = 3
+};
+
+struct AlsProxTransfer
+{
+    uint8_t txrxBuf[AMS_TMD4903_MAX_I2C_TRANSFER_SIZE];
+    uint8_t state;
+    bool inUse;
+};
+
 struct SensorData
 {
     struct Gpio *pin;
     struct ChainedIsr isr;
-
-    uint8_t txrxBuf[18];
 
     uint32_t tid;
 
@@ -206,13 +233,21 @@ struct SensorData
 
     union EmbeddedDataPoint lastAlsSample;
 
+    struct AlsProxTransfer transfers[AMS_TMD4903_MAX_PENDING_I2C_REQUESTS];
+
     uint8_t lastProxState; // enum ProxState
+
+    uint8_t alsGain;
+    uint8_t nextAlsGain;
+    uint8_t alsDebounceSamples;
 
     bool alsOn;
     bool proxOn;
     bool alsCalibrating;
     bool proxCalibrating;
     bool proxDirectMode;
+    bool alsChangingGain;
+    bool alsSkipSample;
 };
 
 static struct SensorData mTask;
@@ -236,9 +271,46 @@ static const uint32_t supportedRates[] =
     0,
 };
 
+static void i2cCallback(void *cookie, size_t tx, size_t rx, int err);
+
 /*
  * Helper functions
  */
+
+// Allocate a buffer and mark it as in use with the given state, or return NULL
+// if no buffers available. Must *not* be called from interrupt context.
+static struct AlsProxTransfer *allocXfer(uint8_t state)
+{
+    size_t i;
+
+    for (i = 0; i < ARRAY_SIZE(mTask.transfers); i++) {
+        if (!mTask.transfers[i].inUse) {
+            mTask.transfers[i].inUse = true;
+            mTask.transfers[i].state = state;
+            return &mTask.transfers[i];
+        }
+    }
+
+    INFO_PRINT("Ran out of i2c buffers!");
+    return NULL;
+}
+
+// Helper function to write a one byte register. Returns true if we got a
+// successful return value from i2cMasterTx().
+static bool writeRegister(uint8_t reg, uint8_t value, uint8_t state)
+{
+    struct AlsProxTransfer *xfer = allocXfer(state);
+    int ret = -1;
+
+    if (xfer != NULL) {
+        xfer->txrxBuf[0] = reg;
+        xfer->txrxBuf[1] = value;
+        ret = i2cMasterTx(I2C_BUS_ID, I2C_ADDR, xfer->txrxBuf, 2, i2cCallback, xfer);
+    }
+
+    return (ret == 0);
+}
+
 static bool proxIsr(struct ChainedIsr *localIsr)
 {
     struct SensorData *data = container_of(localIsr, struct SensorData, isr);
@@ -304,21 +376,44 @@ static void alsTimerCallback(uint32_t timerId, void *cookie)
     osEnqueuePrivateEvt(EVT_SENSOR_ALS_TIMER, cookie, NULL, mTask.tid);
 }
 
-#define LUX_PER_COUNTS   (799.397f/AMS_TMD4903_ATIME_MS)
-#define C_COEFF           2.387f
-#define R_COEFF           -1.57f
-#define G_COEFF           2.69f
-#define B_COEFF           -3.307f
-
-static inline float getLuxFromAlsData(uint16_t c, uint16_t r, uint16_t g, uint16_t b)
+static inline uint32_t getAlsGainFromSetting(uint8_t gainSetting)
 {
-    // TODO (trevorbunker): need to check for c saturation
-    // AMS_TMG4903_ALS_MAX_CHANNEL_COUNT
+    return 0x1 << (2 * gainSetting);
+}
 
-    // TODO (trevorbunker): You can use IR ratio (depends on light source) to
-    // select between different R, G, and B coefficients
+static float getLuxFromAlsData(uint16_t c, uint16_t r, uint16_t g, uint16_t b)
+{
+    float lux;
 
-    return LUX_PER_COUNTS * ((c * C_COEFF) + (r * R_COEFF) + (g * G_COEFF) + (b * B_COEFF)) * mTask.alsOffset;
+    // check for channel saturation
+    if (c >= AMS_TMD4903_MAX_ALS_CHANNEL_COUNT || r >= AMS_TMD4903_MAX_ALS_CHANNEL_COUNT ||
+        g >= AMS_TMD4903_MAX_ALS_CHANNEL_COUNT || b >= AMS_TMD4903_MAX_ALS_CHANNEL_COUNT)
+       return AMS_TMD4903_ALS_MAX_REPORT_VALUE;
+
+    lux = (ALS_GA_FACTOR *
+           ((c * ALS_C_COEFF) + (r * ALS_R_COEFF) + (g * ALS_G_COEFF) + (b * ALS_B_COEFF)) /
+        (AMS_TMD4903_ATIME_MS * getAlsGainFromSetting(mTask.alsGain))) * mTask.alsOffset;
+
+    return MIN2(MAX2(0.0f, lux), AMS_TMD4903_ALS_MAX_REPORT_VALUE);
+}
+
+static bool checkForAlsAutoGain(float sample)
+{
+    if ((mTask.alsGain != ALS_GAIN_64X) && (sample < AMS_TMD4903_ALS_GAIN_64X_THOLD)) {
+        mTask.alsDebounceSamples = (mTask.nextAlsGain == ALS_GAIN_64X) ? (mTask.alsDebounceSamples + 1) : 1;
+        mTask.nextAlsGain = ALS_GAIN_64X;
+    } else if ((mTask.alsGain != ALS_GAIN_16X) && (sample >= AMS_TMD4903_ALS_GAIN_64X_THOLD) && (sample < AMS_TMD4903_ALS_GAIN_16X_THOLD)) {
+        mTask.alsDebounceSamples = (mTask.nextAlsGain == ALS_GAIN_16X) ? (mTask.alsDebounceSamples + 1) : 1;
+        mTask.nextAlsGain = ALS_GAIN_16X;
+    } else if ((mTask.alsGain != ALS_GAIN_4X) && (sample >= AMS_TMD4903_ALS_GAIN_16X_THOLD) && (sample < AMS_TMD4903_ALS_GAIN_4X_THOLD)) {
+        mTask.alsDebounceSamples = (mTask.nextAlsGain == ALS_GAIN_4X) ? (mTask.alsDebounceSamples + 1) : 1;
+        mTask.nextAlsGain = ALS_GAIN_4X;
+    } else if ((mTask.alsGain != ALS_GAIN_1X) && (sample >= AMS_TMD4903_ALS_GAIN_4X_THOLD)) {
+        mTask.alsDebounceSamples = (mTask.nextAlsGain == ALS_GAIN_1X) ? (mTask.alsDebounceSamples + 1) : 1;
+        mTask.nextAlsGain = ALS_GAIN_1X;
+    }
+
+    return (mTask.alsDebounceSamples >= AMS_TMD4903_ALS_DEBOUNCE_SAMPLES);
 }
 
 static void sendCalibrationResultAls(uint8_t status, float offset) {
@@ -362,14 +457,13 @@ static void sendCalibrationResultProx(uint8_t status, int16_t *offsets) {
         osLog(LOG_WARN, "Couldn't send prox cal result evt");
 }
 
-static void setMode(bool alsOn, bool proxOn, void *cookie)
+static void setMode(bool alsOn, bool proxOn, uint8_t state)
 {
-    mTask.txrxBuf[0] = AMS_TMD4903_REG_ENABLE;
-    mTask.txrxBuf[1] =
+    uint8_t regEnable =
         ((alsOn || proxOn) ? POWER_ON_BIT : 0) |
         (alsOn ? ALS_ENABLE_BIT : 0) |
         (proxOn ? (PROX_INT_ENABLE_BIT | PROX_ENABLE_BIT) : 0);
-    i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, cookie);
+    writeRegister(AMS_TMD4903_REG_ENABLE, regEnable, state);
 }
 
 static bool sensorPowerAls(bool on, void *cookie)
@@ -385,8 +479,13 @@ static bool sensorPowerAls(bool on, void *cookie)
 
     mTask.lastAlsSample.idata = AMS_TMD4903_ALS_INVALID;
     mTask.alsOn = on;
+    mTask.nextAlsGain = ALS_GAIN_4X;
+    mTask.alsChangingGain = false;
+    // skip first sample to make sure we get an entire integration cycle
+    mTask.alsSkipSample = true;
+    mTask.alsDebounceSamples = 0;
 
-    setMode(on, mTask.proxOn, (void *)(on ? SENSOR_STATE_ENABLING_ALS : SENSOR_STATE_DISABLING_ALS));
+    setMode(on, mTask.proxOn, (on) ? SENSOR_STATE_ENABLING_ALS : SENSOR_STATE_DISABLING_ALS);
     return true;
 }
 
@@ -424,15 +523,15 @@ static bool sensorCalibrateAls(void *cookie)
     mTask.lastAlsSample.idata = AMS_TMD4903_ALS_INVALID;
     mTask.alsCalibrating = true;
     mTask.alsOffset = 1.0f;
+    mTask.alsChangingGain = false;
+    mTask.alsSkipSample = false;
 
     extiClearPendingGpio(mTask.pin);
     enableInterrupt(mTask.pin, &mTask.isr, EXTI_TRIGGER_FALLING);
 
-    mTask.txrxBuf[0] = AMS_TMD4903_REG_ENABLE;
-    mTask.txrxBuf[1] = POWER_ON_BIT | ALS_ENABLE_BIT | ALS_INT_ENABLE_BIT;
-    i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void*)SENSOR_STATE_IDLE);
-
-    return true;
+    return writeRegister(AMS_TMD4903_REG_ENABLE,
+                         (POWER_ON_BIT | ALS_ENABLE_BIT | ALS_INT_ENABLE_BIT),
+                         SENSOR_STATE_IDLE);
 }
 
 static bool sensorCfgDataAls(void *data, void *cookie)
@@ -473,7 +572,7 @@ static bool sensorPowerProx(bool on, void *cookie)
     mTask.proxOn = on;
     mTask.proxDirectMode = false;
 
-    setMode(mTask.alsOn, on, (void *)(on ? SENSOR_STATE_ENABLING_PROX : SENSOR_STATE_DISABLING_PROX));
+    setMode(mTask.alsOn, on, (on) ? SENSOR_STATE_ENABLING_PROX : SENSOR_STATE_DISABLING_PROX);
     return true;
 }
 
@@ -516,28 +615,27 @@ static bool sensorCalibrateProx(void *cookie)
     extiClearPendingGpio(mTask.pin);
     enableInterrupt(mTask.pin, &mTask.isr, EXTI_TRIGGER_FALLING);
 
-    mTask.txrxBuf[0] = AMS_TMD4903_REG_ENABLE;
-    mTask.txrxBuf[1] = POWER_ON_BIT; // REG_ENABLE
-    i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void*)SENSOR_STATE_START_PROX_CALIBRATION_0);
-
-    return true;
+    return writeRegister(AMS_TMD4903_REG_ENABLE, POWER_ON_BIT,
+                         SENSOR_STATE_START_PROX_CALIBRATION_0);
 }
 
 static bool sensorCfgDataProx(void *data, void *cookie)
 {
-    DEBUG_PRINT("sensorCfgDataProx");
-
-    int32_t *offsets = (int32_t*)data;
+    struct AlsProxTransfer *xfer;
+    int32_t *offsets = (int32_t *) data;
 
     INFO_PRINT("Received cfg data: {%d, %d, %d, %d}\n",
                 (int)offsets[0], (int)offsets[1], (int)offsets[2], (int)offsets[3]);
 
-    mTask.txrxBuf[0] = AMS_TMD4903_REG_OFFSETNL;
-    *((int16_t*)&mTask.txrxBuf[1]) = offsets[0];
-    *((int16_t*)&mTask.txrxBuf[3]) = offsets[1];
-    *((int16_t*)&mTask.txrxBuf[5]) = offsets[2];
-    *((int16_t*)&mTask.txrxBuf[7]) = offsets[3];
-    i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 9, &i2cCallback, (void *)SENSOR_STATE_IDLE);
+    xfer = allocXfer(SENSOR_STATE_IDLE);
+    if (xfer != NULL) {
+        xfer->txrxBuf[0] = AMS_TMD4903_REG_OFFSETNL;
+        *((int16_t*)&xfer->txrxBuf[1]) = offsets[0];
+        *((int16_t*)&xfer->txrxBuf[3]) = offsets[1];
+        *((int16_t*)&xfer->txrxBuf[5]) = offsets[2];
+        *((int16_t*)&xfer->txrxBuf[7]) = offsets[3];
+        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, xfer->txrxBuf, 9, i2cCallback, xfer);
+    }
     return true;
 }
 
@@ -597,68 +695,165 @@ static const struct SensorOps sensorOpsProx =
     .sensorSendOneDirectEvt = sendLastSampleProx
 };
 
+static void verifySensorId(const struct AlsProxTransfer *xfer)
+{
+    struct AlsProxTransfer *nextXfer;
+    DEBUG_PRINT("REVID = 0x%02x, ID = 0x%02x\n", xfer->txrxBuf[0], xfer->txrxBuf[1]);
+
+    // Check the sensor ID
+    if (xfer->txrxBuf[1] != AMS_TMD4903_ID) {
+        INFO_PRINT("not detected\n");
+        sensorUnregister(mTask.alsHandle);
+        sensorUnregister(mTask.proxHandle);
+        return;
+    }
+
+    nextXfer = allocXfer(SENSOR_STATE_INIT_0);
+    if (nextXfer == NULL) {
+        return;
+    }
+
+    // There is no SW reset on the AMS TMD4903, so we have to reset all registers manually
+    nextXfer->txrxBuf[0]  = AMS_TMD4903_REG_ENABLE;
+    nextXfer->txrxBuf[1]  = 0x00;                                          // REG_ENABLE - reset value from datasheet
+    nextXfer->txrxBuf[2]  = AMS_TMD4903_ATIME_SETTING;                     // REG_ATIME - 100 ms
+    nextXfer->txrxBuf[3]  = AMS_TMD4903_PTIME_SETTING;                     // REG_PTIME - 50 ms
+    nextXfer->txrxBuf[4]  = 0xff;                                          // REG_WTIME - reset value from datasheet
+    nextXfer->txrxBuf[5]  = 0x00;                                          // REG_AILTL - reset value from datasheet
+    nextXfer->txrxBuf[6]  = 0x00;                                          // REG_AILTH - reset value from datasheet
+    nextXfer->txrxBuf[7]  = 0x00;                                          // REG_AIHTL - reset value from datasheet
+    nextXfer->txrxBuf[8]  = 0x00;                                          // REG_AIHTH - reset value from datasheet
+    nextXfer->txrxBuf[9]  = (AMS_TMD4903_PROX_THRESHOLD_LOW & 0xFF);       // REG_PILTL
+    nextXfer->txrxBuf[10] = (AMS_TMD4903_PROX_THRESHOLD_LOW >> 8) & 0xFF;  // REG_PILTH
+    nextXfer->txrxBuf[11] = (AMS_TMD4903_PROX_THRESHOLD_HIGH & 0xFF);      // REG_PIHTL
+    nextXfer->txrxBuf[12] = (AMS_TMD4903_PROX_THRESHOLD_HIGH >> 8) & 0xFF; // REG_PIHTH
+    nextXfer->txrxBuf[13] = 0x00;                                          // REG_PERS - reset value from datasheet
+    nextXfer->txrxBuf[14] = 0xa0;                                          // REG_CFG0 - reset value from datasheet
+    nextXfer->txrxBuf[15] = AMS_TMD4903_PGCFG0_SETTING;                    // REG_PGCFG0
+    nextXfer->txrxBuf[16] = AMS_TMD4903_PGCFG1_SETTING;                    // REG_PGCFG1
+    nextXfer->txrxBuf[17] = mTask.alsGain;                                 // REG_CFG1
+
+    i2cMasterTx(I2C_BUS_ID, I2C_ADDR, nextXfer->txrxBuf, 18, i2cCallback, nextXfer);
+}
+
+static void handleAlsSample(const struct AlsProxTransfer *xfer)
+{
+    union EmbeddedDataPoint sample;
+    uint16_t c = *(uint16_t*)(xfer->txrxBuf);
+    uint16_t r = *(uint16_t*)(xfer->txrxBuf+2);
+    uint16_t g = *(uint16_t*)(xfer->txrxBuf+4);
+    uint16_t b = *(uint16_t*)(xfer->txrxBuf+6);
+
+    if (mTask.alsOn) {
+        sample.fdata = getLuxFromAlsData(c, r, g, b);
+        DEBUG_PRINT("als sample ready: c=%u r=%u g=%u b=%u, gain=%dx, lux=%d\n", c, r, g, b,
+                    (int)getAlsGainFromSetting(mTask.alsGain), (int)sample.fdata);
+
+        if (mTask.alsCalibrating) {
+            sendCalibrationResultAls(SENSOR_APP_EVT_STATUS_SUCCESS, sample.fdata);
+
+            mTask.alsOn = false;
+            mTask.alsCalibrating = false;
+
+            writeRegister(AMS_TMD4903_REG_ENABLE, 0, SENSOR_STATE_IDLE);
+        } else if (mTask.alsSkipSample) {
+            mTask.alsSkipSample = false;
+        } else if (!mTask.alsChangingGain) {
+            if (mTask.lastAlsSample.idata != sample.idata) {
+                osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_ALS), sample.vptr, NULL);
+                mTask.lastAlsSample.fdata = sample.fdata;
+            }
+
+            if (checkForAlsAutoGain(sample.fdata)) {
+                DEBUG_PRINT("Changing ALS gain from %dx to %dx\n", (int)getAlsGainFromSetting(mTask.alsGain),
+                            (int)getAlsGainFromSetting(mTask.nextAlsGain));
+                if (writeRegister(AMS_TMD4903_REG_CFG1, mTask.nextAlsGain,
+                                  SENSOR_STATE_ALS_CHANGING_GAIN)) {
+                    mTask.alsChangingGain = true;
+                }
+            }
+        }
+    }
+}
+
+static void handleProxSample(const struct AlsProxTransfer *xfer)
+{
+    union EmbeddedDataPoint sample;
+    uint16_t ps = *((uint16_t *) xfer->txrxBuf);
+    uint8_t lastProxState = mTask.lastProxState;
+
+    DEBUG_PRINT("prox sample ready: prox=%u\n", ps);
+    if (mTask.proxOn) {
+#if PROX_STREAMING
+        (void)lastProxState;
+        sample.fdata = ps;
+        osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_PROX), sample.vptr, NULL);
+#else
+        // Lower the bar for "near" threshold so it reports "near" when the prox
+        // value is within the hysteresis threshold
+        if (ps > AMS_TMD4903_PROX_THRESHOLD_LOW) {
+            sample.fdata = AMS_TMD4903_REPORT_NEAR_VALUE;
+            mTask.lastProxState = PROX_STATE_NEAR;
+        } else {
+            sample.fdata = AMS_TMD4903_REPORT_FAR_VALUE;
+            mTask.lastProxState = PROX_STATE_FAR;
+        }
+
+        if (mTask.lastProxState != lastProxState)
+            osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_PROX), sample.vptr, NULL);
+#endif
+
+#if PROX_STREAMING
+        // reset proximity interrupts
+        writeRegister(AMS_TMD4903_REG_INTCLEAR, 0x60, SENSOR_STATE_IDLE);
+#else
+        // The TMD4903 direct interrupt mode does not work properly if enabled while something is covering the sensor,
+        // so we need to wait until it is far.
+        if (mTask.lastProxState == PROX_STATE_FAR) {
+            disableInterrupt(mTask.pin, &mTask.isr);
+            extiClearPendingGpio(mTask.pin);
+
+            // Switch to proximity interrupt direct mode
+            writeRegister(AMS_TMD4903_REG_CFG4, 0x27, SENSOR_STATE_PROX_TRANSITION_0);
+        } else {
+            // If we are in the "near" state, we cannot change to direct interrupt mode, so just clear the interrupt
+            writeRegister(AMS_TMD4903_REG_INTCLEAR, 0x60, SENSOR_STATE_IDLE);
+        }
+#endif
+    }
+}
+
 /*
  * Sensor i2c state machine
  */
-
-static void handle_i2c_event(int state)
+static void handle_i2c_event(struct AlsProxTransfer *xfer)
 {
-    union EmbeddedDataPoint sample;
-    uint16_t c, r, g, b, ps;
-    uint8_t lastProxState;
     int i;
+    struct AlsProxTransfer *nextXfer;
 
-    switch (state) {
+    switch (xfer->state) {
     case SENSOR_STATE_VERIFY_ID:
-        DEBUG_PRINT("REVID = 0x%02x, ID = 0x%02x\n", mTask.txrxBuf[0], mTask.txrxBuf[1]);
-
-        // Check the sensor ID
-        if (mTask.txrxBuf[1] != AMS_TMD4903_ID) {
-            INFO_PRINT("not detected\n");
-            sensorUnregister(mTask.alsHandle);
-            sensorUnregister(mTask.proxHandle);
-            break;
-        }
-
-        // There is no SW reset on the AMS TMD4903, so we have to reset all registers manually
-        mTask.txrxBuf[0]  = AMS_TMD4903_REG_ENABLE;
-        mTask.txrxBuf[1]  = 0x00;                                          // REG_ENABLE - reset value from datasheet
-        mTask.txrxBuf[2]  = AMS_TMD4903_ATIME_SETTING;                     // REG_ATIME - 100 ms
-        mTask.txrxBuf[3]  = AMS_TMD4903_PTIME_SETTING;                     // REG_PTIME - 50 ms
-        mTask.txrxBuf[4]  = 0xff;                                          // REG_WTIME - reset value from datasheet
-        mTask.txrxBuf[5]  = 0x00;                                          // REG_AILTL - reset value from datasheet
-        mTask.txrxBuf[6]  = 0x00;                                          // REG_AILTH - reset value from datasheet
-        mTask.txrxBuf[7]  = 0x00;                                          // REG_AIHTL - reset value from datasheet
-        mTask.txrxBuf[8]  = 0x00;                                          // REG_AIHTH - reset value from datasheet
-        mTask.txrxBuf[9]  = (AMS_TMD4903_PROX_THRESHOLD_LOW & 0xFF);       // REG_PILTL
-        mTask.txrxBuf[10] = (AMS_TMD4903_PROX_THRESHOLD_LOW >> 8) & 0xFF;  // REG_PILTH
-        mTask.txrxBuf[11] = (AMS_TMD4903_PROX_THRESHOLD_HIGH & 0xFF);      // REG_PIHTL
-        mTask.txrxBuf[12] = (AMS_TMD4903_PROX_THRESHOLD_HIGH >> 8) & 0xFF; // REG_PIHTH
-        mTask.txrxBuf[13] = 0x00;                                          // REG_PERS - reset value from datasheet
-        mTask.txrxBuf[14] = 0xa0;                                          // REG_CFG0 - reset value from datasheet
-        mTask.txrxBuf[15] = AMS_TMD4903_PGCFG0_SETTING;                    // REG_PGCFG0
-        mTask.txrxBuf[16] = AMS_TMD4903_PGCFG1_SETTING;                    // REG_PGCFG1
-        mTask.txrxBuf[17] = 0x00;                                          // REG_CFG1 - reset value from datasheet
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 18, &i2cCallback, (void *)SENSOR_STATE_INIT_0);
+        verifySensorId(xfer);
         break;
 
     case SENSOR_STATE_INIT_0:
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_CFG4;
-        mTask.txrxBuf[1] = 0x07; // REG_CFG4 - reset value from datasheet
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_INIT_1);
+        // Set REG_CFG4 to reset value from datasheet
+        writeRegister(AMS_TMD4903_REG_CFG4, 0x07, SENSOR_STATE_INIT_1);
         break;
 
     case SENSOR_STATE_INIT_1:
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_OFFSETNL;
-        for (i = 0; i < 8; i++)
-            mTask.txrxBuf[1+i] = 0x00;
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 9, &i2cCallback, (void *)SENSOR_STATE_INIT_2);
+        nextXfer = allocXfer(SENSOR_STATE_INIT_2);
+        if (nextXfer != NULL) {
+            nextXfer->txrxBuf[0] = AMS_TMD4903_REG_OFFSETNL;
+            for (i = 0; i < 8; i++)
+                nextXfer->txrxBuf[1+i] = 0x00;
+            i2cMasterTx(I2C_BUS_ID, I2C_ADDR, nextXfer->txrxBuf, 9, i2cCallback, nextXfer);
+        }
         break;
 
     case SENSOR_STATE_INIT_2:
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_INTCLEAR;
-        mTask.txrxBuf[1] = 0xFA; // REG_INTCLEAR - clear all interrupts
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_FINISH_INIT);
+        // Write REG_INTCLEAR to clear all interrupts
+        writeRegister(AMS_TMD4903_REG_INTCLEAR, 0xFA, SENSOR_STATE_FINISH_INIT);
         break;
 
     case SENSOR_STATE_FINISH_INIT:
@@ -667,15 +862,14 @@ static void handle_i2c_event(int state)
         break;
 
     case SENSOR_STATE_START_PROX_CALIBRATION_0:
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_INTENAB;
-        mTask.txrxBuf[1] = CAL_INT_ENABLE_BIT; // REG_INTENAB - enable calibration interrupt
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void*)SENSOR_STATE_START_PROX_CALIBRATION_1);
+        // Write REG_INTENAB to enable calibration interrupt
+        writeRegister(AMS_TMD4903_REG_INTENAB, CAL_INT_ENABLE_BIT,
+                      SENSOR_STATE_START_PROX_CALIBRATION_1);
         break;
 
     case SENSOR_STATE_START_PROX_CALIBRATION_1:
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_CALIB;
-        mTask.txrxBuf[1] = 0x01; // REG_CALIB - start calibration
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_IDLE);
+        // Write REG_CALIB to start calibration
+        writeRegister(AMS_TMD4903_REG_CALIB, 0x01, SENSOR_STATE_IDLE);
         break;
 
     case SENSOR_STATE_FINISH_PROX_CALIBRATION_0:
@@ -685,22 +879,20 @@ static void handle_i2c_event(int state)
         mTask.proxOn = false;
         mTask.proxCalibrating = false;
 
-        INFO_PRINT("Calibration offsets = {%d, %d, %d, %d}\n", *((int16_t*)&mTask.txrxBuf[0]),
-                    *((int16_t*)&mTask.txrxBuf[2]), *((int16_t*)&mTask.txrxBuf[4]),
-                    *((int16_t*)&mTask.txrxBuf[6]));
+        INFO_PRINT("Calibration offsets = {%d, %d, %d, %d}\n", *((int16_t*)&xfer->txrxBuf[0]),
+                    *((int16_t*)&xfer->txrxBuf[2]), *((int16_t*)&xfer->txrxBuf[4]),
+                    *((int16_t*)&xfer->txrxBuf[6]));
 
         // Send calibration result
-        sendCalibrationResultProx(SENSOR_APP_EVT_STATUS_SUCCESS, (int16_t*)mTask.txrxBuf);
+        sendCalibrationResultProx(SENSOR_APP_EVT_STATUS_SUCCESS, (int16_t*)xfer->txrxBuf);
 
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_INTENAB;
-        mTask.txrxBuf[1] = 0x00; //  REG_INTENAB - disable all interrupts
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void*)SENSOR_STATE_FINISH_PROX_CALIBRATION_1);
+        // Write REG_INTENAB to disable all interrupts
+        writeRegister(AMS_TMD4903_REG_INTENAB, 0x00,
+                      SENSOR_STATE_FINISH_PROX_CALIBRATION_1);
         break;
 
     case SENSOR_STATE_FINISH_PROX_CALIBRATION_1:
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_ENABLE;
-        mTask.txrxBuf[1] = 0x00; //  REG_ENABLE
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void*)SENSOR_STATE_IDLE);
+        writeRegister(AMS_TMD4903_REG_ENABLE, 0, SENSOR_STATE_IDLE);
         break;
 
     case SENSOR_STATE_ENABLING_ALS:
@@ -712,103 +904,44 @@ static void handle_i2c_event(int state)
         break;
 
     case SENSOR_STATE_DISABLING_ALS:
+        // Reset AGAIN to 4x
+        mTask.alsGain = ALS_GAIN_4X;
+        writeRegister(AMS_TMD4903_REG_CFG1, mTask.alsGain, SENSOR_STATE_DISABLING_ALS_2);
+        break;
+
+    case SENSOR_STATE_DISABLING_ALS_2:
         sensorSignalInternalEvt(mTask.alsHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, false, 0);
         break;
 
     case SENSOR_STATE_DISABLING_PROX:
-        // Clear direct proximity to interrupt setting
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_CFG4;
-        mTask.txrxBuf[1] = 0x07; // REG_CFG4 - reset value from datasheet
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_DISABLING_PROX_2);
+        // Write REG_CFG4 to the reset value from datasheet
+        writeRegister(AMS_TMD4903_REG_CFG4, 0x07, SENSOR_STATE_DISABLING_PROX_2);
         break;
 
     case SENSOR_STATE_DISABLING_PROX_2:
-        // Reset interrupt
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_INTCLEAR;
-        mTask.txrxBuf[1] = 0x60; // REG_INTCLEAR - clear proximity interrupts
-        i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_DISABLING_PROX_3);
+        // Write REG_INTCLEAR to clear proximity interrupts
+        writeRegister(AMS_TMD4903_REG_INTCLEAR, 0x60, SENSOR_STATE_DISABLING_PROX_3);
         break;
 
     case SENSOR_STATE_DISABLING_PROX_3:
         sensorSignalInternalEvt(mTask.proxHandle, SENSOR_INTERNAL_EVT_POWER_STATE_CHG, false, 0);
         break;
 
-    case SENSOR_STATE_ALS_SAMPLING:
-        c = *(uint16_t*)(mTask.txrxBuf);
-        r = *(uint16_t*)(mTask.txrxBuf+2);
-        g = *(uint16_t*)(mTask.txrxBuf+4);
-        b = *(uint16_t*)(mTask.txrxBuf+6);
-
-        DEBUG_PRINT("als sample ready: c=%u r=%u g=%u b=%u\n", c, r, g, b);
-
+    case SENSOR_STATE_ALS_CHANGING_GAIN:
         if (mTask.alsOn) {
-            sample.fdata = getLuxFromAlsData(c, r, g, b);
-
-            if (mTask.alsCalibrating) {
-                sendCalibrationResultAls(SENSOR_APP_EVT_STATUS_SUCCESS, sample.fdata);
-
-                mTask.alsOn = false;
-                mTask.alsCalibrating = false;
-
-                mTask.txrxBuf[0] = AMS_TMD4903_REG_ENABLE;
-                mTask.txrxBuf[1] = 0; // REG_ENABLE
-                i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void*)SENSOR_STATE_IDLE);
-            } else if (mTask.lastAlsSample.idata != sample.idata) {
-                osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_ALS), sample.vptr, NULL);
-                mTask.lastAlsSample.fdata = sample.fdata;
-            }
+            mTask.alsChangingGain = false;
+            mTask.alsGain = mTask.nextAlsGain;
+            mTask.alsDebounceSamples = 0;
+            mTask.alsSkipSample = true;
         }
+        break;
 
+    case SENSOR_STATE_ALS_SAMPLING:
+        handleAlsSample(xfer);
         break;
 
     case SENSOR_STATE_PROX_SAMPLING:
-        ps = *(uint16_t*)(mTask.txrxBuf);
-        lastProxState = mTask.lastProxState;
-
-        DEBUG_PRINT("prox sample ready: prox=%u\n", ps);
-
-        if (mTask.proxOn) {
-#if PROX_STREAMING
-            (void)lastProxState;
-            sample.fdata = ps;
-            osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_PROX), sample.vptr, NULL);
-#else
-            if (ps > AMS_TMD4903_PROX_THRESHOLD_HIGH) {
-                sample.fdata = AMS_TMD4903_REPORT_NEAR_VALUE;
-                mTask.lastProxState = PROX_STATE_NEAR;
-            } else {
-                sample.fdata = AMS_TMD4903_REPORT_FAR_VALUE;
-                mTask.lastProxState = PROX_STATE_FAR;
-            }
-
-            if (mTask.lastProxState != lastProxState)
-                osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_PROX), sample.vptr, NULL);
-#endif
-
-#if PROX_STREAMING
-            // clear the interrupt
-            mTask.txrxBuf[0] = AMS_TMD4903_REG_INTCLEAR;
-            mTask.txrxBuf[1] = 0x60; // REG_INTCLEAR - reset proximity interrupts
-            i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_IDLE);
-#else
-            // The TMD4903 direct interrupt mode does not work properly if enabled while something is covering the sensor,
-            // so we need to wait until it is far.
-            if (mTask.lastProxState == PROX_STATE_FAR) {
-                disableInterrupt(mTask.pin, &mTask.isr);
-                extiClearPendingGpio(mTask.pin);
-
-                // Switch to proximity interrupt direct mode
-                mTask.txrxBuf[0] = AMS_TMD4903_REG_CFG4;
-                mTask.txrxBuf[1] = 0x27; // REG_CFG4 - proximity state direct to interrupt pin
-                i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_PROX_TRANSITION_0);
-            } else {
-                // If we are in the "near" state, we cannot change to direct interrupt mode, so just clear the interrupt
-                mTask.txrxBuf[0] = AMS_TMD4903_REG_INTCLEAR;
-                mTask.txrxBuf[1] = 0x60; // REG_INTCLEAR - reset proximity interrupts
-                i2cMasterTx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_IDLE);
-            }
-#endif
-        }
+        handleProxSample(xfer);
         break;
 
     case SENSOR_STATE_PROX_TRANSITION_0:
@@ -822,6 +955,8 @@ static void handle_i2c_event(int state)
     default:
         break;
     }
+
+    xfer->inUse = false;
 }
 
 /*
@@ -830,8 +965,6 @@ static void handle_i2c_event(int state)
 
 static bool init_app(uint32_t myTid)
 {
-    INFO_PRINT("task starting\n");
-
     /* Set up driver private data */
     mTask.tid = myTid;
     mTask.alsOn = false;
@@ -840,6 +973,7 @@ static bool init_app(uint32_t myTid)
     mTask.lastProxState = PROX_STATE_INIT;
     mTask.proxCalibrating = false;
     mTask.alsOffset = 1.0f;
+    mTask.alsGain = ALS_GAIN_4X;
 
     mTask.pin = gpioRequest(PROX_INT_PIN);
     gpioConfigInput(mTask.pin, GPIO_SPEED_LOW, GPIO_PULL_NONE);
@@ -869,17 +1003,23 @@ static void end_app(void)
 
 static void handle_event(uint32_t evtType, const void* evtData)
 {
+    struct AlsProxTransfer *xfer;
+
     switch (evtType) {
     case EVT_APP_START:
         i2cMasterRequest(I2C_BUS_ID, I2C_SPEED);
 
         // Read the ID
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_REVID;
-        i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 1, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_VERIFY_ID);
+        xfer = allocXfer(SENSOR_STATE_VERIFY_ID);
+        if (xfer != NULL) {
+            xfer->txrxBuf[0] = AMS_TMD4903_REG_REVID;
+            i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, xfer->txrxBuf, 1, xfer->txrxBuf, 2, i2cCallback, xfer);
+        }
         break;
 
     case EVT_SENSOR_I2C:
-        handle_i2c_event((int)evtData);
+        // Dropping const here (we own this memory)
+        handle_i2c_event((struct AlsProxTransfer *) evtData);
         break;
 
     case EVT_SENSOR_ALS_INTERRUPT:
@@ -888,17 +1028,24 @@ static void handle_event(uint32_t evtType, const void* evtData)
         // NOTE: fall-through to initiate read of ALS data registers
 
     case EVT_SENSOR_ALS_TIMER:
-        mTask.txrxBuf[0] = AMS_TMD4903_REG_CDATAL;
-        i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 1, mTask.txrxBuf, 8, &i2cCallback, (void *)SENSOR_STATE_ALS_SAMPLING);
+        xfer = allocXfer(SENSOR_STATE_ALS_SAMPLING);
+        if (xfer != NULL) {
+            xfer->txrxBuf[0] = AMS_TMD4903_REG_CDATAL;
+            i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, xfer->txrxBuf, 1, xfer->txrxBuf, 8, i2cCallback, xfer);
+        }
         break;
 
     case EVT_SENSOR_PROX_INTERRUPT:
-        if (mTask.proxCalibrating) {
-            mTask.txrxBuf[0] = AMS_TMD4903_REG_OFFSETNL;
-            i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 1, mTask.txrxBuf, 8, &i2cCallback, (void *)SENSOR_STATE_FINISH_PROX_CALIBRATION_0);
-        } else {
-            mTask.txrxBuf[0] = AMS_TMD4903_REG_PDATAL;
-            i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, mTask.txrxBuf, 1, mTask.txrxBuf, 2, &i2cCallback, (void *)SENSOR_STATE_PROX_SAMPLING);
+        xfer = allocXfer(SENSOR_STATE_PROX_SAMPLING);
+        if (xfer != NULL) {
+            if (mTask.proxCalibrating) {
+                xfer->txrxBuf[0] = AMS_TMD4903_REG_OFFSETNL;
+                xfer->state = SENSOR_STATE_FINISH_PROX_CALIBRATION_0;
+                i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, xfer->txrxBuf, 1, xfer->txrxBuf, 8, i2cCallback, xfer);
+            } else {
+                xfer->txrxBuf[0] = AMS_TMD4903_REG_PDATAL;
+                i2cMasterTxRx(I2C_BUS_ID, I2C_ADDR, xfer->txrxBuf, 1, xfer->txrxBuf, 2, i2cCallback, xfer);
+            }
         }
         break;
 
@@ -906,4 +1053,3 @@ static void handle_event(uint32_t evtType, const void* evtData)
 }
 
 INTERNAL_APP_INIT(AMS_TMD4903_APP_ID, AMS_TMD4903_APP_VERSION, init_app, end_app, handle_event);
-

@@ -22,6 +22,7 @@ import android.support.annotation.NonNull;
 import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidedAction;
+import android.text.TextUtils;
 
 import com.android.tv.settings.R;
 
@@ -53,8 +54,13 @@ public class DeviceNameSetCustomFragment extends GuidedStepFragment {
 
     @Override
     public long onGuidedActionEditedAndProceed(GuidedAction action) {
-        DeviceManager.setDeviceName(getActivity(), action.getTitle().toString());
-        getActivity().finish();
-        return super.onGuidedActionEditedAndProceed(action);
+        final CharSequence name = action.getTitle();
+        if (TextUtils.isGraphic(name)) {
+            DeviceManager.setDeviceName(getActivity(), name.toString());
+            getActivity().finish();
+            return super.onGuidedActionEditedAndProceed(action);
+        } else {
+            return GuidedAction.ACTION_ID_CURRENT;
+        }
     }
 }

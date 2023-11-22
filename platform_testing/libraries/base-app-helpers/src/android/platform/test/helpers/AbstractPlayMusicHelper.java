@@ -35,6 +35,32 @@ public abstract class AbstractPlayMusicHelper extends AbstractStandardAppHelper 
     /**
      * Setup expectations: PlayMusic is open and the navigation bar is visible.
      *
+     * This method will open the navigation bar, press "Listen Now".
+     * This method blocks until the process is complete.
+     */
+    public abstract void goToListenNow();
+
+
+    /**
+     * Setup expectations: PlayMusic is open and in Listen Now.
+     *
+     * This method will open the first available thumbnail and play the first visible radio.
+     * This method blocks until the process is complete.
+     */
+    public abstract void playAnyRadioStation();
+
+
+    /**
+     * Clicks on the 'Skip Ad' button on a video ad if it is visible.
+     * This method blocks until the process is complete.
+     *
+     * @return true if an ad is dismissed, false otherwise.
+     */
+    public abstract boolean dismissAd();
+
+    /**
+     * Setup expectations: PlayMusic is open and the navigation bar is visible.
+     *
      * This method will navigate to the Albums tab, select the album, and then select the song. The
      * method will block until the song is playing.
      */

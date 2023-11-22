@@ -52,9 +52,6 @@ wifi_error wifi_get_rtt_capabilities(wifi_interface_handle iface,
         return WIFI_ERROR_INVALID_ARGS;
     }
 
-    interface_info *ifaceInfo = getIfaceInfo(iface);
-    wifi_handle wifiHandle = getWifiHandle(iface);
-
     if (capabilities == NULL) {
         ALOGE("wifi_get_rtt_capabilities: NULL capabilities pointer provided."
             " Exit.");
@@ -101,9 +98,6 @@ wifi_error wifi_rtt_range_request(wifi_request_id id,
             " Exit.");
         return WIFI_ERROR_INVALID_ARGS;
     }
-
-    interface_info *ifaceInfo = getIfaceInfo(iface);
-    wifi_handle wifiHandle = getWifiHandle(iface);
 
     if (rtt_config == NULL) {
         ALOGE("wifi_rtt_range_request: NULL rtt_config pointer provided."
@@ -167,9 +161,6 @@ wifi_error wifi_rtt_range_cancel(wifi_request_id id,
         return WIFI_ERROR_INVALID_ARGS;
     }
 
-    interface_info *ifaceInfo = getIfaceInfo(iface);
-    wifi_handle wifiHandle = getWifiHandle(iface);
-
     if (addr == NULL) {
         ALOGE("wifi_rtt_range_cancel: NULL addr pointer provided."
             " Exit.");
@@ -220,9 +211,6 @@ wifi_error wifi_set_lci(wifi_request_id id, wifi_interface_handle iface,
         return WIFI_ERROR_INVALID_ARGS;
     }
 
-    interface_info *ifaceInfo = getIfaceInfo(iface);
-    wifi_handle wifiHandle = getWifiHandle(iface);
-
     if (lci == NULL) {
         ALOGE("%s: NULL lci pointer provided."
             " Exit.", __FUNCTION__);
@@ -266,9 +254,6 @@ wifi_error wifi_set_lcr(wifi_request_id id, wifi_interface_handle iface,
             " Exit.", __FUNCTION__);
         return WIFI_ERROR_INVALID_ARGS;
     }
-
-    interface_info *ifaceInfo = getIfaceInfo(iface);
-    wifi_handle wifiHandle = getWifiHandle(iface);
 
     if (lcr == NULL) {
         ALOGE("%s: NULL lcr pointer provided."

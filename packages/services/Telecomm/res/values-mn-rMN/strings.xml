@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Дуут шуудангийн дугаар байхгүй"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM карт дээр дуут шуудангийн дугаар хадгалагдаагүй байна."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Дугаар нэмэх"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Үндсэн залгагч апп-ыг өөрчлөх үү?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="NEW_APP">%1$s</xliff:g>-ыг <xliff:g id="CURRENT_APP">%2$s</xliff:g>-ын оронд таны үндсэн залгагч апп болгон тохируулах уу?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g>-ыг таны үндсэн залгагч апп болгон тохируулах уу?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g>-г өөрийн өгөгдмөл Утасны апп болгох уу?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Өгөгдмөл болгох"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Цуцлах"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> бүх төрлийн дуудлага хийх, хянах боломжтой болно. Зөвхөн өөрийн итгэдэг апп-г өгөгдмөл Утасны апп-р тохируулах нь зүйтэй."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Блоклосон дугаар"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Та хориглосон дугаараас дуудлага, мессеж хүлээн авахгүй."</string>
     <string name="block_number" msgid="1101252256321306179">"Дугаар нэмэх"</string>

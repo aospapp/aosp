@@ -144,7 +144,7 @@ void usartClose(const struct usart* __restrict usart)
     gpioRelease(usart->tx);
 }
 
-void usartPutchat(const struct usart* __restrict usart, char c)
+void usartPutchar(const struct usart* __restrict usart, char c)
 {
     struct StmUsart *block = (struct StmUsart*)mUsartPorts[usart->unit];
 

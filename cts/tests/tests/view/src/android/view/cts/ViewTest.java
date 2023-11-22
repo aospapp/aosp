@@ -94,6 +94,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Test {@link View}.
@@ -3622,13 +3623,100 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
     }
 
     public void testOnStartAndFinishTemporaryDetach() throws Throwable {
-        final MockView view = (MockView) mActivity.findViewById(R.id.mock_view);
+        final AtomicBoolean exitedDispatchStartTemporaryDetach = new AtomicBoolean(false);
+        final AtomicBoolean exitedDispatchFinishTemporaryDetach = new AtomicBoolean(false);
+
+        final View view = new View(mActivity) {
+            private boolean mEnteredDispatchStartTemporaryDetach = false;
+            private boolean mExitedDispatchStartTemporaryDetach = false;
+            private boolean mEnteredDispatchFinishTemporaryDetach = false;
+            private boolean mExitedDispatchFinishTemporaryDetach = false;
+
+            private boolean mCalledOnStartTemporaryDetach = false;
+            private boolean mCalledOnFinishTemporaryDetach = false;
+
+            @Override
+            public void dispatchStartTemporaryDetach() {
+                assertFalse(mEnteredDispatchStartTemporaryDetach);
+                assertFalse(mExitedDispatchStartTemporaryDetach);
+                assertFalse(mEnteredDispatchFinishTemporaryDetach);
+                assertFalse(mExitedDispatchFinishTemporaryDetach);
+                assertFalse(mCalledOnStartTemporaryDetach);
+                assertFalse(mCalledOnFinishTemporaryDetach);
+                mEnteredDispatchStartTemporaryDetach = true;
+
+                assertFalse(isTemporarilyDetached());
+
+                super.dispatchStartTemporaryDetach();
+
+                assertTrue(isTemporarilyDetached());
+
+                assertTrue(mEnteredDispatchStartTemporaryDetach);
+                assertFalse(mExitedDispatchStartTemporaryDetach);
+                assertFalse(mEnteredDispatchFinishTemporaryDetach);
+                assertFalse(mExitedDispatchFinishTemporaryDetach);
+                assertTrue(mCalledOnStartTemporaryDetach);
+                assertFalse(mCalledOnFinishTemporaryDetach);
+                mExitedDispatchStartTemporaryDetach = true;
+                exitedDispatchStartTemporaryDetach.set(true);
+            }
+
+            @Override
+            public void dispatchFinishTemporaryDetach() {
+                assertTrue(mEnteredDispatchStartTemporaryDetach);
+                assertTrue(mExitedDispatchStartTemporaryDetach);
+                assertFalse(mEnteredDispatchFinishTemporaryDetach);
+                assertFalse(mExitedDispatchFinishTemporaryDetach);
+                assertTrue(mCalledOnStartTemporaryDetach);
+                assertFalse(mCalledOnFinishTemporaryDetach);
+                mEnteredDispatchFinishTemporaryDetach = true;
+
+                assertTrue(isTemporarilyDetached());
+
+                super.dispatchFinishTemporaryDetach();
+
+                assertFalse(isTemporarilyDetached());
+
+                assertTrue(mEnteredDispatchStartTemporaryDetach);
+                assertTrue(mExitedDispatchStartTemporaryDetach);
+                assertTrue(mEnteredDispatchFinishTemporaryDetach);
+                assertFalse(mExitedDispatchFinishTemporaryDetach);
+                assertTrue(mCalledOnStartTemporaryDetach);
+                assertTrue(mCalledOnFinishTemporaryDetach);
+                mExitedDispatchFinishTemporaryDetach = true;
+                exitedDispatchFinishTemporaryDetach.set(true);
+            }
+
+            @Override
+            public void onStartTemporaryDetach() {
+                assertTrue(mEnteredDispatchStartTemporaryDetach);
+                assertFalse(mExitedDispatchStartTemporaryDetach);
+                assertFalse(mEnteredDispatchFinishTemporaryDetach);
+                assertFalse(mExitedDispatchFinishTemporaryDetach);
+                assertFalse(mCalledOnStartTemporaryDetach);
+                assertFalse(mCalledOnFinishTemporaryDetach);
+
+                assertTrue(isTemporarilyDetached());
+
+                mCalledOnStartTemporaryDetach = true;
+            }
+
+            @Override
+            public void onFinishTemporaryDetach() {
+                assertTrue(mEnteredDispatchStartTemporaryDetach);
+                assertTrue(mExitedDispatchStartTemporaryDetach);
+                assertTrue(mEnteredDispatchFinishTemporaryDetach);
+                assertFalse(mExitedDispatchFinishTemporaryDetach);
+                assertTrue(mCalledOnStartTemporaryDetach);
+                assertFalse(mCalledOnFinishTemporaryDetach);
+
+                assertFalse(isTemporarilyDetached());
+
+                mCalledOnFinishTemporaryDetach = true;
+            }
+        };
 
         assertFalse(view.isTemporarilyDetached());
-        assertFalse(view.hasCalledDispatchStartTemporaryDetach());
-        assertFalse(view.hasCalledDispatchFinishTemporaryDetach());
-        assertFalse(view.hasCalledOnStartTemporaryDetach());
-        assertFalse(view.hasCalledOnFinishTemporaryDetach());
 
         runTestOnUiThread(new Runnable() {
             @Override
@@ -3639,10 +3727,8 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         getInstrumentation().waitForIdleSync();
 
         assertTrue(view.isTemporarilyDetached());
-        assertTrue(view.hasCalledDispatchStartTemporaryDetach());
-        assertFalse(view.hasCalledDispatchFinishTemporaryDetach());
-        assertTrue(view.hasCalledOnStartTemporaryDetach());
-        assertFalse(view.hasCalledOnFinishTemporaryDetach());
+        assertTrue(exitedDispatchStartTemporaryDetach.get());
+        assertFalse(exitedDispatchFinishTemporaryDetach.get());
 
         runTestOnUiThread(new Runnable() {
             @Override
@@ -3653,10 +3739,8 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         getInstrumentation().waitForIdleSync();
 
         assertFalse(view.isTemporarilyDetached());
-        assertTrue(view.hasCalledDispatchStartTemporaryDetach());
-        assertTrue(view.hasCalledDispatchFinishTemporaryDetach());
-        assertTrue(view.hasCalledOnStartTemporaryDetach());
-        assertTrue(view.hasCalledOnFinishTemporaryDetach());
+        assertTrue(exitedDispatchStartTemporaryDetach.get());
+        assertTrue(exitedDispatchFinishTemporaryDetach.get());
     }
 
     public void testKeyPreIme() throws Throwable {

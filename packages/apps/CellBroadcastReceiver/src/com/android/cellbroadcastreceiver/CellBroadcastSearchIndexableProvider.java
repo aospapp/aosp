@@ -99,11 +99,6 @@ public class CellBroadcastSearchIndexableProvider extends SearchIndexablesProvid
 
             ref = new Object[1];
             ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] =
-                    CellBroadcastSettings.KEY_ALERT_SOUND_DURATION;
-            cursor.addRow(ref);
-
-            ref = new Object[1];
-            ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] =
                     CellBroadcastSettings.KEY_ENABLE_ALERT_SPEECH;
             cursor.addRow(ref);
 

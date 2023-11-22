@@ -39,7 +39,7 @@ def main():
         # linear tonemap.
         e, s = its.target.get_target_exposure_combos(cam)["midExposureTime"]
         e /= 4
-        req = its.objects.manual_capture_request(s, e, True, props)
+        req = its.objects.manual_capture_request(s, e, 0.0, True, props)
 
         for f in [0,1,2]:
             req["android.flash.mode"] = f

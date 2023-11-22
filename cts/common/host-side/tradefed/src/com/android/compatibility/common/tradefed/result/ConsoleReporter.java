@@ -47,6 +47,7 @@ public class ConsoleReporter extends StubTestInvocationListener implements IShar
     private int mTotalTestsInModule;
     private int mPassedTests;
     private int mFailedTests;
+    private int mNotExecutedTests;
 
     /**
      * {@inheritDoc}
@@ -73,11 +74,16 @@ public class ConsoleReporter extends StubTestInvocationListener implements IShar
             mCurrentTestNum = 0;
             mPassedTests = 0;
             mFailedTests = 0;
+            mNotExecutedTests = 0;
             mTestFailed = false;
             logMessage("Starting %s with %d test%s",
                     id, mTotalTestsInModule, (mTotalTestsInModule > 1) ? "s" : "");
         } else {
-            mTotalTestsInModule += numTests;
+            if (mNotExecutedTests == 0) {
+                mTotalTestsInModule += numTests;
+            } else {
+                mTotalTestsInModule += Math.max(0, numTests - mNotExecutedTests);
+            }
             logMessage("Continuing %s with %d test%s",
                     id, mTotalTestsInModule, (mTotalTestsInModule > 1) ? "s" : "");
         }
@@ -144,15 +150,15 @@ public class ConsoleReporter extends StubTestInvocationListener implements IShar
      */
     @Override
     public void testRunEnded(long elapsedTime, Map<String, String> metrics) {
-        int notExecuted = mTotalTestsInModule - mCurrentTestNum;
-        String status = notExecuted > 0 ? "failed" : "completed";
+        mNotExecutedTests = Math.max(mTotalTestsInModule - mCurrentTestNum, 0);
+        String status = mNotExecutedTests > 0 ? "failed" : "completed";
         logMessage("%s %s in %s. %d passed, %d failed, %d not executed",
             mModuleId,
             status,
             TimeUtil.formatElapsedTime(elapsedTime),
             mPassedTests,
             mFailedTests,
-            notExecuted);
+            mNotExecutedTests);
     }
 
     /**

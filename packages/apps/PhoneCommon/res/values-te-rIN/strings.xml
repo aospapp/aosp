@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"నంబర్ చెల్లదు"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"వాయిస్‌మెయిల్ నంబర్ తెలియదు."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY ప్రారంభించినప్పుడు వీడియో కాల్‌లను చేయలేరు."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"కాల్ మరో పరికరానికి బదిలీ చేయబడింది."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"ఏదీ వద్దు"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"తెలియని రింగ్‌టోన్"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"అందుబాటులో ఉన్న అన్ని లైన్‌లు వినియోగంలో ఉన్నాయి. కాల్ చేయడానికి, ఈ పరికరంలో లేదా మీ ఇతర పరికరాల్లో ఒకదానిలో మాట్లాడుతున్న కాల్‌‌ల్లో ఒకదాన్ని డిస్‌కనెక్ట్ చేయండి."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

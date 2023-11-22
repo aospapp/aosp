@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"Número inválido"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"Número do correio de voz desconhecido."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"Não é possível efetuar videochamadas quando o teletipo está ativado."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"A chamada foi transferida para outro dispositivo."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"Nenhum"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Toque desconhecido"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Todas as linhas disponíveis estão a ser utilizadas. Para fazer uma chamada, desligue uma das chamadas neste dispositivo ou num dos seus outros dispositivos."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

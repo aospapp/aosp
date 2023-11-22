@@ -35,3 +35,7 @@ int rtcSetWakeupTimer(uint64_t delay, int ppm)
     return 0;
 }
 
+uint64_t rtcGetTime(void)
+{
+    return 0;
+}

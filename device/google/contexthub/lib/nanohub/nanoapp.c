@@ -94,6 +94,7 @@ void *loadFile(const char *fileName, uint32_t *size)
         exit(2);
     }
 
+    fclose(f);
     return dst;
 }
 

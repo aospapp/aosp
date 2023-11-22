@@ -53,7 +53,8 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
     private Call mCall1, mCall2;
     private MockConnection mConnection1, mConnection2;
     MockInCallService mInCallService;
-    MockConference mConferenceObject;
+    Conference mConferenceObject;
+    MockConference mConferenceVerficationObject;
 
     @Override
     protected void setUp() throws Exception {
@@ -61,8 +62,9 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
         if (mShouldTestTelecom) {
             addOutgoingCalls();
             addConferenceCall(mCall1, mCall2);
-            // Use vanilla conference object so that the CTS coverage tool detects the useage.
-            mConferenceObject = verifyConferenceForOutgoingCall();
+            mConferenceVerficationObject = verifyConferenceForOutgoingCall();
+            // Use vanilla conference object so that the CTS coverage tool detects the usage.
+            mConferenceObject = mConferenceVerficationObject;
             verifyConferenceObject(mConferenceObject, mConnection1, mConnection2);
         }
     }
@@ -220,6 +222,118 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
         // Destroy state is unsupported for conference calls. so, the state remains active.
         mConferenceObject.destroy();
         assertCallState(conf, Call.STATE_DISCONNECTED);
+    }
+
+    /**
+     * Tests end to end propagation of the {@link Conference} properties to the associated
+     * {@link Call}.
+     */
+    public void testConferenceProperties() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        final Call conf = mInCallService.getLastConferenceCall();
+        assertCallState(conf, Call.STATE_ACTIVE);
+
+        int properties  = mConferenceObject.getConnectionProperties();
+        properties |= Connection.PROPERTY_HAS_CDMA_VOICE_PRIVACY;
+
+        mConferenceObject.setConnectionProperties(properties);
+
+        // Wait for 2nd properties change; the first will be when the conference is marked with
+        // Call.Details.PROPERTY_CONFERENCE.
+        assertCallProperties(conf, Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY);
+        assertTrue(conf.getDetails().hasProperty(Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY));
+    }
+
+    /**
+     * Verifies {@link Conference#putExtras(Bundle)} calls are propagated to
+     * {@link android.telecom.Call.Callback#onDetailsChanged(Call, Call.Details)}.
+     */
+    public void testConferencePutExtras() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        final Call conf = mInCallService.getLastConferenceCall();
+        assertCallState(conf, Call.STATE_ACTIVE);
+
+        Bundle extras = new Bundle();
+        extras.putString(TEST_EXTRA_KEY_1, TEST_EXTRA_VALUE_1);
+        extras.putInt(TEST_EXTRA_KEY_2, TEST_EXTRA_VALUE_2);
+        mConferenceObject.putExtras(extras);
+
+        mOnExtrasChangedCounter.waitForCount(1);
+
+        assertTrue(areBundlesEqual(extras, conf.getDetails().getExtras()));
+    }
+
+    /**
+     * Verifies {@link Conference#removeExtras(List)} calls are propagated to
+     * {@link android.telecom.Call.Callback#onDetailsChanged(Call, Call.Details)}.
+     */
+    public void testConferenceRemoveExtras() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        final Call conf = mInCallService.getLastConferenceCall();
+        assertCallState(conf, Call.STATE_ACTIVE);
+
+        setupExtras();
+
+        mConferenceObject.removeExtras(Arrays.asList(TEST_EXTRA_KEY_1));
+        mOnExtrasChangedCounter.waitForCount(2);
+        Bundle extras = mConferenceObject.getExtras();
+
+        assertFalse(extras.containsKey(TEST_EXTRA_KEY_1));
+        assertTrue(extras.containsKey(TEST_EXTRA_KEY_2));
+    }
+
+    /**
+     * Verifies {@link Conference#removeExtras(String[])} calls are propagated to
+     * {@link android.telecom.Call.Callback#onDetailsChanged(Call, Call.Details)}.
+     */
+    public void testConferenceRemoveExtras2() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        final Call conf = mInCallService.getLastConferenceCall();
+        assertCallState(conf, Call.STATE_ACTIVE);
+
+        setupExtras();
+
+        mConferenceObject.removeExtras(TEST_EXTRA_KEY_1, TEST_EXTRA_KEY_2);
+        mOnExtrasChangedCounter.waitForCount(2);
+        Bundle extras = mConferenceObject.getExtras();
+
+        assertTrue(extras == null || extras.isEmpty());
+    }
+
+    private void setupExtras() {
+        Bundle extras = new Bundle();
+        extras.putString(TEST_EXTRA_KEY_1, TEST_EXTRA_VALUE_1);
+        extras.putInt(TEST_EXTRA_KEY_2, TEST_EXTRA_VALUE_2);
+        mConferenceObject.putExtras(extras);
+        mOnExtrasChangedCounter.waitForCount(1);
+    }
+
+    /**
+     * Verifies {@link android.telecom.Call#putExtras(Bundle)} changes are propagated to
+     * {@link Conference#onExtrasChanged(Bundle)}.
+     */
+    public void testConferenceOnExtraschanged() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        final Call conf = mInCallService.getLastConferenceCall();
+        assertCallState(conf, Call.STATE_ACTIVE);
+
+        Bundle extras = new Bundle();
+        extras.putString(TEST_EXTRA_KEY_1, TEST_EXTRA_VALUE_1);
+        extras.putInt(TEST_EXTRA_KEY_2, TEST_EXTRA_VALUE_2);
+        conf.putExtras(extras);
+        mConferenceVerficationObject.mOnExtrasChanged.waitForCount(1);
+
+        assertTrue(areBundlesEqual(extras, mConferenceObject.getExtras()));
     }
 
     public void testConferenceAddAndRemoveConnection() {

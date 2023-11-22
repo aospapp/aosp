@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Միշտ որոնել ցանցեր"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Թույլ տալ Google-ի տեղադրության ծառայությանը և այլ հավելվածներին որոնել ցանցեր նույնիսկ երբ Wi-Fi-ն անջատված է"</string>
+    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Թույլ տալ Google-ի տեղորոշման ծառայությանը և այլ հավելվածներին որոնել ցանցեր նույնիսկ երբ Wi-Fi-ն անջատված է"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Էկրանի խնայարար"</string>
     <string name="device_display" msgid="101455384386372747">"Էկրան"</string>
@@ -97,7 +97,7 @@
     <string name="system_accessibility" msgid="6215431399759498005">"Մատչելիություն"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Մշակողի ընտրանքներ"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Չկա"</string>
-    <string name="system_diagnostic" msgid="7269638365915225701">"Օգտագործման և ախտորոշման տվյալներ"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"Օգտագործում և ախտորոշում"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Համակարգային թարմացում"</string>
     <string name="about_preference" msgid="4131396784531360434">"Սարքի մասին"</string>
     <string name="device_name" msgid="2670488158531273028">"Սարքի անունը"</string>
@@ -127,7 +127,7 @@
     <string name="device_status_summary" msgid="180586140242936323">"Ցանցի կարգավիճակ, հերթական համարներ և այլ տվյալներ"</string>
     <string name="manual" msgid="4957388668881541669">"Ձեռքով"</string>
     <string name="regulatory_information" msgid="5448865708097003189">"Նորմատիվ տեղեկատվություն"</string>
-    <string name="device_feedback" msgid="209146642122579479">"Ուղարկել կարծիք այս սարքի մասին"</string>
+    <string name="device_feedback" msgid="209146642122579479">"Կարծիք հայտնել այս սարքի մասին"</string>
     <string name="fcc_equipment_id" msgid="8295142996591094301">"Սարքավորման ID-ն"</string>
     <string name="baseband_version" msgid="2229081246529676107">"Baseband տարբերակ"</string>
     <string name="kernel_version" msgid="2418845475938044903">"Միջուկի տարբերակ"</string>
@@ -380,7 +380,7 @@
     <string name="captions_edgetype" msgid="841331274533086103">"Եզրի ձևը"</string>
     <string name="captions_edgecolor" msgid="845125757332620884">"Եզրի գույնը"</string>
     <string name="captions_backgroundshow" msgid="9177987321551275698">"Ցույց տալ ֆոնը"</string>
-    <string name="captions_backgroundcolor" msgid="448518890988125453">"Հետնաշերտի գույնը"</string>
+    <string name="captions_backgroundcolor" msgid="448518890988125453">"Ֆոնի գույնը"</string>
     <string name="captions_backgroundopacity" msgid="2643722493273126220">"Հետնաշերտի թափանցիկությունը"</string>
     <string name="captioning_preview_text" msgid="72080729155950127">"Խորագրերն այսպիսին կլինեն"</string>
     <string name="captions_textopacity" msgid="5536765490446288641">"Տեքստի թափանցիկությունը"</string>

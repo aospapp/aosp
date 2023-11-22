@@ -92,10 +92,6 @@
     <string name="enable_emergency_alerts_title">Turn on notifications</string>
     <!-- Preference summary for enable notifications checkbox. [CHAR LIMIT=50] -->
     <string name="enable_emergency_alerts_summary">Display emergency alert broadcasts</string>
-    <!-- Preference title for alert sound duration list. [CHAR LIMIT=30] -->
-    <string name="alert_sound_duration_title">Alert sound duration</string>
-    <!-- Do not translate. Empty summary for alert duration (set by CellBroadcastSettings). -->
-    <string name="alert_sound_duration_summary"></string>
     <!-- Preference title for alert reminder interval list. [CHAR LIMIT=30] -->
     <string name="alert_reminder_interval_title">Alert reminder</string>
     <!-- Do not translate. Empty summary for alert reminder (set by CellBroadcastSettings). -->
@@ -232,29 +228,11 @@
     <!-- Text for negative button in CMAS opt-out dialog. [CHAR LIMIT=25] -->
     <string name="cmas_opt_out_button_no">No</string>
 
-    <!-- Entries listed in the ListPreference for allowed alert durations. [CHAR LIMIT=30] -->
-    <string-array name="alert_sound_duration_entries">
-      <item>2 seconds</item>
-      <item>4 seconds</item>
-      <item>6 seconds</item>
-      <item>8 seconds</item>
-      <item>10 seconds</item>
-    </string-array>
-
-    <!-- Do not translate. Values that are retrieved from the ListPreference.
-         These must match the alert_sound_duration_entries above. -->
-    <string-array name="alert_sound_duration_values">
-      <item>2</item>
-      <item>4</item>
-      <item>6</item>
-      <item>8</item>
-      <item>10</item>
-    </string-array>
-
     <!-- Entries in the ListPreference for alert reminder intervals. [CHAR LIMIT=30] -->
     <string-array name="alert_reminder_interval_entries">
       <item>Once</item>
       <item>Every 2 minutes</item>
+      <item>Every 5 minutes</item>
       <item>Every 15 minutes</item>
       <item>Off</item>
     </string-array>
@@ -264,7 +242,37 @@
     <string-array name="alert_reminder_interval_values">
       <item>1</item>
       <item>2</item>
+      <item>5</item>
       <item>15</item>
       <item>0</item>
     </string-array>
+
+    <!-- Do not translate. Values that are active in the ListPreference.
+         These must be a subset of the alert_reminder_interval_values list above. -->
+    <string-array name="alert_reminder_interval_active_values">
+      <item>1</item>
+      <item>2</item>
+      <item>15</item>
+      <item>0</item>
+    </string-array>
+
+    <!-- Do not translate. Default value that in the ListPreference.
+         These must be a subset of the alert_reminder_interval_values list above. -->
+    <string name="alert_reminder_interval_default_value">0</string>
+
+    <!-- Do not translate. Values that for the vibration pattern. -->
+    <integer-array name="default_vibration_pattern">
+        <item>0</item>      <!-- the number of milliseconds to wait before turning the vibrator on -->
+        <item>2000</item>   <!-- the number of milliseconds for which to keep the vibrator on before turning it off -->
+        <item>500</item>    <!-- Subsequent values alternate between durations in milliseconds to turn the vibrator off or to turn the vibrator on -->
+        <item>1000</item>
+        <item>500</item>
+        <item>1000</item>
+        <item>500</item>
+        <item>2000</item>
+        <item>500</item>
+        <item>1000</item>
+        <item>500</item>
+        <item>1000</item>
+    </integer-array>
 </resources>

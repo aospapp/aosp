@@ -280,8 +280,35 @@ APIs" src="../images/permissions_check.png" id="figure2" />
   time, the installer will prompt the user asking if the application can access
   the information. If the user does not grant access, the application will not be
   installed.</p>
+<h2 id="certificate-authorities">Certificate authorities</h2>
+<p>
+Android includes a set of installed system Certificate Authorities, which are
+trusted system-wide. Prior to Android 7.0, device manufacturers could modify the
+set of CAs shipped on their devices. However, devices running 7.0 and above will
+have a uniform set of system CAs as modification by device manufacturers is no
+longer permitted.
+</p>
+<p>
+To be added as a new public CA to the Android stock set, the CA must complete
+the <a href="https://wiki.mozilla.org/CA:How_to_apply">Mozilla CA Inclusion
+Process</a> and then file a feature request against Android (<a
+href="https://code.google.com/p/android/issues/entry">https://code.google.com/p/android/issues/entry</a>)
+to have the CA added to the stock Android CA set in the <a
+href="https://android.googlesource.com/">Android Open Source Project</a>
+(AOSP).
+</p>
+<p>
+There are still CAs that are device-specific and should not be included in the
+core set of AOSP CAs, like carriers’ private CAs that may be needed to securely
+access components of the carrier’s infrastructure, such as SMS/MMS gateways.
+Device manufacturers are encouraged to include the private CAs only in the
+components/apps that need to trust these CAs. See <a
+href="https://developer.android.com/preview/features/security-config.html">Network
+Security Configuration</a> for more details.
+</p>
 <h2 id="application-signing">Application Signing</h2>
-<p>Code signing allows developers to identify the author of the application and to
+<p><a href="{@docRoot}security/apksigning/index.html">Code signing</a>
+  allows developers to identify the author of the application and to
   update their application without creating complicated interfaces and
   permissions. Every application that is run on the Android platform must be
   signed by the developer.  Applications that attempt to install without being

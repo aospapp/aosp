@@ -38,16 +38,6 @@ class BleStressTest(BluetoothBaseTest):
         self.droid_list = get_advanced_droid_list(self.android_devices)
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
-        self.tests = ("test_loop_scanning_1000",
-                      "test_restart_scan_callback_after_bt_toggle",
-                      "test_start_le_scan_while_toggling_bt", )
-        if self.droid_list[0]['max_advertisements'] > 0:
-            self.tests = self.tests + (
-                "test_loop_advertising_100",
-                "test_restart_advertise_callback_after_bt_toggle", )
-        if self.droid_list[1]['max_advertisements'] >= 4:
-            self.tests = self.tests + (
-                "test_loop_scanning_100_verify_no_hci_timeout", )
 
     def bleadvertise_verify_onsuccess_handler(self, event):
         test_result = True

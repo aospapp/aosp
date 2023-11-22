@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Хөдөлгөөнт ханын зургийг ачааллаж байна…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Нүүр хуудас"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Нүүр хуудас болон түгжигдсэн дэлгэц"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"Ханын зургийн мэдээллийн самбарыг хураах"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"Ханын зургийн мэдээллийн самбарыг дэлгэх"</string>
 </resources>

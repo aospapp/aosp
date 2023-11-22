@@ -22,9 +22,8 @@ import java.util.concurrent.TimeUnit;
 public class TestUtils {
     private static final long STANDARD_WAIT_TIME_MS = 50;
     private static final long STANDARD_SLEEP_TIME_MS = 50;
-    private static final long STANDARD_WAIT_TIME_ROUNDS = 1200;
 
-    public static boolean waitFor(CountDownLatch latch) throws InterruptedException {
+    public static boolean waitFor(CountDownLatch latch, int timeInSec) throws InterruptedException {
         // Since late 2014, if the main thread has been occupied for long enough, Android will
         // increase its priority. Such new behavior can causes starvation to the background thread -
         // even if the main thread has called await() to yield its execution, the background thread
@@ -37,7 +36,9 @@ public class TestUtils {
         // hack isn't ideal, but at least it can work.
         //
         // See also: b/17423027
-        for (int i = 0; i < STANDARD_WAIT_TIME_ROUNDS; ++i) {
+        long waitTimeRounds = (TimeUnit.SECONDS.toMillis(timeInSec)) /
+                (STANDARD_WAIT_TIME_MS + STANDARD_SLEEP_TIME_MS);
+        for (int i = 0; i < waitTimeRounds; ++i) {
             Thread.sleep(STANDARD_SLEEP_TIME_MS);
             if (latch.await(STANDARD_WAIT_TIME_MS, TimeUnit.MILLISECONDS)) {
                 return true;

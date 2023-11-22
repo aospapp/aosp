@@ -25,6 +25,7 @@ import com.android.compatibility.common.tradefed.testtype.CompatibilityTestTest;
 import com.android.compatibility.common.tradefed.testtype.ModuleDefTest;
 import com.android.compatibility.common.tradefed.testtype.ModuleRepoTest;
 import com.android.compatibility.common.tradefed.util.OptionHelperTest;
+import com.android.compatibility.common.tradefed.util.CollectorUtilTest;
 
 import junit.framework.Test;
 import junit.framework.TestSuite;
@@ -45,6 +46,7 @@ public class UnitTests extends TestSuite {
         addTestSuite(ResultReporterTest.class);
         addTestSuite(CompatibilityTestTest.class);
         addTestSuite(OptionHelperTest.class);
+        addTestSuite(CollectorUtilTest.class);
         addTestSuite(ModuleDefTest.class);
         addTestSuite(ModuleRepoTest.class);
         addTestSuite(PropertyCheckTest.class);

@@ -70,17 +70,15 @@ public class IncomingCallFilter implements CallFilterResultCallback {
         for (CallFilter filter : mFilters) {
             filter.startFilterLookup(mCall, this);
         }
-        mHandler.postDelayed(new Runnable("ICF.pFTO") { // performFiltering time-out
+        // synchronized to prevent a race on mResult and to enter into Telecom.
+        mHandler.postDelayed(new Runnable("ICF.pFTO", mTelecomLock) { // performFiltering time-out
             @Override
             public void loggedRun() {
-                // synchronized to prevent a race on mResult and to enter into Telecom.
-                synchronized (mTelecomLock) {
-                    if (mIsPending) {
-                        Log.i(IncomingCallFilter.this, "Call filtering has timed out.");
-                        Log.event(mCall, Log.Events.FILTERING_TIMED_OUT);
-                        mListener.onCallFilteringComplete(mCall, mResult);
-                        mIsPending = false;
-                    }
+                if (mIsPending) {
+                    Log.i(IncomingCallFilter.this, "Call filtering has timed out.");
+                    Log.event(mCall, Log.Events.FILTERING_TIMED_OUT);
+                    mListener.onCallFilteringComplete(mCall, mResult);
+                    mIsPending = false;
                 }
             }
         }.prepare(), mTimeoutsAdapter.getCallScreeningTimeoutMillis(mContext.getContentResolver()));
@@ -91,16 +89,14 @@ public class IncomingCallFilter implements CallFilterResultCallback {
             mNumPendingFilters--;
             mResult = result.combine(mResult);
             if (mNumPendingFilters == 0) {
-                mHandler.post(new Runnable("ICF.oCFC") {
+                // synchronized on mTelecomLock to enter into Telecom.
+                mHandler.post(new Runnable("ICF.oCFC", mTelecomLock) {
                     @Override
                     public void loggedRun() {
-                        // synchronized to enter into Telecom.
-                        synchronized (mTelecomLock) {
-                            if (mIsPending) {
-                                Log.event(mCall, Log.Events.FILTERING_COMPLETED, mResult);
-                                mListener.onCallFilteringComplete(mCall, mResult);
-                                mIsPending = false;
-                            }
+                        if (mIsPending) {
+                            Log.event(mCall, Log.Events.FILTERING_COMPLETED, mResult);
+                            mListener.onCallFilteringComplete(mCall, mResult);
+                            mIsPending = false;
                         }
                     }
                 }.prepare());

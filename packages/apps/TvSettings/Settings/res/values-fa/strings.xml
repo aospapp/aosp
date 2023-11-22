@@ -337,7 +337,7 @@
   </string-array>
   <string-array name="auto_date_time_ts_entries">
     <item msgid="8463479794795616025">"استفاده از زمان ارائه‌شده از شبکه"</item>
-    <item msgid="2475903014233987786">"استفاده از زمان ارائه‌شده توسط جریان انتقال"</item>
+    <item msgid="2475903014233987786">"اسفتاده از زمان ارائه‌شده از جریان انتقال"</item>
     <item msgid="150957081326946463">"خاموش"</item>
   </string-array>
     <string name="system_location" msgid="502463575930545806">"موقعیت مکانی"</string>

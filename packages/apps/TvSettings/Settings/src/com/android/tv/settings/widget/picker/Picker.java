@@ -400,7 +400,6 @@ public abstract class Picker extends Fragment {
         public Adapter(int columnId, List<String> items) {
             mColumnId = columnId;
             mItems = items;
-            setHasStableIds(true);
         }
 
         @Override
@@ -420,11 +419,6 @@ public abstract class Picker extends Fragment {
         @Override
         public int getItemCount() {
             return mItems.size();
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
         }
 
         @Override
@@ -454,11 +448,7 @@ public abstract class Picker extends Fragment {
         public void setItems(List<String> items) {
             final List<String> oldItems = mItems;
             mItems = items;
-            if (oldItems.size() < items.size()) {
-                notifyItemRangeInserted(oldItems.size(), oldItems.size() - items.size());
-            } else if (items.size() < oldItems.size()) {
-                notifyItemRangeRemoved(items.size(), items.size() - oldItems.size());
-            }
+            notifyDataSetChanged();
         }
     }
 

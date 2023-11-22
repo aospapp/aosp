@@ -48,7 +48,7 @@ extern rs_element __attribute__((overloadable))
 }
 
 // TODO: this needs to be optimized, obviously
-static void memcpy(void* dst, const void* src, size_t size) {
+static void local_memcpy(void* dst, const void* src, size_t size) {
     char* dst_c = (char*) dst;
     const char* src_c = (const char*) src;
     for (; size > 0; size--) {
@@ -281,7 +281,7 @@ extern void __attribute__((overloadable))
     Allocation_t *alloc = (Allocation_t *)a.p;
     const uint8_t *p = (const uint8_t *)alloc->mHal.drvState.lod[0].mallocPtr;
     const uint32_t eSize = alloc->mHal.state.elementSizeBytes;
-    memcpy((void*)&p[eSize * x], ptr, eSize);
+    local_memcpy((void*)&p[eSize * x], ptr, eSize);
 }
 
 extern void __attribute__((overloadable))
@@ -290,7 +290,7 @@ extern void __attribute__((overloadable))
     const uint8_t *p = (const uint8_t *)alloc->mHal.drvState.lod[0].mallocPtr;
     const uint32_t eSize = alloc->mHal.state.elementSizeBytes;
     const uint32_t stride = alloc->mHal.drvState.lod[0].stride;
-    memcpy((void*)&p[(eSize * x) + (y * stride)], ptr, eSize);
+    local_memcpy((void*)&p[(eSize * x) + (y * stride)], ptr, eSize);
 }
 
 extern void __attribute__((overloadable))
@@ -300,7 +300,7 @@ extern void __attribute__((overloadable))
     const uint32_t eSize = alloc->mHal.state.elementSizeBytes;
     const uint32_t stride = alloc->mHal.drvState.lod[0].stride;
     const uint32_t dimY = alloc->mHal.drvState.lod[0].dimY;
-    memcpy((void*)&p[(eSize * x) + (y * stride) + (z * stride * dimY)], ptr, eSize);
+    local_memcpy((void*)&p[(eSize * x) + (y * stride) + (z * stride * dimY)], ptr, eSize);
 }
 #endif // RS_DEBUG_RUNTIME
 
@@ -412,13 +412,13 @@ extern uchar __attribute__((overloadable))
     void __rsAllocationVStoreXImpl_##T                                          \
             (rs_allocation a, const T val, uint32_t x, uint32_t y, uint32_t z) {\
         T *val_ptr = (T*)rsOffsetNs(a, x, y, z);                                \
-        memcpy(val_ptr, &val, sizeof(T));                                       \
+        local_memcpy(val_ptr, &val, sizeof(T));                                       \
     }                                                                           \
     T __rsAllocationVLoadXImpl_##T                                              \
             (rs_allocation a, uint32_t x, uint32_t y, uint32_t z) {             \
         T result = {};                                                          \
         T* val_ptr = (T*)rsOffsetNs(a, x, y, z);                                \
-        memcpy(&result, val_ptr, sizeof(T));                                    \
+        local_memcpy(&result, val_ptr, sizeof(T));                                    \
         return result;                                                          \
     }
 

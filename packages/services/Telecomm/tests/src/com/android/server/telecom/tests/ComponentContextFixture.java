@@ -519,6 +519,9 @@ public class ComponentContextFixture implements TestFixture<Context> {
         for (ComponentName componentName : mComponentNamesByAction.get(intent.getAction())) {
             ResolveInfo resolveInfo = new ResolveInfo();
             resolveInfo.serviceInfo = mServiceInfoByComponentName.get(componentName);
+            resolveInfo.serviceInfo.metaData = new Bundle();
+            resolveInfo.serviceInfo.metaData.putBoolean(
+                    TelecomManager.METADATA_INCLUDE_EXTERNAL_CALLS, true);
             result.add(resolveInfo);
         }
         return result;

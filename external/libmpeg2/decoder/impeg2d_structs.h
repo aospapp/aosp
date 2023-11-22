@@ -248,6 +248,11 @@ typedef struct dec_state_struct_t
     /* Members related to display dimensions of bitstream */
     /* The size values may not be returned right now. But they are read */
     /* and can be returned if there is a requirement.                   */
+    UWORD8          u1_video_format;
+    UWORD8          u1_colour_description;
+    UWORD8          u1_colour_primaries;
+    UWORD8          u1_transfer_characteristics;
+    UWORD8          u1_matrix_coefficients;
     UWORD16         u2_display_horizontal_size;
     UWORD16         u2_display_vertical_size;
     UWORD16         u2_aspect_ratio_info;
@@ -375,6 +380,8 @@ typedef struct dec_state_struct_t
     /** Buffer used after deinterlacer for format conversion */
     UWORD8          *pu1_deint_fmt_buf;
 
+    /** Flag to indicate if Seq Display Extn is present */
+    UWORD8          u1_seq_disp_extn_present;
 }dec_state_t;
 
 

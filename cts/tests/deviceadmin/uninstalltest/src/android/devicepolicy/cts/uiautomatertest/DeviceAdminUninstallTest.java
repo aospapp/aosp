@@ -37,7 +37,7 @@ import org.junit.runner.RunWith;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
-
+import java.util.regex.Pattern;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.runner.AndroidJUnit4;
 import android.support.test.filters.LargeTest;
@@ -58,13 +58,16 @@ public class DeviceAdminUninstallTest {
     private static final String DEVICE_ADMIN_PACKAGE_NAME =
             "android.devicepolicy.cts.emptydeviceadmin";
     private static final String URI_PACKAGE_PREFIX = "package:";
+    private static final String UNINSTALL_BUTTON_TEXT_REGEX = "(?i)uninstall";
 
     private static final UiSelector DEACTIVATE_AND_UNINSTALL_BUTTON_SELECTOR = new UiSelector()
             .resourceId("com.android.settings:id/action_button");
+    // Changing the below two selectors to match the button based on text due to b/29960172
     private static final UiSelector UNINSTALL_BUTTON_SELECTOR = new UiSelector()
-            .resourceId("com.android.settings:id/left_button");
+            .clickable(true).textMatches(UNINSTALL_BUTTON_TEXT_REGEX);
     private static final BySelector UNINSTALL_BUTTON_BYSELECTOR = By
-            .res("com.android.settings", "left_button");
+            .clickable(true).text(Pattern.compile(UNINSTALL_BUTTON_TEXT_REGEX));
+
     private static final UiSelector OK_BUTTON_SELECTOR = new UiSelector()
             .resourceId("android:id/button1");
     private static final UiSelector SCROLL_VIEW_SELECTOR =

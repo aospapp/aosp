@@ -25,7 +25,7 @@ extern "C" {
 #include <stdint.h>
 
 
-#define MAX_TIMERS	8	/* we *REALLY* do not want these proliferating endlessly, hence a small limit */
+#define MAX_TIMERS  16  /* we *REALLY* do not want these proliferating endlessly, hence a small limit */
 
 struct TimerEvent {
     uint32_t timerId;
@@ -60,4 +60,3 @@ void timInit(void);
 #endif
 
 #endif
-

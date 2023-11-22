@@ -21,6 +21,7 @@ import android.os.Bundle;
 import android.os.LocaleList;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
+import android.test.MoreAsserts;
 import android.text.TextUtils;
 import android.util.Printer;
 import android.view.inputmethod.EditorInfo;
@@ -50,6 +51,7 @@ public class EditorInfoTest extends AndroidTestCase {
         b.putString(key, value);
         info.extras = b;
         info.hintLocales = LocaleList.forLanguageTags("en-PH,en-US");
+        info.contentMimeTypes = new String[]{"image/gif", "image/png"};
 
         assertEquals(0, info.describeContents());
 
@@ -73,6 +75,7 @@ public class EditorInfoTest extends AndroidTestCase {
         assertEquals(info.label.toString(), targetInfo.label.toString());
         assertEquals(info.extras.getString(key), targetInfo.extras.getString(key));
         assertEquals(info.hintLocales, targetInfo.hintLocales);
+        MoreAsserts.assertEquals(info.contentMimeTypes, targetInfo.contentMimeTypes);
 
         TestPrinter printer = new TestPrinter();
         String prefix = "TestEditorInfo";

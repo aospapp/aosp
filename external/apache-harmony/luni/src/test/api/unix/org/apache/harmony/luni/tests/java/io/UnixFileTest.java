@@ -19,6 +19,7 @@ package org.apache.harmony.luni.tests.java.io;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -28,6 +29,8 @@ import tests.support.resource.Support_Resources;
 import junit.framework.TestCase;
 
 import libcore.io.Libcore;
+import android.system.StructStatVfs;
+
 
 /**
  * Please note that this case can only be passed on Linux due to some file
@@ -85,44 +88,16 @@ public class UnixFileTest extends TestCase {
     }
 
     private static long getLinuxSpace(int index, File file) throws Exception {
-        long[] result = new long[3];
-        String par = file.getAbsolutePath();
-        String osName = System.getProperty("os.name");
-        // in case the test case will run under other OS.
-        if (osName.toLowerCase().indexOf("linux") != -1) {
-            String[] cmd = new String[2];
-            cmd[0] = "df";
-            cmd[1] = par; // get the total space of file
-            Runtime rt = Runtime.getRuntime();
-
-            Process proc = rt.exec(cmd);
-            // get output from the command
-            ConsoleResulter outputResult = new ConsoleResulter(proc, proc
-                    .getInputStream());
-
-            synchronized (proc) {
-                outputResult.start();
-                proc.wait();
-            }
-            // If there is no error, obtain the result
-            if (outputResult.resStr != null) {
-                // exit the subprocess safely
-                proc.waitFor();
-
-                // Split the results and look for the matching numerical values
-                String[] txtResult = outputResult.resStr.split(" ");
-                for (int i = 0, j = 0; i < txtResult.length; i++) {
-                    String text = txtResult[i];
-                    if (text.matches("[0-9]+") && text.length() > 3) {
-                        result[j++] = Long.parseLong(txtResult[i]) * 1024L;
-                    }
-                }
-            }
+        StructStatVfs stat = Libcore.os.statvfs(file.getAbsolutePath());
+        switch (index) {
+            case TOTAL_SPACE_NUM:
+                return stat.f_frsize * stat.f_blocks;
+            case FREE_SPACE_NUM:
+                return stat.f_frsize * stat.f_bfree;
+            case USABLE_SPACE_NUM:
+                return stat.f_frsize * stat.f_bavail;
         }
-
-        // calculate free spaces according to df command
-        result[1] = result[0] - result[1];
-        return result[index];
+        throw new IllegalArgumentException("Unknown index: " + index);
     }
 
     /**

@@ -31,7 +31,6 @@
 
 #include "common.h"
 #include "cpp_bindings.h"
-#include "qca-vendor.h"
 #include "wifi_logger.h"
 #include "wifilogger_diag.h"
 #include "vendor_definitions.h"

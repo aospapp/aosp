@@ -343,6 +343,35 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
         mRemoteConferenceObject.unregisterCallback(callback);
     }
 
+    public void testRemoteConferenceCallbacks_ConnectionProperties() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        Handler handler = setupRemoteConferenceCallbacksTest();
+
+        final InvokeCounter callbackInvoker =
+                new InvokeCounter("testRemoteConferenceCallbacks_ConnectionProperties");
+        RemoteConference.Callback callback;
+
+        callback = new RemoteConference.Callback() {
+            @Override
+            public void onConnectionPropertiesChanged(
+                    RemoteConference conference,
+                    int connectionProperties) {
+                super.onConnectionPropertiesChanged(conference, connectionProperties);
+                callbackInvoker.invoke(conference, connectionProperties);
+            }
+        };
+        mRemoteConferenceObject.registerCallback(callback, handler);
+        int properties = mRemoteConference.getConnectionCapabilities()
+                | Connection.PROPERTY_IS_EXTERNAL_CALL;
+        mRemoteConference.setConnectionProperties(properties);
+        callbackInvoker.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        assertEquals(mRemoteConferenceObject, callbackInvoker.getArgs(0)[0]);
+        assertEquals(properties, callbackInvoker.getArgs(0)[1]);
+        mRemoteConferenceObject.unregisterCallback(callback);
+    }
+
     public void testRemoteConferenceCallbacks_ConferenceableConnections() {
         if (!mShouldTestTelecom) {
             return;

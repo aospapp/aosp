@@ -23,9 +23,6 @@
     <option name="compatibility:exclude-filter" value="CtsAccessibilityServiceTestCases android.accessibilityservice.cts.AccessibilityTextTraversalTest#testActionNextAndPreviousAtGranularityPageOverText" />
     <option name="compatibility:exclude-filter" value="CtsAccessibilityServiceTestCases android.accessibilityservice.cts.AccessibilityTextTraversalTest#testActionNextAndPreviousAtGranularityPageOverTextExtend" />
 
-    <!-- b/17508787 -->
-    <option name="compatibility:exclude-filter" value="CtsAdminTestCases android.admin.cts.DevicePolicyManagerTest#testUninstallAllUserCaCerts_failIfNotProfileOwner" />
-
     <!-- b/23776083 -->
     <option name="compatibility:exclude-filter" value="CtsAlarmClockTestCases" />
 

@@ -107,6 +107,37 @@ class RfcommTest(BluetoothBaseTest):
         return False
 
     @BluetoothBaseTest.bt_test_wrap
+    def test_rfcomm_connection(self):
+        """Test bluetooth RFCOMM connection
+
+        Test RFCOMM though establishing a basic connection.
+
+        Steps:
+        1. Get the mac address of the server device.
+        2. Establish an RFCOMM connection from the client to the server AD.
+        3. Verify that the RFCOMM connection is active from both the client and
+        server.
+
+        Expected Result:
+        RFCOMM connection is established then disconnected succcessfully.
+
+        Returns:
+          Pass if True
+          Fail if False
+
+        TAGS: Classic, RFCOMM
+        Priority: 1
+        """
+        server_mac = self.server_ad.droid.bluetoothGetLocalAddress()
+        if not self.orchestrate_rfcomm_connect(server_mac):
+            return False
+
+        self.client_ad.droid.bluetoothRfcommStop()
+        self.server_ad.droid.bluetoothRfcommStop()
+        return True
+
+
+    @BluetoothBaseTest.bt_test_wrap
     def test_rfcomm_connection_write_ascii(self):
         """Test bluetooth RFCOMM writing and reading ascii data
 

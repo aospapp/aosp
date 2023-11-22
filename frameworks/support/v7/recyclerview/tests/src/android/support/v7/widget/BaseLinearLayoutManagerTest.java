@@ -15,11 +15,25 @@
  */
 package android.support.v7.widget;
 
+import static android.support.v7.widget.LinearLayoutManager.HORIZONTAL;
+import static android.support.v7.widget.LinearLayoutManager.VERTICAL;
+import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import android.content.Context;
 import android.graphics.Rect;
+import android.support.v4.util.Pair;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.MatcherAssert;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -28,17 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static android.support.v7.widget.LinearLayoutManager.HORIZONTAL;
-import static android.support.v7.widget.LinearLayoutManager.VERTICAL;
-import static android.view.ViewGroup.LayoutParams.FILL_PARENT;
-import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
-import static org.junit.Assert.*;
-
-import static java.util.concurrent.TimeUnit.SECONDS;
-
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
 
 public class BaseLinearLayoutManagerTest extends BaseRecyclerViewInstrumentationTest {
 
@@ -94,8 +97,8 @@ public class BaseLinearLayoutManagerTest extends BaseRecyclerViewInstrumentation
         if (config.mWrap) {
             mRecyclerView.setLayoutParams(
                     new ViewGroup.LayoutParams(
-                            config.mOrientation == HORIZONTAL ? WRAP_CONTENT : FILL_PARENT,
-                            config.mOrientation == VERTICAL ? WRAP_CONTENT : FILL_PARENT
+                            config.mOrientation == HORIZONTAL ? WRAP_CONTENT : MATCH_PARENT,
+                            config.mOrientation == VERTICAL ? WRAP_CONTENT : MATCH_PARENT
                     )
             );
         }
@@ -256,7 +259,7 @@ public class BaseLinearLayoutManagerTest extends BaseRecyclerViewInstrumentation
 
     static class Config implements Cloneable {
 
-        static final int DEFAULT_ITEM_COUNT = 100;
+        static final int DEFAULT_ITEM_COUNT = 250;
 
         boolean mStackFromEnd;
 
@@ -340,6 +343,8 @@ public class BaseLinearLayoutManagerTest extends BaseRecyclerViewInstrumentation
 
         CountDownLatch layoutLatch;
 
+        CountDownLatch snapLatch;
+
         OrientationHelper mSecondaryOrientation;
 
         OnLayoutListener mOnLayoutListener;
@@ -357,6 +362,35 @@ public class BaseLinearLayoutManagerTest extends BaseRecyclerViewInstrumentation
             checkForMainThreadException();
             MatcherAssert.assertThat("all layouts should complete on time",
                     layoutLatch.getCount(), CoreMatchers.is(0L));
+            // use a runnable to ensure RV layout is finished
+            getInstrumentation().runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                }
+            });
+        }
+
+        public void expectIdleState(int count) {
+            snapLatch = new CountDownLatch(count);
+            mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                    super.onScrollStateChanged(recyclerView, newState);
+                    if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                        snapLatch.countDown();
+                        if (snapLatch.getCount() == 0L) {
+                            mRecyclerView.removeOnScrollListener(this);
+                        }
+                    }
+                }
+            });
+        }
+
+        public void waitForSnap(int seconds) throws Throwable {
+            snapLatch.await(seconds * (DEBUG ? 100 : 1), SECONDS);
+            checkForMainThreadException();
+            MatcherAssert.assertThat("all scrolling should complete on time",
+                    snapLatch.getCount(), CoreMatchers.is(0L));
             // use a runnable to ensure RV layout is finished
             getInstrumentation().runOnMainSync(new Runnable() {
                 @Override
@@ -542,7 +576,5 @@ public class BaseLinearLayoutManagerTest extends BaseRecyclerViewInstrumentation
             }
             layoutLatch.countDown();
         }
-
-
     }
 }

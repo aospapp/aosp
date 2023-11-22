@@ -36,6 +36,7 @@
     <attr name="suwHeader" format="reference" />
     <attr name="suwHeaderText" format="string" localization="suggested" />
     <attr name="suwDividerInset" format="dimension|reference" />
+    <attr name="suwItemDescriptionStyle" format="reference" />
 
     <declare-styleable name="SuwIllustration">
         <attr name="suwAspectRatio" format="float" />
@@ -63,6 +64,11 @@
 
     <declare-styleable name="SuwStatusBarBackgroundLayout">
         <attr name="suwStatusBarBackground" format="color|reference" />
+    </declare-styleable>
+
+    <declare-styleable name="SuwMaxSizeFrameLayout">
+        <attr name="android:height" />
+        <attr name="android:width" />
     </declare-styleable>
 
     <declare-styleable name="SuwSetupWizardLayout">

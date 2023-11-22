@@ -51,7 +51,8 @@ def main():
 
     # Get all the scene0 and scene1 tests, which can be run using the same
     # physical setup.
-    scenes = ["scene0", "scene1", "scene2", "scene3", "scene4", "scene5"]
+    scenes = ["scene0", "scene1", "scene2", "scene3", "scene4", "scene5",
+              "sensor_fusion"]
 
     scene_req = {
         "scene0" : None,

@@ -41,6 +41,11 @@ public interface IInvocationResult {
     int countResults(TestStatus result);
 
     /**
+     * @return the number of tests that have not been executed in this moduleResult.
+     */
+    int getNotExecuted();
+
+    /**
      * @param plan the plan associated with this result.
      */
     void setTestPlan(String plan);

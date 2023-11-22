@@ -41,10 +41,12 @@ do
   mkdir -p $FILEDIR
   FILEDIR_ROOT=tmp/vendor/$MANUFACTURER/$ROOTDEVICE
 
-  if test ${ROOTDEVICE} = "dragon"
-  then
-    FILEDIR_ROOT=tmp/vendor/${MANUFACTURER}_devices/$ROOTDEVICE
-  fi
+  case ${ROOTDEVICE} in
+    dragon|marlin|sailfish)
+      FILEDIR_ROOT=tmp/vendor/${MANUFACTURER}_devices/$ROOTDEVICE ;;
+    *) ;;
+  esac
+
   mkdir -p ${FILEDIR_ROOT}
 
   TO_EXTRACT=`sed -n -e '/'"  $COMPANY"'/,/;;/ p' $EXTRACT_LIST_FILENAME | tail -n+3 | head -n-2 | sed -e 's/\\\//g'`
@@ -139,7 +141,7 @@ do
   cat PART3 >> tmp/$SCRIPT || echo \ \ \ \ Error generating script
   (cd tmp ; tar zc --owner=root --group=root vendor/ >> $SCRIPT || echo \ \ \ \ Error generating embedded tgz)
   chmod a+x tmp/$SCRIPT || echo \ \ \ \ Error generating script
-  ARCHIVE=$COMPANY-$DEVICE-$BUILD-$(md5sum < tmp/$SCRIPT | cut -b -8 | tr -d \\n).tgz
+  ARCHIVE=$COMPANY-$DEVICE-$BUILD-$(sha256sum < tmp/$SCRIPT | cut -b -8 | tr -d \\n).tgz
   rm -f $ARCHIVE
   echo \ \ Generating final archive
   (cd tmp ; tar --owner=root --group=root -z -c -f ../$ARCHIVE $SCRIPT || echo \ \ \ \ Error archiving script)

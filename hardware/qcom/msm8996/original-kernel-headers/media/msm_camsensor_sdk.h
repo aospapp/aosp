@@ -18,6 +18,7 @@
 #define CSI_DECODE_8BIT         1
 #define CSI_DECODE_10BIT        2
 #define CSI_DECODE_12BIT        3
+#define CSI_DECODE_DPCM_10_6_10 4
 #define CSI_DECODE_DPCM_10_8_10 5
 #define MAX_CID                 16
 #define I2C_SEQ_REG_DATA_MAX    1024
@@ -59,6 +60,8 @@ enum i2c_freq_mode_t {
 	I2C_STANDARD_MODE,
 	I2C_FAST_MODE,
 	I2C_CUSTOM_MODE,
+	I2C_CUSTOM1_MODE,
+	I2C_CUSTOM2_MODE,
 	I2C_FAST_PLUS_MODE,
 	I2C_MAX_MODES,
 };
@@ -367,9 +370,9 @@ struct region_params_t {
 
 struct reg_settings_t {
 	unsigned short reg_addr;
-	enum msm_actuator_addr_type addr_type;
+	enum msm_camera_i2c_reg_addr_type addr_type;
 	unsigned short reg_data;
-	enum msm_actuator_data_type data_type;
+	enum msm_camera_i2c_data_type data_type;
 	enum msm_actuator_i2c_operation i2c_operation;
 	unsigned int delay;
 };

@@ -42,10 +42,12 @@ enum class NanotoolCommand {
     Disable,
     DisableAll,
     Calibrate,
+    Test,
     Read,
     Poll,
     LoadCalibration,
     Flash,
+    GetBridgeVer,
 };
 
 struct ParsedArgs {
@@ -63,10 +65,12 @@ static NanotoolCommand StrToCommand(const char *command_name) {
         std::make_tuple("disable_all", NanotoolCommand::DisableAll),
         std::make_tuple("calibrate",   NanotoolCommand::Calibrate),
         std::make_tuple("cal",         NanotoolCommand::Calibrate),
+        std::make_tuple("test",        NanotoolCommand::Test),
         std::make_tuple("read",        NanotoolCommand::Read),
         std::make_tuple("poll",        NanotoolCommand::Poll),
         std::make_tuple("load_cal",    NanotoolCommand::LoadCalibration),
         std::make_tuple("flash",       NanotoolCommand::Flash),
+        std::make_tuple("bridge_ver",  NanotoolCommand::GetBridgeVer),
     };
 
     if (!command_name) {
@@ -90,16 +94,21 @@ static void PrintUsage(const char *name) {
     const char *help_text =
         "options:\n"
         "  -x, --cmd          Argument must be one of:\n"
+        "                        bridge_ver: retrieve bridge version information (not\n"
+        "                           supported on all devices)\n"
         "                        disable: send a disable request for one sensor\n"
         "                        disable_all: send a disable request for all sensors\n"
         "                        calibrate: disable the sensor, then perform the sensor\n"
         "                           calibration routine\n"
+        "                        test: run a sensor's self-test routine\n"
+#ifndef __ANDROID__
+        "                        flash: load a new firmware image to the hub\n"
+#endif
         "                        load_cal: send data from calibration file to hub\n"
-        "                        read: output events for the given sensor, or all events\n"
-        "                           if no sensor specified\n"
         "                        poll (default): enable the sensor, output received\n"
         "                           events, then disable the sensor before exiting\n"
-        "                        flash: Load a new firmware image to the hub\n"
+        "                        read: output events for the given sensor, or all events\n"
+        "                           if no sensor specified\n"
         "\n"
         "  -s, --sensor       Specify sensor type, and parameters for the command.\n"
         "                     Format is sensor_type[:rate[:latency_ms]][=cal_ref].\n"
@@ -153,6 +162,7 @@ static bool ValidateArgs(std::unique_ptr<ParsedArgs>& args, const char *name) {
     if (!args->sensors.size()
           && (args->command == NanotoolCommand::Disable
                 || args->command == NanotoolCommand::Calibrate
+                || args->command == NanotoolCommand::Test
                 || args->command == NanotoolCommand::Poll)) {
         fprintf(stderr, "%s: At least 1 sensor must be specified for this "
                         "command (use -s)\n",
@@ -291,6 +301,7 @@ static std::unique_ptr<ParsedArgs> ParseArgs(int argc, char **argv) {
         {"flash",   required_argument, nullptr, 'f'},
         {"log",     no_argument,       nullptr, 'l'},
         {"index",   required_argument, nullptr, 'i'},
+        {}  // Indicates the end of the option list
     };
 
     auto args = std::unique_ptr<ParsedArgs>(new ParsedArgs());
@@ -453,12 +464,21 @@ int main(int argc, char **argv) {
         success = hub->CalibrateSensors(args->sensors);
         break;
       }
+      case NanotoolCommand::Test: {
+        hub->DisableSensors(args->sensors);
+        success = hub->TestSensors(args->sensors);
+        break;
+      }
       case NanotoolCommand::LoadCalibration: {
         success = hub->LoadCalibration();
         break;
       }
       case NanotoolCommand::Flash: {
         success = hub->Flash(args->filename);
+        break;
+      }
+      case NanotoolCommand::GetBridgeVer: {
+        success = hub->PrintBridgeVersion();
         break;
       }
       default:

@@ -29,7 +29,7 @@
     <string name="next" msgid="1004321437324424398">"Næste"</string>
     <string name="setting_up_workspace" msgid="4517537806569988620">"Konfigurerer din arbejdsprofil…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="4138671070145317359">"Din administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne profil, herunder din netværksaktivitet samt enhedens placering, opkaldshistorik og historik for søgning efter kontaktpersoner."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="7400390654083275019">"Din administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser, funktioner, der beskytter mod tyveri, og data, der er knyttet til denne enhed, herunder netværksaktivitet og enhedens placeringsoplysninger."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="7400390654083275019">"Din administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser, funktioner, der beskytter mod tyveri, og data, der er knyttet til denne enhed, herunder netværksaktivitet og enhedens stedoplysninger."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Hvis du vil bruge funktionen, der beskytter mod tyveri, skal din enhed have en skærmlås med en tilhørende adgangskode."</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Kontakt din administrator for at få flere oplysninger, herunder om din organisations privatlivspolitik."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Få flere oplysninger"</string>

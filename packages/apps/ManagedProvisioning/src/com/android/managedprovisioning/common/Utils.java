@@ -764,10 +764,4 @@ public class Utils {
     private boolean versionNumberAtLeastL(int versionNumber) {
         return versionNumber >= Build.VERSION_CODES.LOLLIPOP;
     }
-
-    public boolean isBrightColor(int color) {
-        // we're using the brightness formula: (r * 299 + g * 587 + b * 144) / 1000
-        return Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114
-                >= 1000 * THRESHOLD_BRIGHT_COLOR;
-    }
 }

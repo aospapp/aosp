@@ -50,13 +50,16 @@ extern "C" {
 
 #define STACKLESS      __stackless
 
-
-#define PRINTF_ATTRIBUTE
+#ifndef PRINTF_ATTRIBUTE
+#define PRINTF_ATTRIBUTE(string_index, first_to_check)
+#endif
 
 #define SET_PACKED_STRUCT_MODE_ON       _Pragma("pack(push, 1)")
 #define SET_PACKED_STRUCT_MODE_OFF      _Pragma("pack(pop)")
 
+#ifndef ATTRIBUTE_PACKED
 #define ATTRIBUTE_PACKED
+#endif
 
 #define UNROLLED
 
@@ -89,12 +92,17 @@ extern "C" {
 
 #define STACKLESS __attribute__((naked))
 
-#define PRINTF_ATTRIBUTE __attribute__((format(printf, 2, 3)))
+#ifndef PRINTF_ATTRIBUTE
+#define PRINTF_ATTRIBUTE(string_index, first_to_check) \
+    __attribute__((format(printf, string_index, first_to_check)))
+#endif
 
 #define SET_PACKED_STRUCT_MODE_ON
 #define SET_PACKED_STRUCT_MODE_OFF
 
+#ifndef ATTRIBUTE_PACKED
 #define ATTRIBUTE_PACKED __attribute__((packed))
+#endif
 
 #define UNROLLED   __attribute__((optimize("unroll-loops")))
 

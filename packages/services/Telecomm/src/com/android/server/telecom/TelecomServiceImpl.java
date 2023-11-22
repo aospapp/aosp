@@ -42,6 +42,7 @@ import android.telecom.DefaultDialerManager;
 import android.telecom.ParcelableCallAnalytics;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.TelecomAnalytics;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telephony.SubscriptionManager;
@@ -1145,11 +1146,11 @@ public class TelecomServiceImpl {
         }
 
         @Override
-        public List<ParcelableCallAnalytics> dumpCallAnalytics() {
+        public TelecomAnalytics dumpCallAnalytics() {
             try {
                 Log.startSession("TSI.dCA");
                 enforcePermission(DUMP);
-                return Arrays.asList(Analytics.dumpToParcelableAnalytics());
+                return Analytics.dumpToParcelableAnalytics();
             } finally {
                 Log.endSession();
             }
@@ -1293,6 +1294,7 @@ public class TelecomServiceImpl {
             call = mCallsManager.getFirstCallWithState(
                     CallState.ACTIVE,
                     CallState.DIALING,
+                    CallState.PULLING,
                     CallState.RINGING,
                     CallState.ON_HOLD);
         }

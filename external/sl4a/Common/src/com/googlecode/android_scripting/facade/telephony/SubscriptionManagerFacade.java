@@ -103,7 +103,9 @@ public class SubscriptionManagerFacade extends RpcReceiver {
     }
 
     @Rpc(description = "Set Data Roaming Enabled or Disabled for a particular Subscription ID")
-    public Integer subscriptionSetDataRoaming(Integer roaming, Integer subId) {
+    public Integer subscriptionSetDataRoaming(
+            @RpcParameter(name = "roaming") Integer roaming,
+            @RpcParameter(name = "subId") Integer subId) {
         if (roaming != SubscriptionManager.DATA_ROAMING_DISABLE) {
             return mSubscriptionManager.setDataRoaming(
                     SubscriptionManager.DATA_ROAMING_ENABLE, subId);

@@ -72,6 +72,7 @@ public:
     virtual int32_t markFrameNumber(uint32_t index, uint32_t frameNumber) = 0;
     virtual int32_t getFrameNumber(uint32_t index) = 0;
     virtual int32_t getBufferIndex(uint32_t frameNumber) = 0;
+    virtual int32_t getOldestFrameNumber(uint32_t &index) = 0;
 
     QCamera3Memory();
     virtual ~QCamera3Memory();
@@ -82,7 +83,6 @@ public:
 protected:
     struct QCamera3MemInfo {
         int fd;
-        int main_ion_fd;
         ion_user_handle_t handle;
         size_t size;
     };
@@ -95,6 +95,7 @@ protected:
     void *mPtr[MM_CAMERA_MAX_NUM_FRAMES];
     int32_t mCurrentFrameNumbers[MM_CAMERA_MAX_NUM_FRAMES];
     Mutex mLock;
+    int main_ion_fd = -1;
 };
 
 // Internal heap memory is used for memories used internally
@@ -116,6 +117,7 @@ public:
     virtual int32_t markFrameNumber(uint32_t index, uint32_t frameNumber);
     virtual int32_t getFrameNumber(uint32_t index);
     virtual int32_t getBufferIndex(uint32_t frameNumber);
+    virtual int32_t getOldestFrameNumber(uint32_t &index);
 
 protected:
     virtual void *getPtrLocked(uint32_t index);
@@ -142,6 +144,7 @@ public:
     virtual int32_t markFrameNumber(uint32_t index, uint32_t frameNumber);
     virtual int32_t getFrameNumber(uint32_t index);
     virtual int32_t getBufferIndex(uint32_t frameNumber);
+    virtual int32_t getOldestFrameNumber(uint32_t &index);
 
     void *getBufferHandle(uint32_t index);
 protected:

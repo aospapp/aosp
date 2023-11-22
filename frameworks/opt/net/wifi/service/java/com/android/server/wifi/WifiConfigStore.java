@@ -16,6 +16,7 @@
 
 package com.android.server.wifi;
 
+import android.content.Context;
 import android.net.IpConfiguration.IpAssignment;
 import android.net.IpConfiguration.ProxySettings;
 import android.net.wifi.WifiConfiguration;
@@ -36,6 +37,7 @@ import android.util.Log;
 import android.util.SparseArray;
 
 import com.android.server.wifi.hotspot2.Utils;
+import com.android.server.wifi.util.TelephonyUtil;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -92,6 +94,7 @@ public class WifiConfigStore {
 
     private final LocalLog mLocalLog;
     private final WpaConfigFileObserver mFileObserver;
+    private final Context mContext;
     private final WifiNative mWifiNative;
     private final KeyStore mKeyStore;
     private final boolean mShowNetworks;
@@ -99,8 +102,9 @@ public class WifiConfigStore {
 
     private final BackupManagerProxy mBackupManagerProxy;
 
-    WifiConfigStore(WifiNative wifiNative, KeyStore keyStore, LocalLog localLog,
+    WifiConfigStore(Context context, WifiNative wifiNative, KeyStore keyStore, LocalLog localLog,
             boolean showNetworks, boolean verboseDebug) {
+        mContext = context;
         mWifiNative = wifiNative;
         mKeyStore = keyStore;
         mShowNetworks = showNetworks;
@@ -1079,27 +1083,6 @@ public class WifiConfigStore {
     }
 
     /**
-     * Checks if the network is a sim config.
-     *
-     * @param config Config corresponding to the network.
-     * @return true if it is a sim config, false otherwise.
-     */
-    public boolean isSimConfig(WifiConfiguration config) {
-        if (config == null) {
-            return false;
-        }
-
-        if (config.enterpriseConfig == null) {
-            return false;
-        }
-
-        int method = config.enterpriseConfig.getEapMethod();
-        return (method == WifiEnterpriseConfig.Eap.SIM
-                || method == WifiEnterpriseConfig.Eap.AKA
-                || method == WifiEnterpriseConfig.Eap.AKA_PRIME);
-    }
-
-    /**
      * Resets all sim networks from the provided network list.
      *
      * @param configs List of all the networks.
@@ -1107,10 +1090,26 @@ public class WifiConfigStore {
     public void resetSimNetworks(Collection<WifiConfiguration> configs) {
         if (VDBG) localLog("resetSimNetworks");
         for (WifiConfiguration config : configs) {
-            if (isSimConfig(config)) {
-                /* This configuration may have cached Pseudonym IDs; lets remove them */
-                mWifiNative.setNetworkVariable(config.networkId, "identity", "NULL");
-                mWifiNative.setNetworkVariable(config.networkId, "anonymous_identity", "NULL");
+            if (TelephonyUtil.isSimConfig(config)) {
+                String currentIdentity = TelephonyUtil.getSimIdentity(mContext,
+                        config.enterpriseConfig.getEapMethod());
+                String supplicantIdentity =
+                        mWifiNative.getNetworkVariable(config.networkId, "identity");
+                if(supplicantIdentity != null) {
+                    supplicantIdentity = removeDoubleQuotes(supplicantIdentity);
+                }
+                if (currentIdentity == null || !currentIdentity.equals(supplicantIdentity)) {
+                    // Identity differs so update the identity
+                    mWifiNative.setNetworkVariable(config.networkId,
+                            WifiEnterpriseConfig.IDENTITY_KEY, WifiEnterpriseConfig.EMPTY_VALUE);
+                    // This configuration may have cached Pseudonym IDs; lets remove them
+                    mWifiNative.setNetworkVariable(config.networkId,
+                            WifiEnterpriseConfig.ANON_IDENTITY_KEY,
+                            WifiEnterpriseConfig.EMPTY_VALUE);
+                }
+                // Update the loaded config
+                config.enterpriseConfig.setIdentity(currentIdentity);
+                config.enterpriseConfig.setAnonymousIdentity("");
             }
         }
     }

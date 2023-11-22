@@ -17,18 +17,16 @@
 
 package com.android.cts.verifier.sensors.base;
 
+import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestResult;
 import com.android.cts.verifier.sensors.helpers.SensorFeaturesDeactivator;
 import com.android.cts.verifier.sensors.reporting.SensorTestDetails;
 
-import junit.framework.Assert;
-
-//import android.app.Activity;
-import com.android.cts.verifier.PassFailButtons;
-
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.hardware.cts.helpers.ActivityResultMultiplexedLatch;
 import android.media.MediaPlayer;
 import android.opengl.GLSurfaceView;
@@ -45,6 +43,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import junit.framework.Assert;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -326,8 +325,33 @@ public abstract class BaseSensorTestActivity
     @Override
     public int executeActivity(Intent intent) throws InterruptedException {
         ActivityResultMultiplexedLatch.Latch latch = mActivityResultMultiplexedLatch.bindThread();
-        startActivityForResult(intent, latch.getRequestCode());
+        try {
+            startActivityForResult(intent, latch.getRequestCode());
+        } catch (ActivityNotFoundException e) {
+            // handle exception gracefully
+            // Among all defined activity results, RESULT_CANCELED offers the semantic closest to
+            // represent absent setting activity.
+            return RESULT_CANCELED;
+        }
         return latch.await();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean hasSystemFeature(String feature) {
+        PackageManager pm = getPackageManager();
+        return pm.hasSystemFeature(feature);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean hasActivity(String action) {
+        PackageManager pm = getPackageManager();
+        return pm.resolveActivity(new Intent(action), PackageManager.MATCH_DEFAULT_ONLY) != null;
     }
 
     /**

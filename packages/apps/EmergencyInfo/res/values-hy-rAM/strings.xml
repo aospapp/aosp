@@ -16,8 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"Անձնական բուժտվյալներ"</string>
-    <string name="edit_info" msgid="5973929805855224805">"Փոփոխել անձնական բուժտվյալները"</string>
+    <string name="app_label" msgid="1090682794607161063">"Անհետաձգելի բուժօգնության տվյալներ"</string>
+    <string name="edit_info" msgid="5973929805855224805">"Փոփոխել անհետաձգելի բուժօգնության տվյալները"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Տեղեկություններ"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Կոնտակտներ"</string>
     <string name="name" msgid="4286267457738861977">"Անունը"</string>
@@ -93,10 +93,10 @@
     <string name="cancel" msgid="7401575239009060939">"Չեղարկել"</string>
     <string name="ok" msgid="163967937451981024">"Լավ"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Անձնական բուժտվյալներ"</string>
+    <string name="user_emergency_info_title" msgid="7827058167207376581">"Անհետաձգելի բուժօգնության տվյալներ"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Արտակարգ իրավիճակների դեպքում այստեղ մուտքագրված ձեր բժշկական տվյալները և կոնտակտները կարող են օգտակար լինել առաջին օգնություն ցուցաբերողներին և փրկարարներին: Տվյալները պահվում են միայն ձեր սարքում և բոլորը կարող են կարդալ դրանք արտակարգ իրավիճակների համարհավաքիչից՝ առանց հեռախոսն ապակողպելու անհրաժեշտության:"</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Շարունակել"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Անձնական բուժտվյալներ չեն տրամադրվել"</string>
+    <string name="no_info_provided" msgid="6775035037534954056">"Անհետաձգելի բուժօգնության տվյալներ չեն տրամադրվել"</string>
     <string name="clear_all" msgid="8899013032870561633">"Մաքրել բոլորը"</string>
     <string name="clear" msgid="3648880442502887163">"Մաքրել"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Մաքրե՞լ բոլոր տեղեկությունները և կոնտակտները:"</string>

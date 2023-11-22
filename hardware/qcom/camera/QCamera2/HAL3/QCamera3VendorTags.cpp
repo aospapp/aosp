@@ -51,6 +51,9 @@ enum qcamera3_ext_tags qcamera3_ext3_section_bounds[QCAMERA3_SECTIONS_END -
         QCAMERA3_TEMPORAL_DENOISE_END,
         QCAMERA3_AV_TIMER_END,
         QCAMERA3_SENSOR_META_DATA_END,
+        NEXUS_EXPERIMENTAL_2016_END,
+        QCAMERA3_DUALCAM_LINK_META_DATA_END,
+        QCAMERA3_DUALCAM_CALIB_META_DATA_END
 } ;
 
 typedef struct vendor_tag_info {
@@ -68,6 +71,9 @@ const char *qcamera3_ext_section_names[QCAMERA3_SECTIONS_END -
     "org.codeaurora.qcamera3.temporal_denoise",
     "org.codeaurora.qcamera3.av_timer",
     "org.codeaurora.qcamera3.sensor_meta_data",
+    "com.google.nexus.experimental2016",
+    "org.codeaurora.qcamera3.dualcam_link_meta_data",
+    "org.codeaurora.qcamera3.dualcam_calib_meta_data"
 };
 
 vendor_tag_info_t qcamera3_privatedata[QCAMERA3_PRIVATEDATA_END - QCAMERA3_PRIVATEDATA_START] = {
@@ -109,7 +115,73 @@ vendor_tag_info qcamera3_av_timer[QCAMERA3_AV_TIMER_END -
 
 vendor_tag_info qcamera3_sensor_meta_data[QCAMERA3_SENSOR_META_DATA_END -
                                   QCAMERA3_SENSOR_META_DATA_START] = {
-   {"dynamic_black_level_pattern", TYPE_FLOAT }
+   {"dynamic_black_level_pattern", TYPE_FLOAT },
+   {"is_mono_only",                TYPE_BYTE }
+};
+
+vendor_tag_info_t nexus_experimental_2016[NEXUS_EXPERIMENTAL_2016_END -
+        NEXUS_EXPERIMENTAL_2016_START] = {
+   {"3a.hybrid_ae_enable",                     TYPE_BYTE  },
+   {"control.af_scene_change",                 TYPE_BYTE  },
+   // DevCamDebug vendor tag
+   { "devcamdebug_meta_enable",                TYPE_BYTE  },
+   // DevCamDebug vendor tag AF
+   { "devcamdebug_af_lens_position",           TYPE_INT32 },
+   { "devcamdebug_af_tof_confidence",          TYPE_INT32 },
+   { "devcamdebug_af_tof_distance",            TYPE_INT32 },
+   { "devcamdebug_af_luma",                    TYPE_INT32 },
+   { "devcamdebug_af_haf_state",               TYPE_INT32 },
+   { "devcamdebug_af_monitor_pdaf_target_pos", TYPE_INT32 },
+   { "devcamdebug_af_monitor_pdaf_confidence", TYPE_INT32 },
+   { "devcamdebug_af_monitor_pdaf_refocus",    TYPE_INT32 },
+   { "devcamdebug_af_monitor_tof_target_pos",  TYPE_INT32 },
+   { "devcamdebug_af_monitor_tof_confidence",  TYPE_INT32 },
+   { "devcamdebug_af_monitor_tof_refocus",     TYPE_INT32 },
+   { "devcamdebug_af_monitor_type_select",     TYPE_INT32 },
+   { "devcamdebug_af_monitor_refocus",         TYPE_INT32 },
+   { "devcamdebug_af_monitor_target_pos",      TYPE_INT32 },
+   { "devcamdebug_af_search_pdaf_target_pos",  TYPE_INT32 },
+   { "devcamdebug_af_search_pdaf_next_pos",    TYPE_INT32 },
+   { "devcamdebug_af_search_pdaf_near_pos",    TYPE_INT32 },
+   { "devcamdebug_af_search_pdaf_far_pos",     TYPE_INT32 },
+   { "devcamdebug_af_search_pdaf_confidence",  TYPE_INT32 },
+   { "devcamdebug_af_search_tof_target_pos",   TYPE_INT32 },
+   { "devcamdebug_af_search_tof_next_pos",     TYPE_INT32 },
+   { "devcamdebug_af_search_tof_near_pos",     TYPE_INT32 },
+   { "devcamdebug_af_search_tof_far_pos",      TYPE_INT32 },
+   { "devcamdebug_af_search_tof_confidence",   TYPE_INT32 },
+   { "devcamdebug_af_search_type_select",      TYPE_INT32 },
+   { "devcamdebug_af_search_next_pos",         TYPE_INT32 },
+   { "devcamdebug_af_search_target_pos",       TYPE_INT32 },
+   // DevCamDebug vendor tag AEC
+   { "devcamdebug_aec_target_luma",            TYPE_INT32 },
+   { "devcamdebug_aec_comp_luma",              TYPE_INT32 },
+   { "devcamdebug_aec_avg_luma",               TYPE_INT32 },
+   { "devcamdebug_aec_cur_luma",               TYPE_INT32 },
+   { "devcamdebug_aec_linecount",              TYPE_INT32 },
+   { "devcamdebug_aec_real_gain",              TYPE_FLOAT },
+   { "devcamdebug_aec_exp_index",              TYPE_INT32 },
+   { "devcamdebug_aec_lux_idx",                TYPE_FLOAT },
+   // DevCamDebug vendor tag AWB
+   { "devcamdebug_awb_r_gain",                 TYPE_FLOAT },
+   { "devcamdebug_awb_g_gain",                 TYPE_FLOAT },
+   { "devcamdebug_awb_b_gain",                 TYPE_FLOAT },
+   { "devcamdebug_awb_cct",                    TYPE_INT32 },
+   { "devcamdebug_awb_decision",               TYPE_INT32 },
+};
+
+vendor_tag_info_t
+        qcamera3_dualcam_link_meta_data[QCAMERA3_DUALCAM_LINK_META_DATA_END -
+        QCAMERA3_DUALCAM_LINK_META_DATA_START] = {
+    { "enable",            TYPE_BYTE },
+    { "is_main",           TYPE_BYTE },
+    { "related_camera_id", TYPE_INT32 }
+};
+
+vendor_tag_info_t
+        qcamera3_dualcam_calib_meta_data[QCAMERA3_DUALCAM_CALIB_META_DATA_END -
+        QCAMERA3_DUALCAM_CALIB_META_DATA_START] = {
+    { "dualcam_calib_meta_data_blob", TYPE_BYTE }
 };
 
 vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
@@ -122,6 +194,9 @@ vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
     qcamera3_temporal_denoise,
     qcamera3_av_timer,
     qcamera3_sensor_meta_data,
+    nexus_experimental_2016,
+    qcamera3_dualcam_link_meta_data,
+    qcamera3_dualcam_calib_meta_data
 };
 
 uint32_t qcamera3_all_tags[] = {
@@ -152,6 +227,65 @@ uint32_t qcamera3_all_tags[] = {
 
     //QCAMERA3_SENSOR_META_DATA
     (uint32_t)QCAMERA3_SENSOR_DYNAMIC_BLACK_LEVEL_PATTERN,
+    (uint32_t)QCAMERA3_SENSOR_IS_MONO_ONLY,
+
+    //NEXUS_EXPERIMENTAL_2016
+    (uint32_t)NEXUS_EXPERIMENTAL_2016_HYBRID_AE_ENABLE,
+    (uint32_t)NEXUS_EXPERIMENTAL_2016_AF_SCENE_CHANGE,
+    // DEVCAMDEBUG
+    (uint32_t)DEVCAMDEBUG_META_ENABLE,
+    // DEVCAMDEBUG AF
+    (uint32_t)DEVCAMDEBUG_AF_LENS_POSITION,
+    (uint32_t)DEVCAMDEBUG_AF_TOF_CONFIDENCE,
+    (uint32_t)DEVCAMDEBUG_AF_TOF_DISTANCE,
+    (uint32_t)DEVCAMDEBUG_AF_LUMA,
+    (uint32_t)DEVCAMDEBUG_AF_HAF_STATE,
+    (uint32_t)DEVCAMDEBUG_AF_MONITOR_PDAF_TARGET_POS,
+    (uint32_t)DEVCAMDEBUG_AF_MONITOR_PDAF_CONFIDENCE,
+    (uint32_t)DEVCAMDEBUG_AF_MONITOR_PDAF_REFOCUS,
+    (uint32_t)DEVCAMDEBUG_AF_MONITOR_TOF_TARGET_POS,
+    (uint32_t)DEVCAMDEBUG_AF_MONITOR_TOF_CONFIDENCE,
+    (uint32_t)DEVCAMDEBUG_AF_MONITOR_TOF_REFOCUS,
+    (uint32_t)DEVCAMDEBUG_AF_MONITOR_TYPE_SELECT,
+    (uint32_t)DEVCAMDEBUG_AF_MONITOR_REFOCUS,
+    (uint32_t)DEVCAMDEBUG_AF_MONITOR_TARGET_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_PDAF_TARGET_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_PDAF_NEXT_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_PDAF_NEAR_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_PDAF_FAR_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_PDAF_CONFIDENCE,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_TOF_TARGET_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_TOF_NEXT_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_TOF_NEAR_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_TOF_FAR_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_TOF_CONFIDENCE,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_TYPE_SELECT,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_NEXT_POS,
+    (uint32_t)DEVCAMDEBUG_AF_SEARCH_TARGET_POS,
+    // DEVCAMDEBUG AEC
+    (uint32_t)DEVCAMDEBUG_AEC_TARGET_LUMA,
+    (uint32_t)DEVCAMDEBUG_AEC_COMP_LUMA,
+    (uint32_t)DEVCAMDEBUG_AEC_AVG_LUMA,
+    (uint32_t)DEVCAMDEBUG_AEC_CUR_LUMA,
+    (uint32_t)DEVCAMDEBUG_AEC_LINECOUNT,
+    (uint32_t)DEVCAMDEBUG_AEC_REAL_GAIN,
+    (uint32_t)DEVCAMDEBUG_AEC_EXP_INDEX,
+    (uint32_t)DEVCAMDEBUG_AEC_LUX_IDX,
+    // DEVCAMDEBUG AWB
+    (uint32_t)DEVCAMDEBUG_AWB_R_GAIN,
+    (uint32_t)DEVCAMDEBUG_AWB_G_GAIN,
+    (uint32_t)DEVCAMDEBUG_AWB_B_GAIN,
+    (uint32_t)DEVCAMDEBUG_AWB_CCT,
+    (uint32_t)DEVCAMDEBUG_AWB_DECISION,
+    // DEVCAMDEBUG END
+
+    // QCAMERA3_DUALCAM_LINK_META_DATA
+    (uint32_t)QCAMERA3_DUALCAM_LINK_ENABLE,
+    (uint32_t)QCAMERA3_DUALCAM_LINK_IS_MAIN,
+    (uint32_t)QCAMERA3_DUALCAM_LINK_RELATED_CAMERA_ID,
+
+    // QCAMERA3_DUALCAM_CALIB_META_DATA
+    (uint32_t)QCAMERA3_DUALCAM_CALIB_META_DATA_BLOB,
 };
 
 const vendor_tag_ops_t* QCamera3VendorTags::Ops = NULL;

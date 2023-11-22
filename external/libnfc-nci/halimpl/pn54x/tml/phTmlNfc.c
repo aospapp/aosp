@@ -42,7 +42,7 @@ static uint8_t bCurrentRetryCount = (2000 / PHTMLNFC_MAXTIME_RETRANSMIT) + 1;
 
 /* Initialize Context structure pointer used to access context structure */
 phTmlNfc_Context_t *gpphTmlNfc_Context = NULL;
-extern phTmlNfc_i2cfragmentation_t fragmentation_enabled = I2C_FRAGMENATATION_DISABLED;
+phTmlNfc_i2cfragmentation_t fragmentation_enabled = I2C_FRAGMENATATION_DISABLED;
 /* Local Function prototypes */
 static NFCSTATUS phTmlNfc_StartThread(void);
 static void phTmlNfc_CleanUp(void);
@@ -112,7 +112,7 @@ NFCSTATUS phTmlNfc_Init(pphTmlNfc_Config_t pConfig)
             if (NFCSTATUS_SUCCESS != wInitStatus)
             {
                 wInitStatus = PHNFCSTVAL(CID_NFC_TML, NFCSTATUS_INVALID_DEVICE);
-                gpphTmlNfc_Context->pDevHandle = (void *) NFCSTATUS_INVALID_DEVICE;
+                gpphTmlNfc_Context->pDevHandle = NULL;
             }
             else
             {
@@ -356,7 +356,7 @@ static void phTmlNfc_TmlThread(void *pParam)
             dwNoBytesWrRd = PH_TMLNFC_RESET_VALUE;
 
             /* Read the data from the file onto the buffer */
-            if (NFCSTATUS_INVALID_DEVICE != (uintptr_t)gpphTmlNfc_Context->pDevHandle)
+            if (NULL != gpphTmlNfc_Context->pDevHandle)
             {
                 NXPLOG_TML_D("PN54X - Invoking I2C Read.....\n");
                 dwNoBytesWrRd = phTmlNfc_i2c_read(gpphTmlNfc_Context->pDevHandle, temp, 260);
@@ -365,6 +365,11 @@ static void phTmlNfc_TmlThread(void *pParam)
                 {
                     NXPLOG_TML_E("PN54X - Error in I2C Read.....\n");
                     sem_post(&gpphTmlNfc_Context->rxSemaphore);
+                }
+                else if (dwNoBytesWrRd > 260)
+                {
+                    NXPLOG_TML_E ("Numer of bytes read exceeds the limit 260.....\n");
+                    sem_post (&gpphTmlNfc_Context->rxSemaphore);
                 }
                 else
                 {
@@ -388,6 +393,11 @@ static void phTmlNfc_TmlThread(void *pParam)
                         {
                             gpphTmlNfc_Context->bWriteCbInvoked = FALSE;
                         }
+                    }
+                    if (gpphTmlNfc_Context->tWriteInfo.bThreadBusy)
+                    {
+                        NXPLOG_TML_D ("Delay Read if write thread is busy");
+                        usleep (2000); /*2ms delay to give prio to write complete */
                     }
                     /* Update the actual number of bytes read including header */
                     gpphTmlNfc_Context->tReadInfo.wLength = (uint16_t) (dwNoBytesWrRd);
@@ -416,7 +426,7 @@ static void phTmlNfc_TmlThread(void *pParam)
             }
             else
             {
-                NXPLOG_TML_D("PN54X - NFCSTATUS_INVALID_DEVICE == gpphTmlNfc_Context->pDevHandle");
+                NXPLOG_TML_D ("PN54X -gpphTmlNfc_Context->pDevHandle is NULL");
             }
         }
         else
@@ -467,10 +477,9 @@ static void phTmlNfc_TmlWriterThread(void *pParam)
             NXPLOG_TML_D("PN54X - Write requested.....\n");
             /* Set the variable to success initially */
             wStatus = NFCSTATUS_SUCCESS;
-            if (NFCSTATUS_INVALID_DEVICE != (uintptr_t)gpphTmlNfc_Context->pDevHandle)
+            if (NULL != gpphTmlNfc_Context->pDevHandle)
             {
-                retry:
-
+            retry:
                 gpphTmlNfc_Context->tWriteInfo.bEnable = 0;
                 /* Variable to fetch the actual number of bytes written */
                 dwNoBytesWrRd = PH_TMLNFC_RESET_VALUE;
@@ -550,7 +559,7 @@ static void phTmlNfc_TmlWriterThread(void *pParam)
             }
             else
             {
-                NXPLOG_TML_D("PN54X - NFCSTATUS_INVALID_DEVICE != gpphTmlNfc_Context->pDevHandle");
+                NXPLOG_TML_D ("PN54X - gpphTmlNfc_Context->pDevHandle is NULL");
             }
 
             /* If Data packet is sent, then NO retransmission */

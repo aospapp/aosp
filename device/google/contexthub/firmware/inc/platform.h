@@ -36,6 +36,7 @@ extern "C" {
 void platInitialize(void);
 void platUninitialize(void);
 void platReset(void);
+void platPeriodic(void);
 
 // free all platform-specific resources for TID, and return non-zero status if some cleanup was done
 uint32_t platFreeResources(uint32_t tid);

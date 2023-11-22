@@ -29,6 +29,8 @@
 #include <binder/IMemory.h>
 #include <binder/IServiceManager.h>
 
+#include <system/graphics.h>
+
 #include <ui/DisplayInfo.h>
 
 #include <gui/CpuConsumer.h>
@@ -165,7 +167,7 @@ public:
             uint64_t frameNumber);
     status_t setOverrideScalingMode(const sp<SurfaceComposerClient>& client,
             const sp<IBinder>& id, int32_t overrideScalingMode);
-    status_t setPositionAppliesWithResize(const sp<SurfaceComposerClient>& client,
+    status_t setGeometryAppliesWithResize(const sp<SurfaceComposerClient>& client,
             const sp<IBinder>& id);
 
     void setDisplaySurface(const sp<IBinder>& token,
@@ -445,7 +447,7 @@ status_t Composer::setOverrideScalingMode(
     return NO_ERROR;
 }
 
-status_t Composer::setPositionAppliesWithResize(
+status_t Composer::setGeometryAppliesWithResize(
         const sp<SurfaceComposerClient>& client,
         const sp<IBinder>& id) {
     Mutex::Autolock lock(mLock);
@@ -453,7 +455,7 @@ status_t Composer::setPositionAppliesWithResize(
     if (!s) {
         return BAD_INDEX;
     }
-    s->what |= layer_state_t::ePositionAppliesWithResize;
+    s->what |= layer_state_t::eGeometryAppliesWithResize;
     return NO_ERROR;
 }
 
@@ -612,6 +614,14 @@ status_t SurfaceComposerClient::getLayerFrameStats(const sp<IBinder>& token,
     return mClient->getLayerFrameStats(token, outStats);
 }
 
+status_t SurfaceComposerClient::getTransformToDisplayInverse(const sp<IBinder>& token,
+        bool* outTransformToDisplayInverse) const {
+    if (mStatus != NO_ERROR) {
+        return mStatus;
+    }
+    return mClient->getTransformToDisplayInverse(token, outTransformToDisplayInverse);
+}
+
 inline Composer& SurfaceComposerClient::getComposer() {
     return mComposer;
 }
@@ -699,9 +709,9 @@ status_t SurfaceComposerClient::setOverrideScalingMode(
             this, id, overrideScalingMode);
 }
 
-status_t SurfaceComposerClient::setPositionAppliesWithResize(
+status_t SurfaceComposerClient::setGeometryAppliesWithResize(
         const sp<IBinder>& id) {
-    return getComposer().setPositionAppliesWithResize(this, id);
+    return getComposer().setGeometryAppliesWithResize(this, id);
 }
 
 // ----------------------------------------------------------------------------
@@ -761,6 +771,20 @@ int SurfaceComposerClient::getActiveConfig(const sp<IBinder>& display) {
 
 status_t SurfaceComposerClient::setActiveConfig(const sp<IBinder>& display, int id) {
     return ComposerService::getComposerService()->setActiveConfig(display, id);
+}
+
+status_t SurfaceComposerClient::getDisplayColorModes(const sp<IBinder>& display,
+        Vector<android_color_mode_t>* outColorModes) {
+    return ComposerService::getComposerService()->getDisplayColorModes(display, outColorModes);
+}
+
+android_color_mode_t SurfaceComposerClient::getActiveColorMode(const sp<IBinder>& display) {
+    return ComposerService::getComposerService()->getActiveColorMode(display);
+}
+
+status_t SurfaceComposerClient::setActiveColorMode(const sp<IBinder>& display,
+        android_color_mode_t colorMode) {
+    return ComposerService::getComposerService()->setActiveColorMode(display, colorMode);
 }
 
 void SurfaceComposerClient::setDisplayPowerMode(const sp<IBinder>& token,

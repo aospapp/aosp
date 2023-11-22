@@ -7,8 +7,8 @@ This sample shows how to relinquish identity to activities above it in the task 
 Pre-requisites
 --------------
 
-- Android SDK 23
-- Android Build Tools v23.0.3
+- Android SDK 24
+- Android Build Tools v24.0.1
 - Android Support Repository
 
 Getting Started

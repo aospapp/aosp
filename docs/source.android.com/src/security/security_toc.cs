@@ -32,6 +32,7 @@
           </a>
         </div>
         <ul>
+          <li><a href="<?cs var:toroot ?>security/enhancements/enhancements70.html">Android 7.0</a></li>
           <li><a href="<?cs var:toroot ?>security/enhancements/enhancements60.html">Android 6.0</a></li>
           <li><a href="<?cs var:toroot ?>security/enhancements/enhancements50.html">Android 5.0</a></li>
           <li><a href="<?cs var:toroot ?>security/enhancements/enhancements44.html">Android 4.4</a></li>
@@ -61,6 +62,16 @@
   </li>
   <li class="nav-section">
     <div class="nav-section-header">
+      <a href="<?cs var:toroot ?>security/apksigning/index.html">
+        <span class="en">Application Signing</span>
+      </a>
+    </div>
+    <ul>
+      <li><a href="<?cs var:toroot ?>security/apksigning/v2.html">APK Signature Scheme v2</a></li>
+    </ul>
+  </li>
+  <li class="nav-section">
+    <div class="nav-section-header">
       <a href="<?cs var:toroot ?>security/authentication/index.html">
         <span class="en">Authentication</span>
       </a>
@@ -84,9 +95,13 @@
   <li class="nav-section">
     <div class="nav-section-header">
       <a href="<?cs var:toroot ?>security/encryption/index.html">
-        <span class="en">Full Disk Encryption</span>
+        <span class="en">Encryption</span>
       </a>
     </div>
+    <ul>
+      <li><a href="<?cs var:toroot ?>security/encryption/file-based.html">File-Based Encryption</a></li>
+      <li><a href="<?cs var:toroot ?>security/encryption/full-disk.html">Full-Disk Encryption</a></li>
+    </ul>
   </li>
   <li class="nav-section">
     <div class="nav-section-header">

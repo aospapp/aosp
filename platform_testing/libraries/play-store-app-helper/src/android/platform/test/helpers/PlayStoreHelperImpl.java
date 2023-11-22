@@ -19,6 +19,7 @@ package android.platform.test.helpers;
 import android.app.Instrumentation;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.SystemClock;
+import android.platform.test.helpers.exceptions.UnknownUiException;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
@@ -27,8 +28,6 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.widget.EditText;
-
-import junit.framework.Assert;
 
 public class PlayStoreHelperImpl extends AbstractPlayStoreHelper {
     private static final String LOG_TAG = PlayStoreHelperImpl.class.getSimpleName();
@@ -86,20 +85,24 @@ public class PlayStoreHelperImpl extends AbstractPlayStoreHelper {
 
         //Interact with the search box
         UiObject2 searchBox = getSearchBox();
-        if (searchBox != null) {
-            searchBox.click();
-        } else {
-            Assert.fail("Unable to select search box.");
+        if (searchBox == null) {
+            throw new UnknownUiException("Unable to select the search box.");
         }
+        searchBox.click();
         UiObject2 edit = mDevice.wait(
                 Until.findObject(By.clazz(EditText.class)), 5000);
-        Assert.assertNotNull("Could not find edit box", edit);
+        if (edit == null) {
+            throw new UnknownUiException("Could not find edit text box.");
+        }
         edit.setText(query);
         mDevice.pressEnter();
 
         // Wait until the search results container is open
-        Assert.assertTrue("Could not find search results",
-                mDevice.wait(Until.hasObject(By.res(UI_PACKAGE, "search_results_list")), 5000));
+        boolean success = mDevice.wait(Until.hasObject(
+                By.res(UI_PACKAGE, "search_results_list")), 5000);
+        if (!success) {
+            throw new UnknownUiException("Could not find search results");
+        }
     }
 
     /**
@@ -115,7 +118,9 @@ public class PlayStoreHelperImpl extends AbstractPlayStoreHelper {
             Log.e(LOG_TAG, "Unable to find version for package: " + UI_PACKAGE);
         }
         UiObject2 result = mDevice.findObject(By.res(UI_PACKAGE, "play_card"));
-        Assert.assertNotNull("Failed to find a result card", result);
+        if (result == null) {
+            throw new UnknownUiException("Failed to find a result card");
+        }
         result.click();
     }
 
@@ -132,7 +137,7 @@ public class PlayStoreHelperImpl extends AbstractPlayStoreHelper {
                 container.scroll(Direction.DOWN, 1.0f);
             }
         }
-        Assert.fail("Failed to find section header.");
+        throw new UnknownUiException("Failed to find section header.");
     }
 
     private UiObject2 getSearchBox() {

@@ -56,7 +56,7 @@ static void handle_event(uint32_t evtType, const void* evtData)
         eOsLog(LOG_INFO, "App 0 started with tid %u timerid %u\n", mMyTid, timerId);
     } else if (evtType == EVT_APP_TIMER) {
         te = evtData;
-        eOsLog(LOG_INFO, "App 0 received timer %u callback: %d\n", te->timerId, *(int *)te->data);
+        eOsLog(LOG_INFO, "App 0 received timer %u callback: %d (TIM: %lld, RTC: %lld, SENSOR: %lld, HOST: %lld)\n", te->timerId, *(int *)te->data, eOsTimGetTime(), eOsRtcGetTime(), eOsSensorGetTime(), eOsHostGetTime());
         extMsg = eOsHeapAlloc(sizeof(*extMsg));
         extMsg->hdr.appId = APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 0x548000);
         extMsg->hdr.dataLen = 5;

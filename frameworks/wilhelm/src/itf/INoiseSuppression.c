@@ -17,8 +17,6 @@
 /* Automatic Gain Control implementation */
 #include "sles_allinclusive.h"
 
-#include <media/EffectsFactoryApi.h>
-
 #include <audio_effects/effect_ns.h>
 /**
  * returns true if this interface is not associated with an initialized Noise Suppression effect
@@ -65,42 +63,9 @@ SLresult IAndroidNoiseSuppression_IsEnabled(SLAndroidNoiseSuppressionItf self, S
     SL_LEAVE_INTERFACE
 }
 
-SLresult IAndroidNoiseSuppression_IsAvailable(SLAndroidNoiseSuppressionItf self,
-                                              SLboolean *pEnabled)
-{
-    SL_ENTER_INTERFACE
-
-    *pEnabled = false;
-
-    uint32_t numEffects = 0;
-    int ret = EffectQueryNumberEffects(&numEffects);
-    if (ret != 0) {
-        ALOGE("IAndroidNoiseSuppression_IsAvailable() error %d querying number of effects", ret);
-        result = SL_RESULT_FEATURE_UNSUPPORTED;
-   } else {
-        ALOGV("EffectQueryNumberEffects() numEffects=%d", numEffects);
-
-        effect_descriptor_t fxDesc;
-        for (uint32_t i = 0 ; i < numEffects ; i++) {
-            if (EffectQueryEffect(i, &fxDesc) == 0) {
-                ALOGV("effect %d is called %s", i, fxDesc.name);
-                if (memcmp(&fxDesc.type, SL_IID_ANDROIDNOISESUPPRESSION,
-                           sizeof(effect_uuid_t)) == 0) {
-                    ALOGI("found effect \"%s\" from %s", fxDesc.name, fxDesc.implementor);
-                    *pEnabled = true;
-                    break;
-                }
-            }
-        }
-        result = SL_RESULT_SUCCESS;
-    }
-    SL_LEAVE_INTERFACE
-}
-
 static const struct SLAndroidNoiseSuppressionItf_ IAndroidNoiseSuppression_Itf = {
     IAndroidNoiseSuppression_SetEnabled,
-    IAndroidNoiseSuppression_IsEnabled,
-    IAndroidNoiseSuppression_IsAvailable
+    IAndroidNoiseSuppression_IsEnabled
 };
 
 void IAndroidNoiseSuppression_init(void *self)

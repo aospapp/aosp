@@ -15,6 +15,7 @@
  */
 
 #include <plat/inc/taggedPtr.h>
+#include <plat/inc/rtc.h>
 #include <syscall.h>
 #include <sensors.h>
 #include <errno.h>
@@ -26,6 +27,7 @@
 #include <slab.h>
 #include <heap.h>
 #include <i2c.h>
+#include <nanohubCommand.h>
 
 static struct SlabAllocator *mSlabAllocator;
 
@@ -183,6 +185,12 @@ static void osExpApiSensorGetRate(uintptr_t *retValP, va_list args)
     *retValP = sensorGetCurRate(sensorHandle);
 }
 
+static void osExpApiSensorGetTime(uintptr_t *retValP, va_list args)
+{
+    uint64_t *timeNanos = va_arg(args, uint64_t *);
+    *timeNanos = sensorGetTime();
+}
+
 static void osExpApiTimGetTime(uintptr_t *retValP, va_list args)
 {
     uint64_t *timeNanos = va_arg(args, uint64_t *);
@@ -253,6 +261,18 @@ static void osExpApiSlabFree(uintptr_t *retValP, va_list args)
     void *mem = va_arg(args, void *);
 
     slabAllocatorFree(allocator, mem);
+}
+
+static void osExpApiHostGetTime(uintptr_t *retValP, va_list args)
+{
+    uint64_t *timeNanos = va_arg(args, uint64_t *);
+    *timeNanos = hostGetTime();
+}
+
+static void osExpApiRtcGetTime(uintptr_t *retValP, va_list args)
+{
+    uint64_t *timeNanos = va_arg(args, uint64_t *);
+    *timeNanos = rtcGetTime();
 }
 
 static union OsApiSlabItem* osExpApiI2cCbkInfoAlloc(void *cookie)
@@ -491,6 +511,7 @@ void osApiExport(struct SlabAllocator *mainSlubAllocator)
             [SYSCALL_OS_MAIN_SENSOR_RELEASE]       = { .func = osExpApiSensorRel,     },
             [SYSCALL_OS_MAIN_SENSOR_TRIGGER]       = { .func = osExpApiSensorTrigger, },
             [SYSCALL_OS_MAIN_SENSOR_GET_RATE]      = { .func = osExpApiSensorGetRate, },
+            [SYSCALL_OS_MAIN_SENSOR_GET_TIME]      = { .func = osExpApiSensorGetTime, },
 
         },
     };
@@ -522,6 +543,20 @@ void osApiExport(struct SlabAllocator *mainSlubAllocator)
         },
     };
 
+    static const struct SyscallTable osMainHostTable = {
+        .numEntries = SYSCALL_OS_MAIN_HOST_LAST,
+        .entry = {
+            [SYSCALL_OS_MAIN_HOST_GET_TIME] = { .func = osExpApiHostGetTime },
+        },
+    };
+
+    static const struct SyscallTable osMainRtcTable = {
+        .numEntries = SYSCALL_OS_MAIN_RTC_LAST,
+        .entry = {
+            [SYSCALL_OS_MAIN_RTC_GET_TIME] = { .func = osExpApiRtcGetTime },
+        },
+    };
+
     static const struct SyscallTable osMainTable = {
         .numEntries = SYSCALL_OS_MAIN_LAST,
         .entry = {
@@ -531,6 +566,8 @@ void osApiExport(struct SlabAllocator *mainSlubAllocator)
             [SYSCALL_OS_MAIN_TIME]    = { .subtable = (struct SyscallTable*)&osMainTimerTable,   },
             [SYSCALL_OS_MAIN_HEAP]    = { .subtable = (struct SyscallTable*)&osMainHeapTable,    },
             [SYSCALL_OS_MAIN_SLAB]    = { .subtable = (struct SyscallTable*)&osMainSlabTable,    },
+            [SYSCALL_OS_MAIN_HOST]    = { .subtable = (struct SyscallTable*)&osMainHostTable,    },
+            [SYSCALL_OS_MAIN_RTC]     = { .subtable = (struct SyscallTable*)&osMainRtcTable,     },
         },
     };
 

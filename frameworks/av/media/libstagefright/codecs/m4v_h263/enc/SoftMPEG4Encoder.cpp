@@ -76,7 +76,7 @@ SoftMPEG4Encoder::SoftMPEG4Encoder(
             176 /* width */, 144 /* height */,
             callbacks, appData, component),
       mEncodeMode(COMBINE_MODE_WITH_ERR_RES),
-      mIDRFrameRefreshIntervalInSec(1),
+      mKeyFrameInterval(30),
       mNumInputFrames(-1),
       mStarted(false),
       mSawInputEOS(false),
@@ -114,6 +114,10 @@ OMX_ERRORTYPE SoftMPEG4Encoder::initEncParams() {
     memset(mEncParams, 0, sizeof(tagvideoEncOptions));
     if (!PVGetDefaultEncOption(mEncParams, 0)) {
         ALOGE("Failed to get default encoding parameters");
+        return OMX_ErrorUndefined;
+    }
+    if (mFramerate == 0) {
+        ALOGE("Framerate should not be 0");
         return OMX_ErrorUndefined;
     }
     mEncParams->encMode = mEncodeMode;
@@ -159,14 +163,7 @@ OMX_ERRORTYPE SoftMPEG4Encoder::initEncParams() {
     }
 
     // Set IDR frame refresh interval
-    if (mIDRFrameRefreshIntervalInSec < 0) {
-        mEncParams->intraPeriod = -1;
-    } else if (mIDRFrameRefreshIntervalInSec == 0) {
-        mEncParams->intraPeriod = 1;  // All I frames
-    } else {
-        mEncParams->intraPeriod =
-            (mIDRFrameRefreshIntervalInSec * mFramerate) >> 16;
-    }
+    mEncParams->intraPeriod = mKeyFrameInterval;
 
     mEncParams->numIntraMB = 0;
     mEncParams->sceneDetect = PV_ON;
@@ -377,6 +374,8 @@ OMX_ERRORTYPE SoftMPEG4Encoder::internalSetParameter(
                 mpeg4type->bReversibleVLC != OMX_FALSE) {
                 return OMX_ErrorUndefined;
             }
+
+            mKeyFrameInterval = int32_t(mpeg4type->nPFrames + 1);
 
             return OMX_ErrorNone;
         }

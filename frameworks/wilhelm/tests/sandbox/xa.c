@@ -73,6 +73,7 @@ int main(int argc __unused, char **argv __unused)
     XADataLocator_AndroidBufferQueue locABQ;
     memset(&locABQ, 0, sizeof(locABQ));
     locABQ.locatorType = XA_DATALOCATOR_ANDROIDBUFFERQUEUE;
+    locABQ.numBuffers = 1;
 #else
     XADataLocator_URI locUri;
     locUri.locatorType = XA_DATALOCATOR_URI;
@@ -97,7 +98,7 @@ int main(int argc __unused, char **argv __unused)
     audioSnk.pFormat = NULL;
     XADataLocator_NativeDisplay locND;
     locND.locatorType = XA_DATALOCATOR_NATIVEDISPLAY;
-    locND.hWindow = NULL;
+    locND.hWindow = NULL; // FIXME wrong
     locND.hDisplay = NULL;
     XADataSink imageVideoSink;
     imageVideoSink.pLocator = &locND;

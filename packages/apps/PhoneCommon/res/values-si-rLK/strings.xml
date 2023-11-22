@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"අවලංගු අංකය"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"හඬ තැපැල් අංකය නොදනී."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY සබල විට වීඩියෝ ඇමතුම් සිදු කළ නොහැකිය."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"ඇමතුම තවත් උපාංගයක් වෙත මාරු කරන ලදී."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"කිසිවක් නැත"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"නොදන්නා රින්ටෝනය"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"සියලු ලබා ගත හැකි දුරකථන මාර්ග භාවිතයේය. ඇමතුමක් කිරීමට, මෙම උපාංගයේ ඇමතුම් එකක් හෝ ඔබේ අනෙක් උපාංගවල එකක් විසන්ධි කරන්න."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

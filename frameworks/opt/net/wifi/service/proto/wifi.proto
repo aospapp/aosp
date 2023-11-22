@@ -186,6 +186,9 @@ message WifiLog {
 
   // The time duration represented by this wifi log, from start to end of capture
   optional int32 record_duration_sec = 34;
+
+  // Counts the occurrences of each individual RSSI poll level
+  repeated RssiPollCount rssi_poll_rssi_count = 35;
 }
 
 // Information that gets logged for every WiFi connection.
@@ -336,4 +339,13 @@ message ConnectionEvent {
 
   // Has bug report been taken.
   optional bool automatic_bug_report_taken = 9;
+}
+
+// Number of occurrences of a specific RSSI poll rssi value
+message RssiPollCount {
+  // RSSI
+  optional int32 rssi = 1;
+
+  // Number of RSSI polls with 'rssi'
+  optional int32 count = 2;
 }

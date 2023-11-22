@@ -15,12 +15,12 @@
 #
 
 APP = nanoapp_encr
-SRC = nanoapp_encr.c ../../lib/nanohub/aes.c ../../lib/nanohub/sha2.c
+SRC = nanoapp_encr.c ../../lib/nanohub/aes.c ../../lib/nanohub/sha2.c ../../lib/nanohub/nanoapp.c
 CC ?= gcc
 CC_FLAGS = -Wall -Wextra -Werror
 
 $(APP): $(SRC) Makefile
-	$(CC) $(CC_FLAGS) -o $(APP) -O2 $(SRC) \
+	$(CC) $(CC_FLAGS) -o $(APP) -std=c99 -O2 $(SRC) \
 	-I../../lib/include \
 	-DHOST_BUILD -DBOOTLOADER= -DBOOTLOADER_RO=
 

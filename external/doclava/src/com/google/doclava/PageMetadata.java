@@ -375,7 +375,7 @@ public class PageMetadata {
       }
       outString.append(tagList.trim());
       return outString.toString();
-    } 
+    }
   }
 
   /**
@@ -635,15 +635,6 @@ public class PageMetadata {
     File f = new File(ClearPage.outputDir + "/" + extrasFilename);
     if (f.exists() && !f.isDirectory()) {
       ClearPage.copyFile(true, f, unifiedFilename, true);
-      try {
-        if (f.delete()) {
-          if (Doclava.META_DBG) System.out.println("    >>>>> Delete succeeded");
-        } else {
-          if (Doclava.META_DBG) System.out.println("    >>>>> Delete failed");
-        }
-      } catch (Exception e) {
-        if (Doclava.META_DBG) System.out.println("    >>>>> Exception: " + e + "\n");
-      }
     }
   }
 
@@ -896,7 +887,7 @@ public class PageMetadata {
           buf.append(String.format("\\u%04x",codePoint));
         } else if (c >= ' ' && c <= '~' && c != '\\') {
           buf.append(c);
-        } else { 
+        } else {
           // we are encoding a two byte character
           buf.append(String.format("\\u%04x", (int) c));
         }

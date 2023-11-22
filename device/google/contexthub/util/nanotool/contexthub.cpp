@@ -31,6 +31,8 @@ namespace android {
 #define UNUSED_PARAM(param) (void) (param)
 
 constexpr int kCalibrationTimeoutMs(10000);
+constexpr int kTestTimeoutMs(10000);
+constexpr int kBridgeVersionTimeoutMs(500);
 
 struct SensorTypeNames {
     SensorType sensor_type;
@@ -69,6 +71,7 @@ static const SensorTypeNames sensor_names_[] = {
     { SensorType::Hall,                 "hall" },
     { SensorType::Activity,             "activity" },
     { SensorType::Vsync,                "vsync" },
+    { SensorType::WristTilt,            "wrist_tilt" },
 };
 
 struct SensorTypeAlias {
@@ -172,6 +175,14 @@ bool ContextHub::CalibrateSensors(const std::vector<SensorSpec>& sensors) {
     return success;
 }
 
+bool ContextHub::TestSensors(const std::vector<SensorSpec>& sensors) {
+    bool success = ForEachSensor(sensors, [this](const SensorSpec &spec) -> bool {
+        return TestSingleSensor(spec);
+    });
+
+    return success;
+}
+
 bool ContextHub::EnableSensor(const SensorSpec& spec) {
     ConfigureSensorRequest req;
 
@@ -236,10 +247,8 @@ bool ContextHub::DisableSensors(const std::vector<SensorSpec>& sensors) {
 bool ContextHub::DisableAllSensors() {
     bool success = true;
 
-    for (int sensor_type = static_cast<int>(SensorType::Invalid_) + 1;
-            sensor_type < static_cast<int>(SensorType::Max_);
-            ++sensor_type) {
-        success &= DisableSensor(static_cast<SensorType>(sensor_type));
+    for (size_t i = 0; i < ARRAY_LEN(sensor_names_); i++) {
+        success &= DisableSensor(sensor_names_[i].sensor_type);
     }
 
     return success;
@@ -249,11 +258,9 @@ bool ContextHub::DisableActiveSensors() {
     bool success = true;
 
     LOGD("Disabling all active sensors");
-    for (int sensor_type = static_cast<int>(SensorType::Invalid_) + 1;
-            sensor_type < static_cast<int>(SensorType::Max_);
-            ++sensor_type) {
-        if (sensor_is_active_[sensor_type]) {
-            success &= DisableSensor(static_cast<SensorType>(sensor_type));
+    for (size_t i = 0; i < ARRAY_LEN(sensor_names_); i++) {
+        if (sensor_is_active_[static_cast<int>(sensor_names_[i].sensor_type)]) {
+            success &= DisableSensor(sensor_names_[i].sensor_type);
         }
     }
 
@@ -267,6 +274,55 @@ void ContextHub::PrintAllEvents(unsigned int limit) {
         return (continuous || --limit > 0);
     };
     ReadSensorEvents(event_printer);
+}
+
+bool ContextHub::PrintBridgeVersion() {
+    BridgeVersionInfoRequest request;
+    TransportResult result = WriteEvent(request);
+    if (result != TransportResult::Success) {
+        LOGE("Failed to send bridge version info request: %d",
+             static_cast<int>(result));
+        return false;
+    }
+
+    bool success = false;
+    auto event_handler = [&success](const AppToHostEvent &event) -> bool {
+        bool keep_going = true;
+        auto rsp = reinterpret_cast<const BrHostEventData *>(event.GetDataPtr());
+        if (event.GetAppId() != kAppIdBridge) {
+            LOGD("Ignored event from unexpected app");
+        } else if (event.GetDataLen() < sizeof(BrHostEventData)) {
+            LOGE("Got short app to host event from bridge: length %u, expected "
+                 "at least %zu", event.GetDataLen(), sizeof(BrHostEventData));
+        } else if (rsp->msgId != BRIDGE_HOST_EVENT_MSG_VERSION_INFO) {
+            LOGD("Ignored bridge event with unexpected message ID %u", rsp->msgId);
+        } else if (rsp->status) {
+            LOGE("Bridge version info request failed with status %u", rsp->status);
+            keep_going = false;
+        } else if (event.GetDataLen() < (sizeof(BrHostEventData) +
+                                         sizeof(BrVersionInfoRsp))) {
+            LOGE("Got successful version info response with short payload: "
+                 "length %u, expected at least %zu", event.GetDataLen(),
+                 (sizeof(BrHostEventData) + sizeof(BrVersionInfoRsp)));
+            keep_going = false;
+        } else {
+            auto ver = reinterpret_cast<const struct BrVersionInfoRsp *>(
+                rsp->payload);
+            printf("Bridge version info:\n"
+                   "  HW type:         0x%04x\n"
+                   "  OS version:      0x%04x\n"
+                   "  Variant version: 0x%08x\n"
+                   "  Bridge version:  0x%08x\n",
+                   ver->hwType, ver->osVer, ver->variantVer, ver->bridgeVer);
+            keep_going = false;
+            success = true;
+        }
+
+        return keep_going;
+    };
+
+    ReadAppEvents(event_handler, kBridgeVersionTimeoutMs);
+    return success;
 }
 
 void ContextHub::PrintSensorEvents(SensorType type, int limit) {
@@ -318,7 +374,7 @@ bool ContextHub::CalibrateSingleSensor(const SensorSpec& sensor) {
     }
 
     bool success = false;
-    auto calEventHandler = [this, &sensor, &success](const AppToHostEvent &event) -> bool {
+    auto cal_event_handler = [this, &sensor, &success](const AppToHostEvent &event) -> bool {
         if (event.IsCalibrationEventForSensor(sensor.sensor_type)) {
             success = HandleCalibrationResult(sensor, event);
             return false;
@@ -326,9 +382,43 @@ bool ContextHub::CalibrateSingleSensor(const SensorSpec& sensor) {
         return true;
     };
 
-    result = ReadAppEvents(calEventHandler, kCalibrationTimeoutMs);
+    result = ReadAppEvents(cal_event_handler, kCalibrationTimeoutMs);
     if (result != TransportResult::Success) {
       LOGE("Error reading calibration response %d", static_cast<int>(result));
+      return false;
+    }
+
+    return success;
+}
+
+bool ContextHub::TestSingleSensor(const SensorSpec& sensor) {
+    ConfigureSensorRequest req;
+
+    req.config.event_type = static_cast<uint32_t>(EventType::ConfigureSensor);
+    req.config.sensor_type = static_cast<uint8_t>(sensor.sensor_type);
+    req.config.command = static_cast<uint8_t>(
+        ConfigureSensorRequest::CommandType::SelfTest);
+
+    LOGI("Issuing test request to sensor %d (%s)", sensor.sensor_type,
+         ContextHub::SensorTypeToAbbrevName(sensor.sensor_type).c_str());
+    auto result = WriteEvent(req);
+    if (result != TransportResult::Success) {
+        LOGE("Failed to test sensor %d", sensor.sensor_type);
+        return false;
+    }
+
+    bool success = false;
+    auto test_event_handler = [this, &sensor, &success](const AppToHostEvent &event) -> bool {
+        if (event.IsTestEventForSensor(sensor.sensor_type)) {
+            success = HandleTestResult(sensor, event);
+            return false;
+        }
+        return true;
+    };
+
+    result = ReadAppEvents(test_event_handler, kTestTimeoutMs);
+    if (result != TransportResult::Success) {
+      LOGE("Error reading test response %d", static_cast<int>(result));
       return false;
     }
 
@@ -402,6 +492,23 @@ bool ContextHub::HandleCalibrationResult(const SensorSpec& sensor,
     }
 
     return success;
+}
+
+bool ContextHub::HandleTestResult(const SensorSpec& sensor,
+        const AppToHostEvent &event) {
+    auto hdr = reinterpret_cast<const SensorAppEventHeader *>(event.GetDataPtr());
+    if (!hdr->status) {
+        LOGI("Self-test of sensor %d (%s) succeeded",
+             sensor.sensor_type,
+             ContextHub::SensorTypeToAbbrevName(sensor.sensor_type).c_str());
+        return true;
+    } else {
+        LOGE("Self-test of sensor %d (%s) failed with status %u",
+             sensor.sensor_type,
+             ContextHub::SensorTypeToAbbrevName(sensor.sensor_type).c_str(),
+             hdr->status);
+        return false;
+    }
 }
 
 ContextHub::TransportResult ContextHub::ReadAppEvents(

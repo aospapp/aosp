@@ -103,6 +103,15 @@ public final class CallState {
      */
     public static final int DISCONNECTING = 9;
 
+    /**
+     * Indicates that the call is in the process of being pulled to the local device.
+     * <p>
+     * This state should only be set on a call with
+     * {@link android.telecom.Connection#PROPERTY_IS_EXTERNAL_CALL} and
+     * {@link android.telecom.Connection#CAPABILITY_CAN_PULL_CALL}.
+     */
+    public static final int PULLING = 10;
+
     public static String toString(int callState) {
         switch (callState) {
             case NEW:
@@ -125,6 +134,8 @@ public final class CallState {
                 return "ABORTED";
             case DISCONNECTING:
                 return "DISCONNECTING";
+            case PULLING:
+                return "PULLING";
             default:
                 return "UNKNOWN";
         }

@@ -18,9 +18,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="com.android.cts.verifier"
       android:versionCode="5"
-      android:versionName="7.0_r0">
+      android:versionName="7.1_r1">
 
-    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="24"/>
+    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="25"/>
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_LOCATION_EXTRA_COMMANDS"/>
@@ -1447,6 +1447,10 @@
                 <category android:name="android.cts.intent.category.MANUAL_TEST" />
             </intent-filter>
             <meta-data android:name="test_category" android:value="@string/test_category_sensors" />
+            <meta-data android:name="test_excluded_features"
+                    android:value="android.hardware.type.television" />
+            <meta-data android:name="test_excluded_features"
+                    android:value="android.software.leanback" />
         </activity>
 
         <receiver android:name="com.android.cts.verifier.sensors.DeviceSuspendTestActivity$AlarmReceiver">

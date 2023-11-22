@@ -47,16 +47,15 @@ import org.json.JSONObject;
  * - DeviceInfoStore doesn't allow arrays of non-uniform or non-primitive types. VkJSON stores
  *   format capabilities as an array of formats, where each format is an array containing a number
  *   (the format enum value) and an object (the format properties). Since DeviceInfoStore doesn't
- *   allow array-of-array, we instead store formats as an object, with format enum values as keys
- *   and the format property objects as values. This is arguably a more natural and useful
- *   representation anyway. So instead of
+ *   allow array-of-array, we instead store formats as an array of uniform structs, So instead of
  *       [[3, {
  *           "linearTilingFeatures": 0,
  *           "optimalTilingFeatures": 5121,
  *           "bufferFeatures": 0
  *       }]]
  *   the format with enum value "3" will be represented as
- *       "format_3": {
+ *       {
+ *           "id": 3,
  *           "linear_tiling_features": 0,
  *           "optimal_tiling_features": 5121,
  *           "buffer_features": 0
@@ -568,19 +567,22 @@ public final class VulkanDeviceInfo extends DeviceInfo {
                 emitExtensions(store, device);
 
                 JSONArray formats = device.getJSONArray(KEY_FORMATS);
-                store.startGroup(convertName(KEY_FORMATS));
+                // Note: Earlier code used field named 'formats' with different data structure.
+                // In order to have the mix of old and new data, we cannot reuse that name.
+                store.startArray("supported_formats");
                 for (int formatIdx = 0; formatIdx < formats.length(); formatIdx++) {
                     JSONArray formatPair = formats.getJSONArray(formatIdx);
                     JSONObject formatProperties = formatPair.getJSONObject(1);
-                    store.startGroup("format_" + formatPair.getInt(0));
+                    store.startGroup();
                     {
+                        store.addResult("format", (long)formatPair.getInt(0));
                         emitLong(store, formatProperties, KEY_LINEAR_TILING_FEATURES);
                         emitLong(store, formatProperties, KEY_OPTIMAL_TILING_FEATURES);
                         emitLong(store, formatProperties, KEY_BUFFER_FEATURES);
                     }
                     store.endGroup();
                 }
-                store.endGroup();
+                store.endArray();
             }
             store.endGroup();
         }

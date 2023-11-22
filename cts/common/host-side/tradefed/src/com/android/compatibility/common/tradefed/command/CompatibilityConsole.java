@@ -339,6 +339,7 @@ public class CompatibilityConsole extends Console {
                         Integer.toString(i),
                         Integer.toString(result.countResults(TestStatus.PASS)),
                         Integer.toString(result.countResults(TestStatus.FAIL)),
+                        Integer.toString(result.getNotExecuted()),
                         moduleProgress,
                         CompatibilityBuildHelper.getDirSuffix(result.getStartTime()),
                         result.getTestPlan(),
@@ -350,8 +351,9 @@ public class CompatibilityConsole extends Console {
 
 
             // add the table header to the beginning of the list
-            table.add(0, Arrays.asList("Session", "Pass", "Fail", "Modules Complete", "Result Directory",
-                    "Test Plan", "Device serial(s)", "Build ID", "Product"));
+            table.add(0, Arrays.asList("Session", "Pass", "Fail", "Not Executed",
+                    "Modules Complete", "Result Directory", "Test Plan", "Device serial(s)",
+                    "Build ID", "Product"));
             tableFormatter.displayTable(table, new PrintWriter(System.out, true));
         } else {
             printLine(String.format("No results found"));

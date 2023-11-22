@@ -27,7 +27,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.IContentProvider;
 import android.media.AudioManager;
@@ -43,19 +42,15 @@ import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.DisconnectCause;
 import android.telecom.ParcelableCall;
-import android.telecom.ParcelableCallAnalytics;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.internal.telecom.IInCallAdapter;
 import com.android.internal.telephony.CallerInfo;
-import com.android.internal.util.IndentingPrintWriter;
-import com.android.server.telecom.Analytics;
 import com.android.server.telecom.Log;
 
 import com.google.common.base.Predicate;
@@ -63,22 +58,12 @@ import com.google.common.base.Predicate;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import java.io.StringWriter;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 
 import org.mockito.ArgumentCaptor;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
 
 /**
  * Performs various basic call tests in Telecom.
@@ -137,7 +122,7 @@ public class BasicCallTests extends TelecomSystemTest {
         telecomManager.acceptRingingCall();
 
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .answer(ids.mCallId);
+                .answer(ids.mConnectionId);
         mConnectionServiceFixtureA.sendSetActive(ids.mConnectionId);
 
         mInCallServiceFixtureX.mInCallAdapter.disconnectCall(ids.mCallId);
@@ -165,7 +150,7 @@ public class BasicCallTests extends TelecomSystemTest {
 
         // Answer video API should be called
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .answerVideo(eq(ids.mCallId), eq(VideoProfile.STATE_BIDIRECTIONAL));
+                .answerVideo(eq(ids.mConnectionId), eq(VideoProfile.STATE_BIDIRECTIONAL));
         mConnectionServiceFixtureA.sendSetActive(ids.mConnectionId);
 
         mInCallServiceFixtureX.mInCallAdapter.disconnectCall(ids.mCallId);
@@ -192,7 +177,7 @@ public class BasicCallTests extends TelecomSystemTest {
 
         // The generic answer method on the ConnectionService is used to answer audio-only calls.
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .answer(eq(ids.mCallId));
+                .answer(eq(ids.mConnectionId));
         mConnectionServiceFixtureA.sendSetActive(ids.mConnectionId);
 
         mInCallServiceFixtureX.mInCallAdapter.disconnectCall(ids.mCallId);
@@ -220,7 +205,7 @@ public class BasicCallTests extends TelecomSystemTest {
 
         // Answer video API should be called
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .answerVideo(eq(ids.mCallId), eq(VideoProfile.STATE_BIDIRECTIONAL));
+                .answerVideo(eq(ids.mConnectionId), eq(VideoProfile.STATE_BIDIRECTIONAL));
         mConnectionServiceFixtureA.sendSetActive(ids.mConnectionId);
         mInCallServiceFixtureX.mInCallAdapter.disconnectCall(ids.mCallId);
     }
@@ -658,7 +643,7 @@ public class BasicCallTests extends TelecomSystemTest {
 
         mInCallServiceFixtureX.mInCallAdapter.sendCallEvent(ids.mCallId, TEST_EVENT, null);
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .sendCallEvent(ids.mCallId, TEST_EVENT, null);
+                .sendCallEvent(ids.mConnectionId, TEST_EVENT, null);
     }
 
     /**
@@ -679,134 +664,9 @@ public class BasicCallTests extends TelecomSystemTest {
         mInCallServiceFixtureX.mInCallAdapter.sendCallEvent(ids.mCallId, TEST_EVENT,
                 testBundle);
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .sendCallEvent(eq(ids.mCallId), eq(TEST_EVENT),
+                .sendCallEvent(eq(ids.mConnectionId), eq(TEST_EVENT),
                         bundleArgumentCaptor.capture());
         assert (bundleArgumentCaptor.getValue().containsKey(TEST_BUNDLE_KEY));
-    }
-
-    @MediumTest
-    public void testAnalyticsSingleCall() throws Exception {
-        IdPair testCall = startAndMakeActiveIncomingCall(
-                "650-555-1212",
-                mPhoneAccountA0.getAccountHandle(),
-                mConnectionServiceFixtureA);
-        Map<String, Analytics.CallInfoImpl> analyticsMap = Analytics.cloneData();
-
-        assertTrue(analyticsMap.containsKey(testCall.mCallId));
-
-        Analytics.CallInfoImpl callAnalytics = analyticsMap.get(testCall.mCallId);
-        assertTrue(callAnalytics.startTime > 0);
-        assertEquals(0, callAnalytics.endTime);
-        assertEquals(Analytics.INCOMING_DIRECTION, callAnalytics.callDirection);
-        assertFalse(callAnalytics.isInterrupted);
-        assertNull(callAnalytics.callTerminationReason);
-        assertEquals(mConnectionServiceComponentNameA.flattenToShortString(),
-                callAnalytics.connectionService);
-
-        mConnectionServiceFixtureA.
-                sendSetDisconnected(testCall.mConnectionId, DisconnectCause.ERROR);
-
-        analyticsMap = Analytics.cloneData();
-        callAnalytics = analyticsMap.get(testCall.mCallId);
-        assertTrue(callAnalytics.endTime > 0);
-        assertNotNull(callAnalytics.callTerminationReason);
-        assertEquals(DisconnectCause.ERROR, callAnalytics.callTerminationReason.getCode());
-
-        StringWriter sr = new StringWriter();
-        IndentingPrintWriter ip = new IndentingPrintWriter(sr, "    ");
-        Analytics.dump(ip);
-        String dumpResult = sr.toString();
-        String[] expectedFields = {"startTime", "endTime", "direction", "isAdditionalCall",
-                "isInterrupted", "callTechnologies", "callTerminationReason", "connectionService"};
-        for (String field : expectedFields) {
-            assertTrue(dumpResult.contains(field));
-        }
-    }
-
-    @SmallTest
-    public void testAnalyticsDumping() throws Exception {
-        Analytics.reset();
-        IdPair testCall = startAndMakeActiveIncomingCall(
-                "650-555-1212",
-                mPhoneAccountA0.getAccountHandle(),
-                mConnectionServiceFixtureA);
-
-        mConnectionServiceFixtureA.
-                sendSetDisconnected(testCall.mConnectionId, DisconnectCause.ERROR);
-        Analytics.CallInfoImpl expectedAnalytics = Analytics.cloneData().get(testCall.mCallId);
-
-        TelecomManager tm = (TelecomManager) mSpyContext.getSystemService(Context.TELECOM_SERVICE);
-        List<ParcelableCallAnalytics> analyticsList = tm.dumpAnalytics();
-
-        assertEquals(1, analyticsList.size());
-        ParcelableCallAnalytics pCA = analyticsList.get(0);
-
-        assertTrue(Math.abs(expectedAnalytics.startTime - pCA.getStartTimeMillis()) <
-                ParcelableCallAnalytics.MILLIS_IN_5_MINUTES);
-        assertEquals(0, pCA.getStartTimeMillis() % ParcelableCallAnalytics.MILLIS_IN_5_MINUTES);
-        assertTrue(Math.abs((expectedAnalytics.endTime - expectedAnalytics.startTime) -
-                pCA.getCallDurationMillis()) < ParcelableCallAnalytics.MILLIS_IN_1_SECOND);
-        assertEquals(0, pCA.getCallDurationMillis() % ParcelableCallAnalytics.MILLIS_IN_1_SECOND);
-
-        assertEquals(expectedAnalytics.callDirection, pCA.getCallType());
-        assertEquals(expectedAnalytics.isAdditionalCall, pCA.isAdditionalCall());
-        assertEquals(expectedAnalytics.isInterrupted, pCA.isInterrupted());
-        assertEquals(expectedAnalytics.callTechnologies, pCA.getCallTechnologies());
-        assertEquals(expectedAnalytics.callTerminationReason.getCode(),
-                pCA.getCallTerminationCode());
-        assertEquals(expectedAnalytics.connectionService, pCA.getConnectionService());
-    }
-
-    @MediumTest
-    public void testAnalyticsTwoCalls() throws Exception {
-        IdPair testCall1 = startAndMakeActiveIncomingCall(
-                "650-555-1212",
-                mPhoneAccountA0.getAccountHandle(),
-                mConnectionServiceFixtureA);
-        IdPair testCall2 = startAndMakeActiveOutgoingCall(
-                "650-555-1213",
-                mPhoneAccountA0.getAccountHandle(),
-                mConnectionServiceFixtureA);
-
-        Map<String, Analytics.CallInfoImpl> analyticsMap = Analytics.cloneData();
-        assertTrue(analyticsMap.containsKey(testCall1.mCallId));
-        assertTrue(analyticsMap.containsKey(testCall2.mCallId));
-
-        Analytics.CallInfoImpl callAnalytics1 = analyticsMap.get(testCall1.mCallId);
-        Analytics.CallInfoImpl callAnalytics2 = analyticsMap.get(testCall2.mCallId);
-        assertTrue(callAnalytics1.startTime > 0);
-        assertTrue(callAnalytics2.startTime > 0);
-        assertEquals(0, callAnalytics1.endTime);
-        assertEquals(0, callAnalytics2.endTime);
-
-        assertEquals(Analytics.INCOMING_DIRECTION, callAnalytics1.callDirection);
-        assertEquals(Analytics.OUTGOING_DIRECTION, callAnalytics2.callDirection);
-
-        assertTrue(callAnalytics1.isInterrupted);
-        assertTrue(callAnalytics2.isAdditionalCall);
-
-        assertNull(callAnalytics1.callTerminationReason);
-        assertNull(callAnalytics2.callTerminationReason);
-
-        assertEquals(mConnectionServiceComponentNameA.flattenToShortString(),
-                callAnalytics1.connectionService);
-        assertEquals(mConnectionServiceComponentNameA.flattenToShortString(),
-                callAnalytics1.connectionService);
-
-        mConnectionServiceFixtureA.
-                sendSetDisconnected(testCall2.mConnectionId, DisconnectCause.REMOTE);
-        mConnectionServiceFixtureA.
-                sendSetDisconnected(testCall1.mConnectionId, DisconnectCause.ERROR);
-
-        analyticsMap = Analytics.cloneData();
-        callAnalytics1 = analyticsMap.get(testCall1.mCallId);
-        callAnalytics2 = analyticsMap.get(testCall2.mCallId);
-        assertTrue(callAnalytics1.endTime > 0);
-        assertTrue(callAnalytics2.endTime > 0);
-        assertNotNull(callAnalytics1.callTerminationReason);
-        assertNotNull(callAnalytics2.callTerminationReason);
-        assertEquals(DisconnectCause.ERROR, callAnalytics1.callTerminationReason.getCode());
-        assertEquals(DisconnectCause.REMOTE, callAnalytics2.callTerminationReason.getCode());
     }
 
     private void blockNumber(String phoneNumber) throws Exception {
@@ -843,6 +703,44 @@ public class BasicCallTests extends TelecomSystemTest {
     }
 
     /**
+     * Tests to make sure that the Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY property is set on a
+     * Call that is based on a Connection with the Connection.PROPERTY_HAS_CDMA_VOICE_PRIVACY
+     * property set.
+     */
+    @MediumTest
+    public void testCdmaEnhancedPrivacyVoiceCall() throws Exception {
+        mConnectionServiceFixtureA.mConnectionServiceDelegate.mProperties =
+                Connection.PROPERTY_HAS_CDMA_VOICE_PRIVACY;
+
+        IdPair ids = startAndMakeActiveOutgoingCall("650-555-1212",
+                mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
+        assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
+
+        assertTrue(Call.Details.hasProperty(
+                mInCallServiceFixtureX.getCall(ids.mCallId).getProperties(),
+                Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY));
+    }
+
+    /**
+     * Tests to make sure that Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY is dropped
+     * when the Connection.PROPERTY_HAS_CDMA_VOICE_PRIVACY property is removed from the Connection.
+     */
+    @MediumTest
+    public void testDropCdmaEnhancedPrivacyVoiceCall() throws Exception {
+        mConnectionServiceFixtureA.mConnectionServiceDelegate.mProperties =
+                Connection.PROPERTY_HAS_CDMA_VOICE_PRIVACY;
+
+        IdPair ids = startAndMakeActiveOutgoingCall("650-555-1212",
+                mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
+        assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
+        mConnectionServiceFixtureA.mLatestConnection.setConnectionProperties(0);
+
+        assertFalse(Call.Details.hasProperty(
+                mInCallServiceFixtureX.getCall(ids.mCallId).getProperties(),
+                Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY));
+    }
+
+    /**
      * Tests the {@link Call#pullExternalCall()} API.  Ensures that an external call which is
      * pullable can be pulled.
      *
@@ -864,7 +762,7 @@ public class BasicCallTests extends TelecomSystemTest {
         // Attempt to pull the call and verify the API call makes it through
         mInCallServiceFixtureX.mInCallAdapter.pullExternalCall(ids.mCallId);
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .pullExternalCall(ids.mCallId);
+                .pullExternalCall(ids.mConnectionId);
     }
 
     /**
@@ -888,6 +786,56 @@ public class BasicCallTests extends TelecomSystemTest {
         // Attempt to pull the call and verify the API call makes it through
         mInCallServiceFixtureX.mInCallAdapter.pullExternalCall(ids.mCallId);
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT).never())
-                .pullExternalCall(ids.mCallId);
+                .pullExternalCall(ids.mConnectionId);
+    }
+
+    public void testMergeFailedAndNotifyInCallUi() throws Exception {
+        IdPair testCall1 = startAndMakeActiveOutgoingCall(
+                "650-555-1212",
+                mPhoneAccountA0.getAccountHandle(),
+                mConnectionServiceFixtureA);
+        IdPair testCall2 = startAndMakeActiveOutgoingCall(
+                "650-555-1213",
+                mPhoneAccountA0.getAccountHandle(),
+                mConnectionServiceFixtureA);
+
+        assertEquals(Call.STATE_ACTIVE,
+                mInCallServiceFixtureX.getCall(testCall1.mCallId).getState());
+        assertEquals(Call.STATE_ACTIVE,
+                mInCallServiceFixtureX.getCall(testCall2.mCallId).getState());
+        assertEquals(Call.STATE_ACTIVE,
+                mInCallServiceFixtureY.getCall(testCall1.mCallId).getState());
+        assertEquals(Call.STATE_ACTIVE,
+                mInCallServiceFixtureY.getCall(testCall2.mCallId).getState());
+
+        // Conference will not occur and instead will send setConferenceMergeFailed
+        ((ConnectionServiceFixture.FakeConnection)
+                mConnectionServiceFixtureA.mLatestConnection).setIsConferenceCreated(false);
+        mInCallServiceFixtureX.getInCallAdapter().conference(testCall2.mCallId, testCall1.mCallId);
+
+        verify(mInCallServiceFixtureX.getTestDouble(), timeout(TEST_TIMEOUT)).onConnectionEvent(
+                eq(testCall2.mCallId), eq(Connection.EVENT_CALL_MERGE_FAILED), any(Bundle.class));
+        verify(mInCallServiceFixtureY.getTestDouble(), timeout(TEST_TIMEOUT)).onConnectionEvent(
+                eq(testCall2.mCallId), eq(Connection.EVENT_CALL_MERGE_FAILED), any(Bundle.class));
+    }
+
+    @LargeTest
+    public void testEmergencyCallFailMoveToSecondSim() throws Exception {
+        IdPair ids = startAndMakeDialingEmergencyCall("650-555-1212",
+                mPhoneAccountE0.getAccountHandle(), mConnectionServiceFixtureA);
+        assertEquals(Call.STATE_DIALING, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
+        assertEquals(Call.STATE_DIALING, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
+
+        // The Emergency Call has failed on the default SIM with an ERROR Disconnect Cause. Retry
+        // with the other SIM PhoneAccount
+        IdPair newIds = triggerEmergencyRedial(mPhoneAccountE1.getAccountHandle(),
+                mConnectionServiceFixtureA, ids);
+
+        // Call should be active on the E1 PhoneAccount
+        mConnectionServiceFixtureA.sendSetActive(newIds.mConnectionId);
+        assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureX.getCall(newIds.mCallId).getState());
+        assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureY.getCall(newIds.mCallId).getState());
+        assertEquals(mInCallServiceFixtureX.getCall(ids.mCallId).getAccountHandle(),
+                mPhoneAccountE1.getAccountHandle());
     }
 }

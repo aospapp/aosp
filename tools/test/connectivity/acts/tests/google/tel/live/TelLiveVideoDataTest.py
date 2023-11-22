@@ -25,7 +25,6 @@ from acts.test_utils.tel.tel_video_utils import \
     is_phone_in_call_video_bidirectional
 from acts.test_utils.tel.tel_video_utils import phone_setup_video
 from acts.test_utils.tel.tel_video_utils import video_call_setup_teardown
-from acts.utils import load_config
 
 
 class TelLiveVideoDataTest(TelephonyBaseTest):
@@ -35,7 +34,6 @@ class TelLiveVideoDataTest(TelephonyBaseTest):
             # Data during VT call
             "test_internet_access_during_video_call", )
 
-        self.simconf = load_config(self.user_params["sim_conf_file"])
         self.stress_test_number = int(self.user_params["stress_test_number"])
         self.wifi_network_ssid = self.user_params["wifi_network_ssid"]
 

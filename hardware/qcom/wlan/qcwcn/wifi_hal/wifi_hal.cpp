@@ -97,15 +97,10 @@ wifi_interface_handle wifi_get_iface_handle(wifi_handle handle, char *name)
 
 void wifi_socket_set_local_port(struct nl_sock *sock, uint32_t port)
 {
-    uint32_t pid = getpid() & 0x3FFFFF;
-
-    if (port == 0) {
-        sock->s_flags &= ~NL_OWN_PORT;
-    } else {
-        sock->s_flags |= NL_OWN_PORT;
-    }
-
-    sock->s_local.nl_pid = pid + (port << 22);
+    /* Release local port pool maintained by libnl and assign a own port
+     * identifier to the socket.
+     */
+    nl_socket_set_local_port(sock, ((uint32_t)getpid() & 0x3FFFFFU) | (port << 22));
 }
 
 static nl_sock * wifi_create_nl_socket(int port, int protocol)
@@ -119,16 +114,6 @@ static nl_sock * wifi_create_nl_socket(int port, int protocol)
 
     wifi_socket_set_local_port(sock, port);
 
-    struct sockaddr_nl *addr_nl = &(sock->s_local);
-    /* ALOGI("socket address is %d:%d:%d:%d",
-       addr_nl->nl_family, addr_nl->nl_pad, addr_nl->nl_pid,
-       addr_nl->nl_groups); */
-
-    struct sockaddr *addr = NULL;
-    // ALOGI("sizeof(sockaddr) = %d, sizeof(sockaddr_nl) = %d", sizeof(*addr),
-    // sizeof(*addr_nl));
-
-    // ALOGI("Connecting socket");
     if (nl_connect(sock, protocol)) {
         ALOGE("Could not connect handle");
         nl_socket_free(sock);
@@ -570,6 +555,12 @@ wifi_error wifi_initialize(wifi_handle *handle)
         goto unload;
     }
 
+    ret = initializeRSSIMonitorHandler(info);
+    if (ret != WIFI_SUCCESS) {
+        ALOGE("Initializing RSSI Event Handler Failed");
+        goto unload;
+    }
+
     ALOGV("Initialized Wifi HAL Successfully; vendor cmd = %d Supported"
             " features : %x", NL80211_CMD_VENDOR, info->supported_feature_set);
 
@@ -586,6 +577,7 @@ unload:
             if (info->pkt_stats) free(info->pkt_stats);
             if (info->rx_aggr_pkts) free(info->rx_aggr_pkts);
             cleanupGscanHandlers(info);
+            cleanupRSSIMonitorHandler(info);
             free(info);
         }
     }
@@ -636,6 +628,7 @@ static void internal_cleaned_up_handler(wifi_handle handle)
         free(info->rx_aggr_pkts);
     wifi_logger_ring_buffers_deinit(info);
     cleanupGscanHandlers(info);
+    cleanupRSSIMonitorHandler(info);
 
     if (info->exit_sockets[0] >= 0) {
         close(info->exit_sockets[0]);
@@ -725,7 +718,6 @@ void wifi_event_loop(wifi_handle handle)
     /* TODO: Add support for timeouts */
 
     do {
-        int timeout = -1;                   /* Infinite timeout */
         pfd[0].revents = 0;
         pfd[1].revents = 0;
         pfd[2].revents = 0;
@@ -858,7 +850,6 @@ public:
         // ALOGI("handling reponse in %s", __func__);
 
         struct nlattr **tb = reply.attributes();
-        struct genlmsghdr *gnlh = reply.header();
         struct nlattr *mcgrp = NULL;
         int i;
 

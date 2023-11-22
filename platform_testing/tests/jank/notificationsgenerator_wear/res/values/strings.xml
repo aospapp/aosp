@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_name">NotificationsGeneratorWear</string>
+
+    <string name="notification_content">Notification Content</string>
+    <string name="notification_title">Clockwork Notifications</string>
+    <string name="notification_posted">Notification posted</string>
+</resources>

@@ -566,10 +566,25 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
       }
     } else {
       /* HAL V3 */
+      p_3a_params.iso_value = 100;
+
       IF_META_AVAILABLE(int32_t, iso, CAM_INTF_META_SENSOR_SENSITIVITY, p_meta) {
-        p_3a_params.iso_value= *iso;
+        p_3a_params.iso_value= p_3a_params.iso_value * (*iso) / 100;
       } else {
-        LOGE("Cannot extract Iso value");
+        LOGE("Cannot extract SENSOR_SENSITIVITY value");
+      }
+
+      IF_META_AVAILABLE(int32_t, isp_iso, CAM_INTF_META_ISP_SENSITIVITY, p_meta) {
+        p_3a_params.iso_value= p_3a_params.iso_value * (*isp_iso) / 100;
+      } else {
+        LOGE("Cannot extract ISP_SENSITIVITY value");
+      }
+
+      IF_META_AVAILABLE(float, post_stats_iso, CAM_INTF_META_ISP_POST_STATS_SENSITIVITY, p_meta) {
+        p_3a_params.iso_value= p_3a_params.iso_value * (*post_stats_iso);
+      } else {
+        /* CAM_INTF_META_ISP_POST_STATS_SENSITIVITY is optional */
+        LOGD("Cannot extract ISP_POST_STATS_SENSITIVITY value");
       }
 
       IF_META_AVAILABLE(int64_t, sensor_exposure_time,

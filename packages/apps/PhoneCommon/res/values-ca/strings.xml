@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"Número no vàlid"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"El número de la bústia de veu és desconegut."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"No es poden fer videotrucades quan el dispositiu TTY està activat."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"La trucada s\'ha transferit a un altre dispositiu."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"Cap"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"So de trucada desconegut"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Totes les línies disponibles estan en ús. Per fer una trucada, desconnecta una de les trucades en aquest dispositiu o en un altre dels teus dispositius."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

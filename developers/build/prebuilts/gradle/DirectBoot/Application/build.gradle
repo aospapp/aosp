@@ -16,15 +16,12 @@ repositories {
 }
 
 dependencies {
-    compile "com.android.support:support-v4:24.0.0-beta1"
-    compile "com.android.support:support-v13:24.0.0-beta1"
-    compile "com.android.support:cardview-v7:24.0.0-beta1"
-    compile "com.android.support:appcompat-v7:24.0.0-beta1"
-    compile 'com.android.support:appcompat-v7:24.0.0-beta1'
-    compile 'com.android.support:support-v4:24.0.0-beta1'
-    compile 'com.android.support:support-v13:24.0.0-beta1'
-    compile 'com.android.support:recyclerview-v7:24.0.0-beta1'
-    compile 'com.android.support:design:24.0.0-beta1'
+    compile "com.android.support:support-v4:24.1.1"
+    compile "com.android.support:support-v13:24.1.1"
+    compile "com.android.support:cardview-v7:24.1.1"
+    compile "com.android.support:appcompat-v7:24.1.1"
+    compile 'com.android.support:recyclerview-v7:24.0.0'
+    compile 'com.android.support:design:24.0.0'
 }
 
 // The sample build uses multiple directories to
@@ -37,7 +34,7 @@ List<String> dirs = [
 
 android {
     compileSdkVersion 24
-    buildToolsVersion "23.0.3"
+    buildToolsVersion "24.0.1"
 
     defaultConfig {
         minSdkVersion 24

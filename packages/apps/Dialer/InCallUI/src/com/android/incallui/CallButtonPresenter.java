@@ -322,17 +322,18 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
             return;
         }
 
+        final int currUnpausedVideoState = VideoUtils.getUnPausedVideoState(mCall.getVideoState());
         if (pause) {
             videoCall.setCamera(null);
-            VideoProfile videoProfile = new VideoProfile(
-                    mCall.getVideoState() & ~VideoProfile.STATE_TX_ENABLED);
+            VideoProfile videoProfile = new VideoProfile(currUnpausedVideoState
+                    & ~VideoProfile.STATE_TX_ENABLED);
             videoCall.sendSessionModifyRequest(videoProfile);
         } else {
             InCallCameraManager cameraManager = InCallPresenter.getInstance().
                     getInCallCameraManager();
             videoCall.setCamera(cameraManager.getActiveCameraId());
-            VideoProfile videoProfile = new VideoProfile(
-                    mCall.getVideoState() | VideoProfile.STATE_TX_ENABLED);
+            VideoProfile videoProfile = new VideoProfile(currUnpausedVideoState
+                    | VideoProfile.STATE_TX_ENABLED);
             videoCall.sendSessionModifyRequest(videoProfile);
             mCall.setSessionModificationState(Call.SessionModificationState.WAITING_FOR_RESPONSE);
         }
@@ -366,7 +367,6 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
     private void updateButtonsState(Call call) {
         Log.v(this, "updateButtonsState");
         final CallButtonUi ui = getUi();
-
         final boolean isVideo = VideoUtils.isVideoCall(call);
 
         // Common functionality (audio, hold, etc).
@@ -398,6 +398,9 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
         ui.showButton(BUTTON_DOWNGRADE_TO_AUDIO, showDowngradeToAudio);
         ui.showButton(BUTTON_SWITCH_CAMERA, isVideo);
         ui.showButton(BUTTON_PAUSE_VIDEO, isVideo);
+        if (isVideo) {
+            getUi().setVideoPaused(!VideoUtils.isTransmissionEnabled(call));
+        }
         ui.showButton(BUTTON_DIALPAD, true);
         ui.showButton(BUTTON_MERGE, showMerge);
 

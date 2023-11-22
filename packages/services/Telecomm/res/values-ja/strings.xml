@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"ボイスメール番号がありません"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIMカードにボイスメールの番号がありません。"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"番号を追加"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"既定の電話アプリを変更しますか？"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="NEW_APP">%1$s</xliff:g>を<xliff:g id="CURRENT_APP">%2$s</xliff:g>の代わりに既定の電話アプリとして使用しますか？"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g>を既定の電話アプリとして使用しますか？"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g> をデフォルトの電話アプリにしますか？"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"デフォルトに設定"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"キャンセル"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> はすべての通話の発信や制御を行えるようになります。デフォルトの電話アプリに設定するのは信頼できるアプリだけにしてください。"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"ブロックした番号"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"ブロックした電話番号からの通話やテキスト メッセージを受け取ることはありません。"</string>
     <string name="block_number" msgid="1101252256321306179">"番号を追加"</string>

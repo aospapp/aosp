@@ -140,7 +140,8 @@ int main(int argc __unused, char **argv __unused)
         void *interface = NULL;
         result = (*engineObject)->GetInterface(engineObject, engine_ids[index], &interface);
         assert(SL_RESULT_SUCCESS == result);
-        printf("interface[%u] %p\n", index, interface);
+        printf("interface[%u] %p = ", index, interface);
+        slesutPrintIID(engine_ids[index]);
         // Use a copy of the interface ID to make sure lookup is not purely relying on address
         void *interface_again = NULL;
         struct SLInterfaceID_ copy = *engine_ids[index];
@@ -148,6 +149,8 @@ int main(int argc __unused, char **argv __unused)
         assert(SL_RESULT_SUCCESS == result);
         // Calling GetInterface multiple times should return the same interface
         assert(interface_again == interface);
+        printf("copy = ");
+        slesutPrintIID(&copy);
     }
 
     SLObjectItf engineObject2;

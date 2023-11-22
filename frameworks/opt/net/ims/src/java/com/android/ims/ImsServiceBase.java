@@ -67,6 +67,12 @@ public abstract class ImsServiceBase {
         }
 
         @Override
+        public void addRegistrationListener(int serviceId, int serviceType, IImsRegistrationListener listener) {
+            onAddRegistrationListener(serviceId, serviceType, listener);
+        }
+
+
+        @Override
         public ImsCallProfile createCallProfile(int serviceId, int serviceType, int callType) {
             return onCreateCallProfile(serviceId, serviceType, callType);
         }
@@ -152,6 +158,10 @@ public abstract class ImsServiceBase {
     }
 
     protected void onSetRegistrationListener(int serviceId, IImsRegistrationListener listener) {
+        // no-op
+    }
+
+    protected void onAddRegistrationListener(int serviceId, int serviceType, IImsRegistrationListener listener) {
         // no-op
     }
 

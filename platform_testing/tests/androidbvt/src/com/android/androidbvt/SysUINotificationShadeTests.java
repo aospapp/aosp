@@ -25,8 +25,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
-import android.os.RemoteException;
-import android.provider.Settings;
+import android.platform.test.annotations.HermeticTest;
 import android.service.notification.StatusBarNotification;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
@@ -34,20 +33,19 @@ import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
+import android.view.KeyEvent;
 import android.view.inputmethod.InputMethodManager;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
-import android.widget.EditText;
-import android.widget.Toast;
-
 import android.util.Log;
-import junit.framework.Assert;
-import junit.framework.TestCase;
-
+import android.view.inputmethod.InputMethodManager;
+import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import junit.framework.TestCase;
 
+@HermeticTest
 public class SysUINotificationShadeTests extends TestCase {
     private static final String LOG_TAG = SysUINotificationShadeTests.class.getSimpleName();
     private static final int SHORT_TIMEOUT = 200;
@@ -69,7 +67,7 @@ public class SysUINotificationShadeTests extends TestCase {
     private enum QuickSettingTiles {
         WIFI("Wi-Fi"), SIM("SIM"), DND("Do not disturb"), BATTERY("Battery"),
         FLASHLIGHT("Flashlight"), SCREEN("screen"), BLUETOOTH("Bluetooth"),
-        AIRPLANE("Airplane mode"), LOCATION("Location");
+        AIRPLANE("Airplane mode");
 
         private final String name;
 
@@ -180,6 +178,8 @@ public class SysUINotificationShadeTests extends TestCase {
         if (!imm.isAcceptingText()) {
             assertNotNull("Keyboard for inline reply has not loaded correctly", replyBox);
         }
+        // make the IME down
+        mDevice.pressKeyCode(KeyEvent.KEYCODE_BACK);
         UiObject2 obj = mDevice.wait(Until.findObject(By.text(INLINE_REPLY_TITLE)),
                 LONG_TIMEOUT);
         obj.swipe(Direction.LEFT, 1.0f);

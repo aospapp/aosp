@@ -241,10 +241,18 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     public void testRunStarted(String id, int numTests) {
         if (mCurrentModuleResult != null && mCurrentModuleResult.getId().equals(id)) {
             // In case we get another test run of a known module, update the complete
-            // status to false to indicate it is not complete. This happens in cases like host side
-            // tests when each test class is executed as separate module.
+            // status to false to indicate it is not complete.
+            if (mCurrentModuleResult.isDone()) {
+                // modules run with HostTest treat each test class as a separate module.
+                // TODO(aaronholden): remove this case when JarHostTest is no longer calls
+                // testRunStarted for each test class.
+                mTotalTestsInModule += numTests;
+            } else {
+                // treat new tests as not executed tests from current module
+                mTotalTestsInModule +=
+                        Math.max(0, numTests - mCurrentModuleResult.getNotExecuted());
+            }
             mCurrentModuleResult.setDone(false);
-            mTotalTestsInModule += numTests;
         } else {
             mCurrentModuleResult = mResult.getOrCreateModule(id);
             mTotalTestsInModule = numTests;
@@ -260,7 +268,9 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
     public void testStarted(TestIdentifier test) {
         mCurrentCaseResult = mCurrentModuleResult.getOrCreateResult(test.getClassName());
         mCurrentResult = mCurrentCaseResult.getOrCreateResult(test.getTestName().trim());
-        mCurrentResult.reset();
+        if (mCurrentResult.isRetry()) {
+            mCurrentResult.reset(); // clear result status for this invocation
+        }
         mCurrentTestNum++;
     }
 
@@ -335,7 +345,7 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
         mCurrentModuleResult.addRuntime(elapsedTime);
         // Expect them to be equal, but greater than to be safe.
         mCurrentModuleResult.setDone(mCurrentTestNum >= mTotalTestsInModule);
-
+        mCurrentModuleResult.setNotExecuted(Math.max(mTotalTestsInModule - mCurrentTestNum, 0));
         if (isShardResultReporter()) {
             // Forward module results to the master.
             mMasterResultReporter.mergeModuleResult(mCurrentModuleResult);
@@ -440,10 +450,11 @@ public class ResultReporter implements ILogSaverListener, ITestInvocationListene
         String moduleProgress = String.format("%d of %d",
                 mResult.getModuleCompleteCount(), mResult.getModules().size());
 
-        info("Invocation finished in %s. PASSED: %d, FAILED: %d, MODULES: %s",
+        info("Invocation finished in %s. PASSED: %d, FAILED: %d, NOT EXECUTED: %d, MODULES: %s",
                 TimeUtil.formatElapsedTime(elapsedTime),
                 mResult.countResults(TestStatus.PASS),
                 mResult.countResults(TestStatus.FAIL),
+                mResult.getNotExecuted(),
                 moduleProgress);
 
         long startTime = mResult.getStartTime();

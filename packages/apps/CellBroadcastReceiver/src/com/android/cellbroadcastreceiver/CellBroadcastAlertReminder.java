@@ -145,8 +145,9 @@ public class CellBroadcastAlertReminder extends Service {
         // remind user after 2 minutes or 15 minutes
         long triggerTime = SystemClock.elapsedRealtime() + (interval * 60000);
         // We use setExact instead of set because this is for emergency reminder.
-        alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP, 
+        alarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                 triggerTime, sPlayReminderIntent);
+        log("Set reminder in " + interval + " minutes");
         return true;
     }
 

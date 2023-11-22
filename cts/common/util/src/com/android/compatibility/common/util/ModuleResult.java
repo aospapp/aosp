@@ -29,6 +29,7 @@ public class ModuleResult implements IModuleResult {
     private String mId;
     private long mRuntime = 0;
     private boolean mDone = false;
+    private int mNotExecuted = 0;
 
     private Map<String, ICaseResult> mResults = new HashMap<>();
 
@@ -54,6 +55,30 @@ public class ModuleResult implements IModuleResult {
     @Override
     public void setDone(boolean done) {
         mDone = done;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isPassed() {
+        return mDone && countResults(TestStatus.FAIL) == 0;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getNotExecuted() {
+        return mNotExecuted;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setNotExecuted(int numTests) {
+        mNotExecuted = numTests;
     }
 
     /**

@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"ਲੁਪਤ ਵੌਇਸਮੇਲ ਨੰਬਰ"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM ਕਾਰਡ ਤੇ ਕੋਈ ਵੌਇਸਮੇਲ ਨੰਬਰ ਸਟੋਰ ਨਹੀਂ ਕੀਤਾ ਗਿਆ ਹੈ।"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"ਨੰਬਰ ਜੋੜੋ"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"ਕੀ ਪੂਰਵ-ਨਿਰਧਾਰਤ ਡਾਇਲਰ ਐਪ ਨੂੰ ਬਦਲਣਾ ਹੈ?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"ਕੀ <xliff:g id="CURRENT_APP">%2$s</xliff:g> ਦੀ ਬਜਾਏ <xliff:g id="NEW_APP">%1$s</xliff:g> ਨੂੰ ਆਪਣੀ ਪੂਰਵ-ਨਿਰਧਾਰਤ ਡਾਇਲਰ ਐਪ ਵਜੋਂ ਵਰਤਣਾ ਹੈ?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"ਕੀ <xliff:g id="NEW_APP">%s</xliff:g> ਨੂੰ ਆਪਣੀ ਪੂਰਵ-ਨਿਰਧਾਰਤ ਡਾਇਲਰ ਐਪ ਵਜੋਂ ਵਰਤਣਾ ਹੈ?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"ਕੀ <xliff:g id="NEW_APP">%s</xliff:g> ਨੂੰ ਆਪਣੀ ਪੂਰਵ-ਨਿਰਧਾਰਤ ਫ਼ੋਨ ਐਪ ਬਣਾਉਣਾ ਹੈ?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"ਪੂਰਵ-ਨਿਰਧਾਰਤ ਸੈੱਟ ਕਰੋ"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"ਰੱਦ ਕਰੋ"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> ਕਾਲਾਂ ਕਰ ਸਕੇਗੀ ਅਤੇ ਕਾਲਾਂ ਦੇ ਸਾਰੇ ਪੱਖਾਂ ਨੂੰ ਕੰਟਰੋਲ ਕਰ ਸਕੇਗੀ। ਸਿਰਫ਼ ਉਹਨਾਂ ਐਪਾਂ ਨੂੰ ਪੂਰਵ-ਨਿਰਧਾਰਤ ਫ਼ੋਨ ਐਪ ਵਜੋਂ ਸੈੱਟ ਕਰਨਾ ਚਾਹੀਦਾ ਹੈ ਜਿੰਨ੍ਹਾਂ \'ਤੇ ਤੁਸੀਂ ਭਰੋਸਾ ਕਰਦੇ ਹੋ।"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"ਬਲੌਕ ਕੀਤੇ ਗਏ ਨੰਬਰ"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"ਤੁਹਾਨੂੰ ਬਲੌਕ ਕੀਤੇ ਨੰਬਰਾਂ ਤੋਂ ਕਾਲਾਂ ਜਾਂ ਲਿਖਤ ਸੁਨੇਹੇ ਪ੍ਰਾਪਤ ਨਹੀਂ ਹੋਣਗੇ।"</string>
     <string name="block_number" msgid="1101252256321306179">"ਇੱਕ ਨੰਬਰ ਸ਼ਾਮਲ ਕਰੋ"</string>

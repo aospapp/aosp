@@ -174,10 +174,11 @@ public class AppLinkTests extends InstrumentationTestCase {
     public void testSysappAppLinkSettings() {
         // List of system app that are set to 'Always' for certain urls
         List<String> alwaysOpenApps = new ArrayList<String>();
-        alwaysOpenApps.add("com.google.android.apps.docs.editors.docs"); // Docs
-        alwaysOpenApps.add("com.google.android.apps.docs.editors.sheets"); // Sheets
-        alwaysOpenApps.add("com.google.android.apps.docs.editors.slides"); // Slides
+        alwaysOpenApps.add("com.android.vending"); // Playstore
         alwaysOpenApps.add("com.google.android.apps.docs"); // Drive
+        alwaysOpenApps.add("com.google.android.apps.maps"); // Map
+        alwaysOpenApps.add("com.google.android.calendar"); // Calendar
+        alwaysOpenApps.add("com.google.android.music"); // PlayMusic
         alwaysOpenApps.add("com.google.android.youtube"); // YouTube
         for (String alwaysOpenApp : alwaysOpenApps) {
             String out = getAppLink(alwaysOpenApp);

@@ -47,6 +47,14 @@ more. See the subpages of this section for details.
 <p><a href="{@docRoot}devices/tech/config/index.html">&raquo; Configuration
 Information</a></p>
 
+<h2 id="connect">Connectivity</h2>
+<p>This section covers Android support for NFC standards (such as Felica),
+provides details on the Radio Interface Layer (RIL), describes call notification
+behavior, and gives implementation instructions for user-facing features such as
+Data Saver and phone number blocking.</p>
+<p><a href="{@docRoot}devices/tech/connect/index.html">&raquo; Connectivity
+Information</a></p>
+
 <h2 id="data-usage-technical-information">Data Usage</h2>
 <p>Android's data usage features allow users to understand and control how
 their device uses network data. This section is designed for systems
@@ -68,6 +76,13 @@ department.</p>
 <p><a href="{@docRoot}devices/tech/admin/index.html">&raquo; Device
 administration information</a></p>
 
+<h2 id="display">Display Settings</h2>
+<p>This section covers AOSP implementation of various Android display settings
+such as do not disturb (DND) configurations and multi-window (split-screen,
+free-form, and picture-in-picture) options.</p>
+<p><a href="{@docRoot}devices/tech/display/index.html">&raquo; Display settings
+information</a></p>
+
 <h2 id="HAL-technical-information">HAL File Reference</h2>
 <p>Android's Hardware Abstraction Layer (HAL) provides the interface between
 software APIs and hardware drivers. This section contains the commented code
@@ -83,11 +98,13 @@ developers building OTA updates for new and released Android devices.</p>
 </p>
 
 <h2 id="power-technical-information">Power</h2>
-<p>Battery usage statistics are tracked by the framework. This involves
-keeping track of time spent by different device components in different states.
-</p>
-<p><a href="{@docRoot}devices/tech/power/index.html">&raquo; Power Information</a>
-</p>
+<p>The framework provides battery usage statistics, keeping track of time spent
+by different device components in different states. This section covers power
+management features (such as Doze), gives instructions for accurately measuring
+device and component power (and how to determine power values), and details the
+<code>batterystats</code> command and output.</p>
+<p><a href="{@docRoot}devices/tech/power/index.html">&raquo; Power
+Information</a></p>
 
 <h2 id="tradefed-test-infrastructure">Trade Federation Testing Infrastructure
 </h2>

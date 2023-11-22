@@ -68,6 +68,8 @@ from acts.test_utils.tel.tel_test_utils import toggle_volte
 from acts.test_utils.tel.tel_test_utils import toggle_volte_for_subscription
 from acts.test_utils.tel.tel_test_utils import verify_incall_state
 from acts.test_utils.tel.tel_test_utils import \
+    wait_for_data_attach_for_subscription
+from acts.test_utils.tel.tel_test_utils import \
     wait_for_network_generation_for_subscription
 from acts.test_utils.tel.tel_test_utils import wait_for_not_network_rat
 from acts.test_utils.tel.tel_test_utils import wait_for_network_rat

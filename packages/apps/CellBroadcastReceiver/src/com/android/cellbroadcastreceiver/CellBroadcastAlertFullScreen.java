@@ -61,6 +61,10 @@ public class CellBroadcastAlertFullScreen extends Activity {
     /** Intent extra for non-emergency alerts sent when user selects the notification. */
     static final String FROM_NOTIFICATION_EXTRA = "from_notification";
 
+    // Intent extra to identify if notification was sent while trying to move away from the dialog
+    //  without acknowleding the dialog
+    static final String FROM_SAVE_STATE_NOTIFICATION_EXTRA = "from_save_state_notification";
+
     /** List of cell broadcast messages to display (oldest to newest). */
     protected ArrayList<CellBroadcastMessage> mMessageList;
 
@@ -254,6 +258,8 @@ public class CellBroadcastAlertFullScreen extends Activity {
                 | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
 
+        setFinishOnTouchOutside(false);
+
         // Initialize the view.
         LayoutInflater inflater = LayoutInflater.from(this);
         setContentView(inflater.inflate(getLayoutResId(), null));
@@ -281,17 +287,17 @@ public class CellBroadcastAlertFullScreen extends Activity {
             clearNotification(intent);
         }
 
-        if (mMessageList != null) {
-            Log.d(TAG, "onCreate loaded message list of size " + mMessageList.size());
-        } else {
-            Log.e(TAG, "onCreate failed to get message list from saved Bundle");
+        if (mMessageList == null || mMessageList.size() == 0) {
+            Log.e(TAG, "onCreate failed as message list is null or empty");
             finish();
+        } else {
+            Log.d(TAG, "onCreate loaded message list of size " + mMessageList.size());
         }
 
         // For emergency alerts, keep screen on so the user can read it, unless this is a
         // full screen alert created by CellBroadcastAlertDialog when the screen turned off.
         CellBroadcastMessage message = getLatestMessage();
-        if (CellBroadcastConfigService.isEmergencyAlertMessage(message) &&
+        if ((message != null && message.isEmergencyAlertMessage()) &&
                 (savedInstanceState != null ||
                         !getIntent().getBooleanExtra(SCREEN_OFF_EXTRA, false))) {
             Log.d(TAG, "onCreate setting screen on timer for emergency alert");
@@ -311,7 +317,12 @@ public class CellBroadcastAlertFullScreen extends Activity {
                 CellBroadcastMessage.SMS_CB_MESSAGE_EXTRA);
         if (newMessageList != null) {
             Log.d(TAG, "onNewIntent called with message list of size " + newMessageList.size());
-            mMessageList.addAll(newMessageList);
+            if (intent.getBooleanExtra(
+                    CellBroadcastAlertFullScreen.FROM_SAVE_STATE_NOTIFICATION_EXTRA, false)) {
+                mMessageList = newMessageList;
+            } else {
+                mMessageList.addAll(newMessageList);
+            }
             updateAlertText(getLatestMessage());
             // If the new intent was sent from a notification, dismiss it.
             clearNotification(intent);
@@ -339,6 +350,13 @@ public class CellBroadcastAlertFullScreen extends Activity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putParcelableArrayList(CellBroadcastMessage.SMS_CB_MESSAGE_EXTRA, mMessageList);
+        // When the activity goes in background eg. clicking Home button, send notification.
+        // Avoid doing this when activity will be recreated because of orientation change
+        if (!(isChangingConfigurations() || getLatestMessage() == null)) {
+            CellBroadcastAlertService.addToNotificationBar(getLatestMessage(), mMessageList,
+                    getApplicationContext(), true);
+        }
+
         Log.d(TAG, "onSaveInstanceState saved message list to bundle");
     }
 
@@ -366,7 +384,7 @@ public class CellBroadcastAlertFullScreen extends Activity {
         Log.d(TAG, "onResume called");
         super.onResume();
         CellBroadcastMessage message = getLatestMessage();
-        if (message != null && CellBroadcastConfigService.isEmergencyAlertMessage(message)) {
+        if (message != null && message.isEmergencyAlertMessage()) {
             mAnimationHandler.startIconAnimation();
         }
     }
@@ -397,6 +415,7 @@ public class CellBroadcastAlertFullScreen extends Activity {
         CellBroadcastMessage lastMessage = removeLatestMessage();
         if (lastMessage == null) {
             Log.e(TAG, "dismiss() called with empty message list!");
+            finish();
             return;
         }
 
@@ -423,7 +442,7 @@ public class CellBroadcastAlertFullScreen extends Activity {
         CellBroadcastMessage nextMessage = getLatestMessage();
         if (nextMessage != null) {
             updateAlertText(nextMessage);
-            if (CellBroadcastConfigService.isEmergencyAlertMessage(nextMessage)) {
+            if (nextMessage.isEmergencyAlertMessage()) {
                 mAnimationHandler.startIconAnimation();
             } else {
                 mAnimationHandler.stopIconAnimation();

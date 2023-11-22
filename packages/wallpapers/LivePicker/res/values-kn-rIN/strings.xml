@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"ಲೈವ್ ವಾಲ್‌ಪೇಪರ್‌ ಅನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"ಮುಖಪುಟದ ಪರದೆ"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"ಮುಖಪುಟದ ಪರದೆ ಮತ್ತು ಲಾಕ್ ಪರದೆ"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"ವಾಲ್‌ಪೇಪರ್ ಮಾಹಿತಿ ಫಲಕ ಸಂಕುಚಿಸಿ"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"ವಾಲ್‌ಪೇಪರ್ ಮಾಹಿತಿ ಫಲಕ ವಿಸ್ತರಿಸಿ"</string>
 </resources>

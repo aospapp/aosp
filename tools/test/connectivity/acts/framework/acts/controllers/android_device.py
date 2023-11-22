@@ -59,21 +59,43 @@ def create(configs, logger):
         # Configs is a list of dicts.
         ads = get_instances_with_configs(configs, logger)
     connected_ads = list_adb_devices()
+    active_ads = []
+
     for ad in ads:
         if ad.serial not in connected_ads:
             raise DoesNotExistError(("Android device %s is specified in config"
                                      " but is not attached.") % ad.serial)
-        ad.start_adb_logcat()
+
+    def _cleanup(msg, ad, active_ads):
+        # This exception is logged here to help with debugging under py2,
+        # because "exception raised while processing another exception" is
+        # only printed under py3.
+        logger.exception(msg)
+        # Incrementally clean up subprocesses in current ad
+        # before we continue
+        if ad.adb_logcat_process:
+            ad.stop_adb_logcat()
+        if ad.ed:
+            ad.ed.clean_up()
+        # Clean up all already-active ads before bombing out
+        destroy(active_ads)
+        raise AndroidDeviceError(msg)
+
+    for ad in ads:
+        try:
+            ad.start_adb_logcat()
+        except:
+            msg = "Failed to start logcat %s" % ad.serial
+            _cleanup(msg, ad, active_ads)
+
         try:
             ad.get_droid()
             ad.ed.start()
         except:
-            # This exception is logged here to help with debugging under py2,
-            # because "exception raised while processing another exception" is
-            # only printed under py3.
             msg = "Failed to start sl4a on %s" % ad.serial
-            logger.exception(msg)
-            raise AndroidDeviceError(msg)
+            _cleanup(msg, ad, active_ads)
+
+        active_ads.append(ad)
     return ads
 
 def destroy(ads):
@@ -413,8 +435,6 @@ class AndroidDevice:
         """
         if not self.is_adb_root:
             self.adb.root()
-            self.adb.wait_for_device()
-            self.adb.remount()
             self.adb.wait_for_device()
 
     def get_droid(self, handle_event=True):

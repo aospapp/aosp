@@ -23,6 +23,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <cpu/inc/atomic.h>
 #include <cpu/inc/barrier.h>
 
 /* almost all platforms support byte and 32-bit operations of this sort. please do not add other sizes here */

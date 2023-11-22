@@ -38,6 +38,7 @@ import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.NewOutgoingCallIntentBroadcaster;
 import com.android.server.telecom.PhoneNumberUtilsAdapter;
 import com.android.server.telecom.PhoneNumberUtilsAdapterImpl;
+import com.android.server.telecom.TelecomSystem;
 
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -77,6 +78,7 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
         mPhoneNumberUtilsAdapterSpy = spy(new PhoneNumberUtilsAdapterImpl());
         when(mCall.getInitiatingUser()).thenReturn(UserHandle.CURRENT);
+        when(mCallsManager.getLock()).thenReturn(new TelecomSystem.SyncRoot() { });
     }
 
     @SmallTest

@@ -239,6 +239,13 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.view.cts.surfacevalidator.CapturedActivity"
+                  android:theme="@style/WhiteBackgroundTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

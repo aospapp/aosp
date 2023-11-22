@@ -44,10 +44,8 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_CFLAGS := -DLOG_TAG=\"SurfaceFlinger\"
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
-#LOCAL_CFLAGS += -DENABLE_FENCE_TRACKING
 
-USE_HWC2 := false
-ifeq ($(USE_HWC2),true)
+ifeq ($(TARGET_USES_HWC2),true)
     LOCAL_CFLAGS += -DUSE_HWC2
     LOCAL_SRC_FILES += \
         SurfaceFlinger.cpp \
@@ -146,6 +144,10 @@ LOCAL_INIT_RC := surfaceflinger.rc
 
 ifneq ($(ENABLE_CPUSETS),)
     LOCAL_CFLAGS += -DENABLE_CPUSETS
+endif
+
+ifeq ($(TARGET_USES_HWC2),true)
+    LOCAL_CFLAGS += -DUSE_HWC2
 endif
 
 LOCAL_SRC_FILES := \

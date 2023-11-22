@@ -49,8 +49,8 @@ and the end of the range of the stats to include in the results.
 Pre-requisites
 --------------
 
-- Android SDK 23
-- Android Build Tools v23.0.3
+- Android SDK 24
+- Android Build Tools v24.0.1
 - Android Support Repository
 
 Screenshots

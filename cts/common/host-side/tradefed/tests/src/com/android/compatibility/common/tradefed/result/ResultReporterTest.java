@@ -155,6 +155,124 @@ public class ResultReporterTest extends TestCase {
                 result3.getResultStatus());
     }
 
+    private void makeTestRun(String[] methods, boolean[] passes) {
+        mReporter.testRunStarted(ID, methods.length);
+
+        for (int i = 0; i < methods.length; i++) {
+            TestIdentifier test = new TestIdentifier(CLASS, methods[i]);
+            mReporter.testStarted(test);
+            if (!passes[i]) {
+                mReporter.testFailed(test, STACK_TRACE);
+            }
+            mReporter.testEnded(test, new HashMap<String, String>());
+        }
+
+        mReporter.testRunEnded(10, new HashMap<String, String>());
+    }
+
+    public void testRepeatedExecutions() throws Exception {
+        String[] methods = new String[] {METHOD_1, METHOD_2, METHOD_3};
+
+        mReporter.invocationStarted(mBuildInfo);
+
+        makeTestRun(methods, new boolean[] {true, false, true});
+        makeTestRun(methods, new boolean[] {true, false, false});
+        makeTestRun(methods, new boolean[] {true, true, true});
+
+        mReporter.invocationEnded(10);
+
+        // Verification
+
+        IInvocationResult result = mReporter.getResult();
+        assertEquals("Expected 1 pass", 1, result.countResults(TestStatus.PASS));
+        assertEquals("Expected 2 failures", 2, result.countResults(TestStatus.FAIL));
+        List<IModuleResult> modules = result.getModules();
+        assertEquals("Expected 1 module", 1, modules.size());
+        IModuleResult module = modules.get(0);
+        assertEquals("Incorrect ID", ID, module.getId());
+        List<ICaseResult> caseResults = module.getResults();
+        assertEquals("Expected 1 test case", 1, caseResults.size());
+        ICaseResult caseResult = caseResults.get(0);
+        List<ITestResult> testResults = caseResult.getResults();
+        assertEquals("Expected 3 tests", 3, testResults.size());
+
+        // Test 1 details
+        ITestResult result1 = caseResult.getResult(METHOD_1);
+        assertNotNull(String.format("Expected result for %s", TEST_1), result1);
+        assertEquals(String.format("Expected pass for %s", TEST_1), TestStatus.PASS,
+                result1.getResultStatus());
+
+        // Test 2 details
+        ITestResult result2 = caseResult.getResult(METHOD_2);
+        assertNotNull(String.format("Expected result for %s", TEST_2), result2);
+        assertEquals(String.format("Expected fail for %s", TEST_2), TestStatus.FAIL,
+                result2.getResultStatus());
+        // TODO: Define requirement. Should this result have multiple stack traces?
+        assertEquals(result2.getStackTrace(), STACK_TRACE);
+
+        // Test 3 details
+        ITestResult result3 = caseResult.getResult(METHOD_3);
+        assertNotNull(String.format("Expected result for %s", TEST_3), result3);
+        assertEquals(String.format("Expected fail for %s", TEST_3), TestStatus.FAIL,
+                result3.getResultStatus());
+        assertEquals(result3.getStackTrace(), STACK_TRACE);
+    }
+
+    public void testRetry() throws Exception {
+        mReporter.invocationStarted(mBuildInfo);
+
+        // Set up IInvocationResult with existing results from previous session
+        mReporter.testRunStarted(ID, 2);
+        IInvocationResult invocationResult = mReporter.getResult();
+        IModuleResult moduleResult = invocationResult.getOrCreateModule(ID);
+        ICaseResult caseResult = moduleResult.getOrCreateResult(CLASS);
+        ITestResult testResult1 = caseResult.getOrCreateResult(METHOD_1);
+        testResult1.setResultStatus(TestStatus.PASS);
+        testResult1.setRetry(true);
+        ITestResult testResult2 = caseResult.getOrCreateResult(METHOD_2);
+        testResult2.setResultStatus(TestStatus.FAIL);
+        testResult2.setStackTrace(STACK_TRACE);
+        testResult2.setRetry(true);
+
+        // Flip results for the current session
+        TestIdentifier test1 = new TestIdentifier(CLASS, METHOD_1);
+        mReporter.testStarted(test1);
+        mReporter.testFailed(test1, STACK_TRACE);
+        mReporter.testEnded(test1, new HashMap<String, String>());
+        TestIdentifier test2 = new TestIdentifier(CLASS, METHOD_2);
+        mReporter.testStarted(test2);
+        mReporter.testEnded(test2, new HashMap<String, String>());
+
+        mReporter.testRunEnded(10, new HashMap<String, String>());
+        mReporter.invocationEnded(10);
+
+        // Verification that results have been overwritten.
+        IInvocationResult result = mReporter.getResult();
+        assertEquals("Expected 1 pass", 1, result.countResults(TestStatus.PASS));
+        assertEquals("Expected 1 failure", 1, result.countResults(TestStatus.FAIL));
+        List<IModuleResult> modules = result.getModules();
+        assertEquals("Expected 1 module", 1, modules.size());
+        IModuleResult module = modules.get(0);
+        List<ICaseResult> cases = module.getResults();
+        assertEquals("Expected 1 test case", 1, cases.size());
+        ICaseResult case1 = cases.get(0);
+        List<ITestResult> testResults = case1.getResults();
+        assertEquals("Expected 2 tests", 2, testResults.size());
+
+        // Test 1 details
+        ITestResult finalTestResult1 = case1.getResult(METHOD_1);
+        assertNotNull(String.format("Expected result for %s", TEST_1), finalTestResult1);
+        assertEquals(String.format("Expected fail for %s", TEST_1), TestStatus.FAIL,
+                finalTestResult1.getResultStatus());
+        assertEquals(finalTestResult1.getStackTrace(), STACK_TRACE);
+
+        // Test 2 details
+        ITestResult finalTestResult2 = case1.getResult(METHOD_2);
+        assertNotNull(String.format("Expected result for %s", TEST_2), finalTestResult2);
+        assertEquals(String.format("Expected pass for %s", TEST_2), TestStatus.PASS,
+                finalTestResult2.getResultStatus());
+    }
+
     public void testResultReporting_moduleNotDone() throws Exception {
         mReporter.invocationStarted(mBuildInfo);
         mReporter.testRunStarted(ID, 2);

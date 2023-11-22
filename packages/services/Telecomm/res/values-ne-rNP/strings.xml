@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"भ्वाइसमेल नम्बर हराइरहेको छ"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM कार्डमा कुनै पनि भ्वाइसमेल नम्बर भण्डारण भएको छैन।"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"नम्बर थप्नुहोस्"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"पूर्वनिर्धारित डायलर अनुप्रयोग फेर्ने हो?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="CURRENT_APP">%2$s</xliff:g>को सट्टामा <xliff:g id="NEW_APP">%1$s</xliff:g>लाई पूर्वनिर्धारित डायलर अनुप्रयोगको रूपमा प्रयोग गर्ने हो?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g>लाई तपाईँको पूर्वनिर्धारित डायलर अनुप्रयोगको रूपमा प्रयोग गर्ने हो?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"तपाईंको पूर्वनिर्धारित फोन अनुप्रयोग <xliff:g id="NEW_APP">%s</xliff:g> बनाउने हो?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"पूर्वनिर्धारित रूपमा सेट गर्नुहोस्"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"रद्द गर्नुहोस्"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> कलका सबै पक्षहरूलाई स्थापित गर्न र नियन्त्रण गर्न सक्षम हुने छ। तपाईंलाई विश्वास लाग्ने अनुप्रयोगहरूलाई मात्र फोनमा पूर्वनिर्धारित अनुप्रयोगका रूपमा सेट गर्नुपर्छ।"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"रोकिएका नम्बरहरू"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"तपाईँले रोक लगाइएका नम्बरहरूबाट फोन वा पाठ सन्देशहरू प्राप्त गर्नुहुने छैन।"</string>
     <string name="block_number" msgid="1101252256321306179">"नम्बर थप्नुहोस्"</string>

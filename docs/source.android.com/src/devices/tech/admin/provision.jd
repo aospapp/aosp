@@ -24,34 +24,35 @@ page.title=Provisioning for Device Administration
   </div>
 </div>
 
-<p>This page describes the process for deploying devices to corporate users.</p>
+<p>This page describes the process for deploying devices to corporate users
+using NFC or with an activation code (for a complete list of requirements, see
+<a href="{@docRoot}devices/tech/admin/implement.html">Implementing Device
+Administration</a>).</p>
 
-<p>Device owner provisioning can be accomplished over NFC or with an activation
-code. See <a href="implement.html">Implementing Device Administration</a> for
-the complete list of requirements.</p>
-
-<p>Download the <a
-href="https://github.com/googlesamples/android-NfcProvisioning">NfcProvisioning
-APK</a> and <a
-href="https://github.com/googlesamples/android-DeviceOwner">Android-DeviceOwner
-APK</a>.</p>
+<p>To get started, download the
+<a href="https://github.com/googlesamples/android-NfcProvisioning">NfcProvisioning
+APK</a>
+and
+<a href="https://github.com/googlesamples/android-DeviceOwner">Android-DeviceOwner
+APK</a>.
+</p>
 
 <p class="caution"><strong>Caution:</strong> If provisioning has already
-started, affected devices will first need to be factory reset.</p>
+started, affected devices must be factory reset first.</p>
 
-<h2 id=managed_provisioning>Managed Provisioning</h2>
+<h2 id=managed_provisioning>Managed provisioning</h2>
 
 <p>Managed Provisioning is a framework UI flow to ensure users are adequately
-informed of the implications of setting a device owner or managed profile. You can
-think of it as a setup wizard for managed profiles.</p>
+informed of the implications of setting a device owner or managed profile. It is
+designed to act as a setup wizard for managed profiles.</p>
 
-<p class="note"><strong>Note:</strong> Remember, the device owner can be set
-only from an unprovisioned device. If
-<code>Settings.Secure.USER_SETUP_COMPLETE</code> has ever been set, then the
-device is considered provisioned & device owner cannot be set.</p>
+<p class="note"><strong>Note:</strong> The device owner can be set only from an
+unprovisioned device. If <code>Settings.Secure.USER_SETUP_COMPLETE</code> has
+ever been set, the device is considered provisioned and the device owner cannot
+be set.</p>
 
-<p>Please note, devices that enable default encryption offer considerably
-simpler/quicker device administration provisioning flow. The managed provisioning
+<p>Devices that enable default encryption offer a considerably simpler and
+quicker device administration provisioning flow. The managed provisioning
 component:</p>
 
 <ul>
@@ -70,46 +71,52 @@ component:</p>
 </ul>
 
 <p>In this flow, managed provisioning triggers device encryption. The framework
-  copies the EMM app into the managed profile as part of managed provisioning.
-  The instance of the EMM app inside of the managed profile gets a callback from the
-framework when provisioning is done.</p>
+copies the EMM app into the managed profile as part of managed provisioning. The
+instance of the EMM app inside of the managed profile gets a callback from the
+framework when provisioning is done. The EMM can then add accounts and enforce
+policies; it then calls <code>setProfileEnabled()</code>, which makes the
+launcher icons visible.</p>
 
-<p>The EMM can then add accounts and enforce policies; it then calls
-<code>setProfileEnabled()</code>, which makes the launcher icons visible.</p>
+<h2 id=profile_owner_provisioning>Profile owner provisioning</h2>
 
-<h2 id=profile_owner_provisioning>Profile Owner Provisioning</h2>
+<p>Profile owner provisioning assumes the user of the device (and not a company
+IT department) oversees device management. To enable profile owner provisioning,
+you must send an intent with appropriate extras. For an example, use the TestDPC
+application
+(<a href="https://play.google.com/store/apps/details?id=com.afwsamples.testdpc&hl=en">Download
+from Google Play</a> or <a href="https://github.com/googlesamples/android-testdpc/">Build
+from GitHub</a>). Install TestDPC on the device, launch the app from the
+launcher, then follow the app instructions. Provisioning is complete when badged
+icons appear in the launcher drawer.</p>
 
-<p>Profile owner provisioning assumes the user of the device oversees its
-management (and not a company IT department). To enable, profile owner
-provisioning, you must send an intent with appropriate extras. See the <a href="https://developer.android.com/samples/BasicManagedProfile/index.html">BasicManagedProfile.apk</a> for an example.</p>
+<p>Mobile Device Management (MDM) applications trigger the creation of the
+managed profile by sending an intent with action:
+<a href="https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/app/admin/DevicePolicyManager.java">DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE</a>
+. Below is a sample intent that triggers the creation of the managed profile
+and sets the DeviceAdminSample as the profile owner:</p>
 
-<p>Mobile Device Management (MDM) applications trigger the creation of the managed
-profile by sending an intent with action:</p>
-
-<p><a href="https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/app/admin/DevicePolicyManager.java">DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE</a></p>
-
-<p>Here is a sample intent that will trigger the creation of the managed profile
-and set the DeviceAdminSample as the profile owner:</p>
-
-<pre>
-adb shell am start -a android.app.action.PROVISION_MANAGED_PROFILE \
+<pre>adb shell am start -a android.app.action.PROVISION_MANAGED_PROFILE \
           -c android.intent.category.DEFAULT \
-	      -e wifiSsid $(printf '%q' \"GoogleGuest\") \
+	      -e wifiSsid $(printf '%q' \"WifiSSID\") \
           -e deviceAdminPackage "com.google.android.deviceadminsample" \
 	      -e android.app.extra.deviceAdminPackageName $(printf '%q'
                         .DeviceAdminSample\$DeviceAdminSampleReceiver) \
 	      -e android.app.extra.DEFAULT_MANAGED_PROFILE_NAME "My Organisation"
 </pre>
 
-<h2 id=device_owner_provisioning_via_nfc>Device Owner Provisioning via NFC</h2>
+<h2 id=device_owner_provisioning_via_nfc>Device owner provisioning</h2>
+<p>Use one of the following methods to set up device owner (DO)
+provisioning.</p>
 
-<p>Device owner provisioning via NFC is similar to the profile owner method but
-requires more bootstrapping before managed provisioning.</p>
+<h3 id=do_provision_nfc>Provisioning via NFC</h3>
+<p>DO provisioning via NFC is similar to the profile owner method but requires
+more bootstrapping. To use this method,
+<a href="http://developer.android.com/guide/topics/connectivity/nfc/nfc.html">NFC
+bump</a> the device during the initial setup step (i.e., first page of the setup
+wizard). This low-touch flow configures Wi-Fi, installs the DPC, and sets the
+DPC as device owner.</p>
 
-<p>To use this method, <a href="http://developer.android.com/guide/topics/connectivity/nfc/nfc.html">NFC bump</a> the device from the first page of setup wizard (SUW). This offers a low-touch
-flow and configures Wi-Fi, installs the DPC, and sets the DPC as device owner.</p>
-
-<p>Here is the typical NFC bundle:</p>
+<p>A typical NFC bundle includes the following:</p>
 
 <pre>
                 EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME
@@ -119,53 +126,59 @@ flow and configures Wi-Fi, installs the DPC, and sets the DPC as device owner.</
                 EXTRA_PROVISIONING_WIFI_SECURITY_TYPE
 </pre>
 
-<p>The device must have NFC configured to accept the managed provisioning mimetype
-from SUW:</p>
+<p>Devices must have NFC configured to accept the managed provisioning
+mimetype from the setup experience:</p>
 
-<pre>
-/packages/apps/Nfc/res/values/provisioning.xml
+<pre>/packages/apps/Nfc/res/values/provisioning.xml
 
       &lt;bool name="enable_nfc_provisioning"&gt;true&lt;/bool&gt;
       &lt;item&gt;application/com.android.managedprovisioning&lt;/item&gt;
 </pre>
 
-<h2 id=device_owner_provisioning_with_activation_code>Device Owner Provisioning with Activation Code</h2>
-
-<p>Select <em>Add Work Account</em> from the setup wizard. This triggers a
-lookup of the EMM from Android servers.</p>
-
-<p>The device installs the EMM app and starts provisioning flow. As an extra
-option, Android device administration supports the option of using email
-address with a six-digit activation code to bootstrap the process as part of
-setup wizard.</p>
+<h3 id=do_provision_cs>Provisioning via Cloud Services</h2>
+<p>Device owner provisioning via cloud services includes the ability to
+provision a device in device owner mode during out-of-the-box setup. The device
+can collect credentials (or tokens) and use them to perform a lookup to a cloud
+service, which can then be used to initiate the device owner provisioning
+process.</p>
 
 <h2 id=emm_benefits>EMM benefits</h2>
 
-<p>An EMM can help by conducting these tasks for you:</p>
+<p>An enterprise mobility management (EMM) app can help by conducting the
+following tasks:</p>
 
 <ul>
-  <li>Provision managed profile
+  <li>Provision managed profile</li>
   <li>Apply security policies
   <ul>
-    <li>Set password complexity
-    <li>Lockdowns: disable screenshots, sharing from managed profile, etc.
-  </ul>
+    <li>Set password complexity</li>
+    <li>Lockdowns: disable screenshots, sharing from managed profile, etc.</li>
+  </ul></li>
   <li>Configure enterprise connectivity
   <ul>
-    <li>Use WifiEnterpriseConfig to configure corporate Wi-Fi
-    <li>Configure VPN on the device
-    <li>Use DPM.setApplicationRestrictions() to configure corporate VPN
-  </ul>
+    <li>Use WifiEnterpriseConfig to configure corporate Wi-Fi</li>
+    <li>Configure VPN on the device</li>
+    <li>Use <code>DPM.setApplicationRestrictions()</code> to configure corporate
+    VPN</li>
+  </ul></li>
   <li>Enable corporate app Single Sign-On (SSO)
   <ul>
     <li>Install desired corporate apps
-    <li>Use DPM.installKeyPair()to silently install corp client certs
-    <li>Use DPM.setApplicationRestrictions() to configure hostnames, cert alias’ of
-corporate apps
-  </ul>
+    <li>Use <code>DPM.installKeyPair()</code> to silently install corp client
+    certs</li>
+    <li>Use <code>DPM.setApplicationRestrictions()</code> to configure
+    hostnames, cert alias’ of corporate apps</li>
+  </ul></li>
 </ul>
 
-<p>Managed provisioning is just one piece of the EMM end-to-end workflow, with the
-  end goal being to make corporate data accessible to apps in the managed profile.</p>
+<p>Managed provisioning is just one part of the EMM end-to-end workflow, with
+the end goal of making corporate data accessible to apps in the managed
+profile. For testing guidance, see
+<a href="{@docRoot}devices/tech/admin/testing-setup.html">Setting up Device
+Testing</a>.</p>
 
-<p>See <a href="testing-setup.html">Setting up Device Testing</a> for testing instructions.</p>
+<h2 id=automate>Automated provisioning testing</h2>
+<p>To automate the testing of enterprise provisioning processes, use
+the Android for Work (AfW) Test Harness. For details, see
+<a href="{@docRoot}devices/tech/admin/testing-provision.html">Testing Device
+Provisioning</a>.</p>

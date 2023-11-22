@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Trūksta balso pašto numerio"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM kortelėje nėra išsaugoto balso pašto numerio."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Pridėti numerį"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Pakeisti numatytąją numerio rinkiklio programą?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Naudoti „<xliff:g id="NEW_APP">%1$s</xliff:g>“ vietoje „<xliff:g id="CURRENT_APP">%2$s</xliff:g>“ kaip numatytąją numerio rinkiklio programą?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Naudoti „<xliff:g id="NEW_APP">%s</xliff:g>“ kaip numatytąją numerio rinkiklio programą?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Nustatyti „<xliff:g id="NEW_APP">%s</xliff:g>“ kaip numatytąją telefono programą?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Nustatyti numatytuosius nustatymus"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Atšaukti"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"„<xliff:g id="NEW_APP">%s</xliff:g>“ galės atlikti ir valdyti įvairius skambučius. Tik patikimą programą turėtumėte nustatyti kaip numatytąją telefono programą."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Užblokuoti numeriai"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Negausite skambučių ar teksto pranešimų iš užblokuotų numerių."</string>
     <string name="block_number" msgid="1101252256321306179">"Pridėti numerį"</string>

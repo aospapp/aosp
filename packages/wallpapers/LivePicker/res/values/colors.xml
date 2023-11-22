@@ -20,5 +20,7 @@
 <resources>
     <color name="live_wallpaper_thumbnail_background">#CC666666</color>
     <color name="live_wallpaper_thumbnail_text_color">#FFFFFFFF</color>
+
+    <color name="translucent_black">#96000000</color>
 </resources>
 

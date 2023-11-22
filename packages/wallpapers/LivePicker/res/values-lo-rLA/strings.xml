@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"ກຳລັງໂຫລດພາບພື້ນຫຼັງແບບເຄື່ອນໄຫວ…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"ໜ້າຈໍຫຼັກ"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"ໜ້າຈໍຫຼັກ ແລະ ໜ້າຈໍລັອກ"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"ຫຍໍ້ແຖບຂໍ້ມູນຮູບພື້ນຫຼັງ"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"ຂະຫຍາຍແຖບຂໍ້ມູນຮູບພື້ນຫຼັງ"</string>
 </resources>

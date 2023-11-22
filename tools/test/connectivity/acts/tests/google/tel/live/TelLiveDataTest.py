@@ -90,7 +90,6 @@ from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
 from acts.test_utils.wifi.wifi_test_utils import WifiEnums
 from acts.utils import disable_doze
 from acts.utils import enable_doze
-from acts.utils import load_config
 from acts.utils import rand_ascii_str
 
 
@@ -1370,7 +1369,7 @@ class TelLiveDataTest(TelephonyBaseTest):
         if not WifiUtils.start_wifi_tethering(self.log, ad_host, ssid,
                                               password,
                                               WifiUtils.WIFI_CONFIG_APBAND_2G):
-            self.log.error("Provider start WiFi tethering failed.")
+            self.log.error("Start WiFi tethering failed.")
             result = False
         time.sleep(WAIT_TIME_ANDROID_STATE_SETTLING)
         if not ensure_wifi_connected(self.log, ad_client, ssid, password):
@@ -1381,7 +1380,7 @@ class TelLiveDataTest(TelephonyBaseTest):
                 ad_client.serial))
             result = False
         if not WifiUtils.stop_wifi_tethering(self.log, ad_host):
-            self.log.error("Provider strop WiFi tethering failed.")
+            self.log.error("Stop WiFi tethering failed.")
             result = False
         return result
 

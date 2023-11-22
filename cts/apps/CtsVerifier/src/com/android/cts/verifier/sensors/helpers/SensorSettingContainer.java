@@ -55,7 +55,7 @@ abstract class SensorSettingContainer {
     public synchronized void requestToSetMode(
             ISensorTestStateContainer stateContainer,
             boolean modeOn) throws InterruptedException {
-        if (!isSettingAvailable()) {
+        if (!isSettingAvailable() && !isSettingUiAvailable(stateContainer)) {
             return;
         }
         trySetMode(stateContainer, modeOn);
@@ -70,7 +70,7 @@ abstract class SensorSettingContainer {
 
     public synchronized void requestToResetMode(ISensorTestStateContainer stateContainer)
             throws InterruptedException {
-        if (!isSettingAvailable()) {
+        if (!isSettingAvailable() || !isSettingUiAvailable(stateContainer)) {
             return;
         }
         trySetMode(stateContainer, mCapturedModeOn);
@@ -99,12 +99,16 @@ abstract class SensorSettingContainer {
         return stateContainer.getString(mSettingNameResId);
     }
 
-    private boolean isSettingAvailable() {
+    protected boolean isSettingAvailable() {
         if (!mInitialized) {
             throw new IllegalStateException(
                     "Object must be initialized first by invoking #captureInitialState.");
         }
         return mSettingAvailable;
+    }
+
+    protected boolean isSettingUiAvailable(ISensorTestStateContainer stateContainer) {
+        return stateContainer.hasActivity(mAction);
     }
 
     protected abstract int getSettingMode(int defaultValue);

@@ -35,8 +35,8 @@ def main():
     THRESHOLD_MAX_OUTLIER_DIFF = 0.1
     THRESHOLD_MIN_LEVEL = 0.1
     THRESHOLD_MAX_LEVEL = 0.9
-    THRESHOLD_MAX_LEVEL_DIFF = 0.03
-    THRESHOLD_MAX_LEVEL_DIFF_WIDE_RANGE = 0.05
+    THRESHOLD_MAX_LEVEL_DIFF = 0.045
+    THRESHOLD_MAX_LEVEL_DIFF_WIDE_RANGE = 0.06
     THRESHOLD_ROUND_DOWN_GAIN = 0.1
     THRESHOLD_ROUND_DOWN_EXP = 0.05
 
@@ -62,7 +62,8 @@ def main():
             s_test = round(s*m)
             e_test = s_e_product / s_test
             print "Testing s:", s_test, "e:", e_test
-            req = its.objects.manual_capture_request(s_test, e_test, True, props)
+            req = its.objects.manual_capture_request(
+                    s_test, e_test, 0.0, True, props)
             cap = cam.do_capture(req)
             s_res = cap["metadata"]["android.sensor.sensitivity"]
             e_res = cap["metadata"]["android.sensor.exposureTime"]

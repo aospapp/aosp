@@ -16,8 +16,8 @@
  ***
  ****************************************************************************
  ****************************************************************************/
-#ifndef __LINUX_MSM_JPEG_H
-#define __LINUX_MSM_JPEG_H
+#ifndef __UAPI_LINUX_MSM_JPEG_H
+#define __UAPI_LINUX_MSM_JPEG_H
 #include <linux/types.h>
 #include <linux/ioctl.h>
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */

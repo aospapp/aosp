@@ -255,17 +255,19 @@ public class TelephonyManagerFacade extends RpcReceiver {
 
     @Rpc(description = "Turn on/off precise listening on fore/background or" +
                        " ringing calls for default voice subscription ID.")
-    public Boolean telephonyAdjustPreciseCallStateListenLevel(String type,
-                                                          Boolean listen) {
+    public Boolean telephonyAdjustPreciseCallStateListenLevel(
+            @RpcParameter(name = "type") String type,
+            @RpcParameter(name = "listen") Boolean listen) {
         return telephonyAdjustPreciseCallStateListenLevelForSubscription(type, listen,
                                  SubscriptionManager.getDefaultVoiceSubscriptionId());
     }
 
     @Rpc(description = "Turn on/off precise listening on fore/background or" +
                        " ringing calls for specified subscription ID.")
-    public Boolean telephonyAdjustPreciseCallStateListenLevelForSubscription(String type,
-                   Boolean listen,
-                   @RpcParameter(name = "subId") Integer subId) {
+    public Boolean telephonyAdjustPreciseCallStateListenLevelForSubscription(
+            @RpcParameter(name = "type") String type,
+            @RpcParameter(name = "listen") Boolean listen,
+            @RpcParameter(name = "subId") Integer subId) {
         StateChangeListener listener = getStateChangeListenerForSubscription(subId, true);
         if(listener == null) {
             Log.e("Invalid subscription ID");
@@ -1050,7 +1052,8 @@ public class TelephonyManagerFacade extends RpcReceiver {
     }
 
     @Rpc(description = "Enables or Disables Video Calling()")
-    public void telephonyEnableVideoCalling(boolean enable) {
+    public void telephonyEnableVideoCalling(
+            @RpcParameter(name = "enable") boolean enable) {
         mTelephonyManager.enableVideoCalling(enable);
     }
 

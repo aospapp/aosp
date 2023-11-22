@@ -42,14 +42,19 @@ private:
     static RSSIMonitorCommand *mRSSIMonitorCommandInstance;
     wifi_rssi_event_handler mHandler;
     RSSIMonitorCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
+    bool mEventHandlingEnabled;
+    /* mutex for the mEventHandlingEnabled access*/
+    pthread_mutex_t rm_lock;
 
 public:
     virtual ~RSSIMonitorCommand();
     static RSSIMonitorCommand* instance(wifi_handle handle, wifi_request_id id);
-    virtual int setCallbackHandler(wifi_rssi_event_handler nHandler, u32 event);
     virtual int handleEvent(WifiEvent &event);
-    virtual wifi_error unregisterHandler(u32 subCmd);
     virtual void setReqId(wifi_request_id reqid);
+    virtual void setCallbackHandler(wifi_rssi_event_handler nHandler);
+    void enableEventHandling();
+    void disableEventHandling();
+    bool isEventHandlingEnabled();
 };
 
 #ifdef __cplusplus

@@ -20,21 +20,17 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.os.UserHandle;
+import android.content.SharedPreferences.Editor;
 import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.Telephony;
-import android.telephony.CellBroadcastMessage;
 import android.telephony.ServiceState;
-import android.telephony.SubscriptionManager;
-import android.telephony.TelephonyManager;
 import android.telephony.cdma.CdmaSmsCbProgramData;
 import android.util.Log;
 
-import com.android.internal.telephony.cdma.sms.SmsEnvelope;
+import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.TelephonyIntents;
+import com.android.internal.telephony.cdma.sms.SmsEnvelope;
 
 public class CellBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "CellBroadcastReceiver";
@@ -43,6 +39,9 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
 
     public static final String CELLBROADCAST_START_CONFIG_ACTION =
             "android.cellbroadcastreceiver.START_CONFIG";
+
+    // Key to access the stored reminder interval default value
+    private static final String CURRENT_INTERVAL_DEFAULT = "current_interval_default";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -106,8 +105,40 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
             } else {
                 loge("ignoring unprivileged action received " + action);
             }
+        } else if (TelephonyIntents.ACTION_SIM_STATE_CHANGED.equals(action)) {
+            String simState = intent.getStringExtra(IccCardConstants.INTENT_KEY_ICC_STATE);
+            // Whenever sim is loaded, we need to adjust the emergency alert
+            // reminder interval list because it might change since different
+            // countries/carriers might have different interval settings.
+            if (simState.equals(IccCardConstants.INTENT_VALUE_ICC_LOADED)) {
+                adjustReminderInterval(context.getApplicationContext());
+            }
         } else {
             Log.w(TAG, "onReceive() unexpected action " + action);
+        }
+    }
+
+    private void adjustReminderInterval(Context context) {
+
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
+        String currentIntervalDefault = sp.getString(CURRENT_INTERVAL_DEFAULT, "0");
+
+        // If interval default changes, reset the interval to the new default value.
+        String newIntervalDefault = context.getResources().getString(
+                R.string.alert_reminder_interval_default_value);
+        if (!newIntervalDefault.equals(currentIntervalDefault)) {
+            Log.d(TAG, "Default interval changed from " + currentIntervalDefault + " to " +
+                    newIntervalDefault);
+
+            Editor editor = sp.edit();
+            // Reset the value to default.
+            editor.putString(
+                    CellBroadcastSettings.KEY_ALERT_REMINDER_INTERVAL, newIntervalDefault);
+            // Save the new default value.
+            editor.putString(CURRENT_INTERVAL_DEFAULT, newIntervalDefault);
+            editor.commit();
+        } else {
+            if (DBG) Log.d(TAG, "Default interval " + currentIntervalDefault + " did not change.");
         }
     }
 
@@ -188,24 +219,6 @@ public class CellBroadcastReceiver extends BroadcastReceiver {
                 null, context, CellBroadcastConfigService.class);
         Log.d(TAG, "Start Cell Broadcast configuration.");
         context.startService(serviceIntent);
-    }
-
-    /**
-     * @return true if the phone is a CDMA phone type
-     */
-    static boolean phoneIsCdma() {
-        boolean isCdma = false;
-
-        int subId = SubscriptionManager.getDefaultSmsSubscriptionId();
-        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
-            subId = SubscriptionManager.getDefaultSubscriptionId();
-        }
-
-        TelephonyManager tm = TelephonyManager.getDefault();
-        if (tm != null) {
-            isCdma = (tm.getCurrentPhoneType(subId) == TelephonyManager.PHONE_TYPE_CDMA);
-        }
-        return isCdma;
     }
 
     private static void log(String msg) {

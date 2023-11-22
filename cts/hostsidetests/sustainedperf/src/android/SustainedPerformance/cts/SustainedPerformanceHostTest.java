@@ -60,9 +60,11 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
     public class Dhrystone implements Runnable {
         private boolean modeEnabled;
         private long startTime;
-        private long loopCount = 3000000;
+        private long loopCount = 300000000;
+        private long cpumask = 1;
 
-        public Dhrystone(boolean enabled) {
+        public Dhrystone(boolean enabled, long cm) {
+            cpumask = cm;
             modeEnabled = enabled;
             startTime = System.currentTimeMillis();
         }
@@ -73,7 +75,8 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
             try {
                 device.executeShellCommand("cd " + DHRYSTONE + " ; chmod 777 dhry");
                 while (true) {
-                    String result = device.executeShellCommand("echo " + loopCount + " | " + DHRYSTONE + "dhry");
+                    String result = device.executeShellCommand("echo " + loopCount
+                          + " | taskset -a " + cpumask + " " + DHRYSTONE + "dhry");
                     if (Math.abs(System.currentTimeMillis() - startTime) >= testDuration) {
                         break;
                     } else if (result.contains("Measured time too small")) {
@@ -191,7 +194,6 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
         appResultsWithMode.clear();
         dhrystoneResultsWithoutMode.clear();
         dhrystoneResultsWithMode.clear();
-
         /*
          * Run the test without the mode.
          * Start the application and collect stats.
@@ -199,8 +201,8 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
          */
         setUpEnvironment();
         device.executeShellCommand(START_COMMAND);
-        Thread dhrystone = new Thread(new Dhrystone(false));
-        Thread dhrystone1 = new Thread(new Dhrystone(false));
+        Thread dhrystone = new Thread(new Dhrystone(false, 1));
+        Thread dhrystone1 = new Thread(new Dhrystone(false, 2));
         dhrystone.start();
         dhrystone1.start();
         Thread.sleep(testDuration);
@@ -213,7 +215,6 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
         dhrystoneResultsWithoutMode.add(0, dhryMin);
         dhrystoneResultsWithoutMode.add(1, dhryMax);
         dhrystoneResultsWithoutMode.add(2, diff);
-
         /*
          * Run the test with the mode.
          * Start the application and collect stats.
@@ -221,8 +222,8 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
          */
         setUpEnvironment();
         device.executeShellCommand(START_COMMAND_MODE);
-        dhrystone = new Thread(new Dhrystone(true));
-        dhrystone1 = new Thread(new Dhrystone(true));
+        dhrystone = new Thread(new Dhrystone(true, 1));
+        dhrystone1 = new Thread(new Dhrystone(true, 2));
         dhrystone.start();
         dhrystone1.start();
         Thread.sleep(testDuration);

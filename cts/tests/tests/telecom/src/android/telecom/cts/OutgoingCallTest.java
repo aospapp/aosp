@@ -72,6 +72,10 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
         extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, false);
         placeAndVerifyCall(extras);
         verifyConnectionForOutgoingCall();
+        if (mInCallCallbacks.getService().getCallAudioState().getSupportedRouteMask() ==
+                CallAudioState.ROUTE_SPEAKER) {
+            return; // Do not verify if the only available route is speaker.
+        }
         assertNotAudioRoute(mInCallCallbacks.getService(), CallAudioState.ROUTE_SPEAKER);
     }
 
@@ -84,6 +88,10 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
 
         placeAndVerifyCall();
         verifyConnectionForOutgoingCall();
+        if (mInCallCallbacks.getService().getCallAudioState().getSupportedRouteMask() ==
+                CallAudioState.ROUTE_SPEAKER) {
+            return; // Do not verify if the only available route is speaker.
+        }
         assertNotAudioRoute(mInCallCallbacks.getService(), CallAudioState.ROUTE_SPEAKER);
     }
 }

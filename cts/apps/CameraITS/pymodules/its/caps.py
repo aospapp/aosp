@@ -47,7 +47,7 @@ def full_or_better(props):
     """
     return props.has_key("android.info.supportedHardwareLevel") and \
             props["android.info.supportedHardwareLevel"] != 2 and \
-            props["android.info.supportedHardwareLevel"] > 1
+            props["android.info.supportedHardwareLevel"] >= 1
 
 def level3(props):
     """Returns whether a device is a LEVEL3 capability camera2 device.

@@ -45,6 +45,9 @@ public class SoundSettingsTest extends InstrumentationTestCase {
 
     @Override
     public void tearDown() throws Exception {
+        mDevice.pressBack();
+        mDevice.pressHome();
+        mDevice.waitForIdle();
         mDevice.unfreezeRotation();
         super.tearDown();
     }
@@ -185,7 +188,14 @@ public class SoundSettingsTest extends InstrumentationTestCase {
     public void testPhoneRingtoneUmbriel() throws Exception {
         SettingsHelper.launchSettingsPage(getInstrumentation().getContext(), PAGE);
         mHelper.clickSetting("Phone ringtone");
-        verifyRingtone(new RingtoneSetting("Umbriel", "49"),
+        String ringtone = "Umbriel";
+        String ringtoneSettingValue = "49";
+        if (mDevice.getProductName().equals("marlin")
+                || mDevice.getProductName().equals("sailfish")) {
+            ringtone = "Spaceship";
+            ringtoneSettingValue = "32";
+        }
+        verifyRingtone(new RingtoneSetting(ringtone, ringtoneSettingValue),
                 Settings.System.RINGTONE, ScrollDir.DOWN);
     }
 
@@ -210,7 +220,14 @@ public class SoundSettingsTest extends InstrumentationTestCase {
     public void testNotificationRingtoneTitan() throws Exception {
         SettingsHelper.launchSettingsPage(getInstrumentation().getContext(), PAGE);
         mHelper.clickSetting("Default notification ringtone");
-        verifyRingtone(new RingtoneSetting("Titan", "35"),
+        String notificationRingtone = "Titan";
+        String notificationSettingValue = "35";
+        if (mDevice.getProductName().equals("marlin")
+                || mDevice.getProductName().equals("sailfish")) {
+            notificationRingtone = "Trill";
+            notificationSettingValue = "24";
+        }
+        verifyRingtone(new RingtoneSetting(notificationRingtone, notificationSettingValue),
                 Settings.System.NOTIFICATION_SOUND, ScrollDir.DOWN);
     }
 
@@ -226,7 +243,14 @@ public class SoundSettingsTest extends InstrumentationTestCase {
     public void testAlarmRingtoneXenon() throws Exception {
         SettingsHelper.launchSettingsPage(getInstrumentation().getContext(), PAGE);
         mHelper.clickSetting("Default alarm ringtone");
-        verifyRingtone(new RingtoneSetting("Xenon", "22"),
+        String alarmRingtone = "Xenon";
+        String alarmSettingValue = "22";
+        if (mDevice.getProductName().equals("marlin")
+                || mDevice.getProductName().equals("sailfish")) {
+            alarmRingtone = "Wag";
+            alarmSettingValue = "15";
+        }
+        verifyRingtone(new RingtoneSetting(alarmRingtone, alarmSettingValue),
                 Settings.System.ALARM_ALERT, ScrollDir.DOWN);
     }
 
@@ -234,6 +258,19 @@ public class SoundSettingsTest extends InstrumentationTestCase {
         verifyRingtone(r, settingName, ScrollDir.NOSCROLL);
     }
 
+    /*
+     * This method verifies that setting a custom ringtone changes the
+     * ringtone code setting on the system. Each ringtone sound corresponds
+     * to an arbitrary code. To see which ringtone code this is on your device, run
+     * adb shell settings get system ringtone
+     * The number you see at the end of the file path is the one you need.
+     * To see alarms and notifications ringtone codes, run the following:
+     * adb shell settings get system alarm_alert
+     * adb shell settings get system notification_sound
+     * @param r Ringtone setting - the name of the ringtone as displayed on device
+     * @param settingName - the code of the ringtone as explained above
+     * @param dir - the direction in which to scroll
+     */
     private void verifyRingtone(RingtoneSetting r, String settingName, ScrollDir dir) {
         if (dir != ScrollDir.NOSCROLL) {
             mHelper.scrollVert(dir == ScrollDir.UP);

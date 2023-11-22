@@ -119,9 +119,16 @@
     <string name="incall_error_missing_voicemail_number">Voicemail number unknown.</string>
     <!-- In-call screen: call failed because you cannot make video calls when TTY is enabled. -->
     <string name="callFailed_video_call_tty_enabled">Cannot make video calls when TTY is enabled.</string>
+    <!-- In-call screen: call ended because it was transferred to another device. -->
+    <string name="callEnded_pulled">Call transferred to another device.</string>
     <!-- Choice in the ringtone picker.  If chosen, there will be silence instead of a ringtone played. -->
     <string name="ringtone_silent">None</string>
     <!-- If there is ever a ringtone set for some setting, but that ringtone can no longer be resolved, this is shown instead.  For example, if the ringtone was on a SD card and it had been removed, this would be shown for ringtones on that SD card. -->
     <string name="ringtone_unknown">Unknown ringtone</string>
-
+    <!-- In-call screen: call ended because the user has reached the maximum number of calls on their current devices and other devices. -->
+    <string name="callFailed_maximum_reached">All available lines are in use.  To make a call, disconnect one of the calls on this device, or on one of your other devices.</string>
+    <!-- In-call screen: call ended because the user disabled data on their device -->
+    <string name="callFailed_data_disabled">Call ended because cellular data was disabled.</string>
+    <!-- In-call screen: call ended because the cellular data limit has been reached -->
+    <string name="callFailed_data_limit_reached">Call ended because the cellular data limit has been reached.</string>
 </resources>

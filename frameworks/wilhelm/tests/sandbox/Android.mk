@@ -71,7 +71,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_SHARED_LIBRARIES := \
 	liblog \
-	libOpenSLES
+	libOpenSLES \
+	libOpenMAXAL
 
 LOCAL_STATIC_LIBRARIES := \
     libOpenSLESUT \
@@ -103,7 +104,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_SHARED_LIBRARIES := \
 	liblog \
-	libOpenSLES
+	libOpenSLES \
+	libOpenMAXAL
 
 LOCAL_STATIC_LIBRARIES := \
     libOpenSLESUT \
@@ -224,7 +226,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_SHARED_LIBRARIES := \
 	liblog \
-	libOpenSLES
+	libOpenSLES \
+	libOpenMAXAL
 
 LOCAL_STATIC_LIBRARIES := \
     libOpenSLESUT \
@@ -255,7 +258,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_SHARED_LIBRARIES := \
 	liblog \
-	libOpenSLES
+	libOpenSLES \
+	libOpenMAXAL
 
 LOCAL_STATIC_LIBRARIES := \
     libOpenSLESUT \
@@ -286,7 +290,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_SHARED_LIBRARIES := \
 	liblog \
-	libOpenSLES
+	libOpenSLES \
+	libOpenMAXAL
 
 LOCAL_STATIC_LIBRARIES := \
     libOpenSLESUT \
@@ -317,7 +322,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_SHARED_LIBRARIES := \
 	liblog \
-	libOpenSLES
+	libOpenSLES \
+	libOpenMAXAL
 
 LOCAL_STATIC_LIBRARIES := \
     libOpenSLESUT \
@@ -351,7 +357,8 @@ LOCAL_SHARED_LIBRARIES := \
 	libaudioutils \
 	libnbaio \
 	liblog \
-	libOpenSLES
+	libOpenSLES \
+	libOpenMAXAL
 
 LOCAL_STATIC_LIBRARIES := \
     libOpenSLESUT \
@@ -383,7 +390,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_SHARED_LIBRARIES := \
 	liblog \
-	libOpenSLES
+	libOpenSLES \
+	libOpenMAXAL
 
 LOCAL_STATIC_LIBRARIES := \
     libOpenSLESUT \
@@ -493,6 +501,6 @@ endif
 
 LOCAL_CFLAGS += -UNDEBUG -Wall -Wextra -Werror
 
-LOCAL_MODULE:= xaplay
+LOCAL_MODULE:= slesTest_xaplay
 
 include $(BUILD_EXECUTABLE)

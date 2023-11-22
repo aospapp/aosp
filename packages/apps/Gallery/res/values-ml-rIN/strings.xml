@@ -141,7 +141,7 @@
     <string name="setImage" msgid="7246975856983303047">"ഇതായി ചിത്രം സജ്ജീകരിക്കുക"</string>
     <string name="sendVideo" msgid="3598567735831863073">"ഇതുവഴി വീഡിയോ പങ്കിടുക"</string>
     <string name="send_media_files" msgid="8201083279723850611">"ഇതുവഴി മീഡിയ ഫയലുകൾ പങ്കിടുക"</string>
-    <string name="movieviewlabel" msgid="7363495772706775465">"മൂവികൾ"</string>
+    <string name="movieviewlabel" msgid="7363495772706775465">"സിനിമകൾ"</string>
     <string name="loading_video" msgid="4013492720121891585">"വീഡിയോ ലോഡുചെയ്യുന്നു…"</string>
     <string name="resume_playing_title" msgid="8996677350649355013">"വീഡിയോ പുനരാരംഭിക്കുക"</string>
     <string name="resume_playing_message" msgid="8480340146814638566">"<xliff:g id="DURATION">%s</xliff:g> മുതൽ വീഡിയോ പ്ലേ ചെയ്യുന്നത് പുനരാരംഭിക്കണോ?"</string>

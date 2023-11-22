@@ -20,6 +20,7 @@
 #include <gui/BufferItem.h>
 #include <gui/BufferQueueDefs.h>
 #include <gui/BufferSlot.h>
+#include <gui/OccupancyTracker.h>
 
 #include <utils/Condition.h>
 #include <utils/Mutex.h>
@@ -123,6 +124,11 @@ private:
     // freeAllBuffersLocked frees the GraphicBuffer and sync resources for
     // all slots, even if they're currently dequeued, queued, or acquired.
     void freeAllBuffersLocked();
+
+    // discardFreeBuffersLocked releases all currently-free buffers held by the
+    // queue, in order to reduce the memory consumption of the queue to the
+    // minimum possible without discarding data.
+    void discardFreeBuffersLocked();
 
     // If delta is positive, makes more slots available. If negative, takes
     // away slots. Returns false if the request can't be met.
@@ -321,6 +327,8 @@ private:
 
     // The slot of the last queued buffer
     int mLastQueuedSlot;
+
+    OccupancyTracker mOccupancyTracker;
 
     const uint64_t mUniqueId;
 

@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Talhólfsnúmer vantar"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Ekkert talhólfsnúmer er vistað á SIM-kortinu."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Bæta númeri við"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Viltu skipta um sjálfgefið hringiforrit?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Nota <xliff:g id="NEW_APP">%1$s</xliff:g> í stað <xliff:g id="CURRENT_APP">%2$s</xliff:g> sem sjálfgefið hringiforrit?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Nota <xliff:g id="NEW_APP">%s</xliff:g> sem sjálfgefið hringiforrit?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Gera <xliff:g id="NEW_APP">%s</xliff:g> að sjálfgefnu símaforriti?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Velja sem sjálfgefið"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Hætta við"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> getur framkvæmt og stjórnað öllu sem tengist símtölum. Einungis forrit sem þú treystir ættu að vera stillt sem sjálfgefið símaforrit."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Númer á bannlista"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Þú færð ekki símtöl eða skilaboð frá númerum á bannlista."</string>
     <string name="block_number" msgid="1101252256321306179">"Bæta við númeri"</string>

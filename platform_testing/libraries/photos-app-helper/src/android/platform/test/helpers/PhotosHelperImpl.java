@@ -437,7 +437,7 @@ public class PhotosHelperImpl extends AbstractPhotosHelper {
     }
 
     private boolean isOnMainScreen() {
-        return mDevice.hasObject(By.descContains("Photos, selected"));
+        return mDevice.hasObject(By.descContains("Show Navigation Drawer"));
     }
 
     /**

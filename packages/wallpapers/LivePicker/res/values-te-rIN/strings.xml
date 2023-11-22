@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"ప్రదర్శిత వాల్‌పేపర్‌ను లోడ్ చేస్తోంది…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"హోమ్ స్క్రీన్"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"హోమ్ స్క్రీన్ మరియు లాక్ స్క్రీన్"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"వాల్‌పేపర్ సమాచార ప్యానెల్‌ను కుదిస్తుంది"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"వాల్‌పేపర్ సమాచార ప్యానెల్‌ను విస్తరింపజేస్తుంది"</string>
 </resources>

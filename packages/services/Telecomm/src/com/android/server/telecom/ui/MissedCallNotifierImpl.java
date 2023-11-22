@@ -34,6 +34,7 @@ import com.android.server.telecom.ContactsAsyncHelper;
 import com.android.server.telecom.Log;
 import com.android.server.telecom.MissedCallNotifier;
 import com.android.server.telecom.PhoneAccountRegistrar;
+import com.android.server.telecom.PhoneNumberUtilsAdapter;
 import com.android.server.telecom.R;
 import com.android.server.telecom.Runnable;
 import com.android.server.telecom.TelecomBroadcastIntentProcessor;
@@ -93,7 +94,8 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
 
     public interface MissedCallNotifierImplFactory {
         MissedCallNotifier makeMissedCallNotifierImpl(Context context,
-                PhoneAccountRegistrar phoneAccountRegistrar);
+                PhoneAccountRegistrar phoneAccountRegistrar,
+                PhoneNumberUtilsAdapter phoneNumberUtilsAdapter);
     }
 
     public interface NotificationBuilderFactory {
@@ -132,20 +134,25 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
     private final NotificationManager mNotificationManager;
     private final NotificationBuilderFactory mNotificationBuilderFactory;
     private final ComponentName mNotificationComponent;
+    private final PhoneNumberUtilsAdapter mPhoneNumberUtilsAdapter;
     private UserHandle mCurrentUserHandle;
 
     // Used to track the number of missed calls.
     private ConcurrentMap<UserHandle, AtomicInteger> mMissedCallCounts;
 
-    public MissedCallNotifierImpl(Context context, PhoneAccountRegistrar phoneAccountRegistrar) {
-        this(context, phoneAccountRegistrar, new DefaultNotificationBuilderFactory());
+    public MissedCallNotifierImpl(Context context, PhoneAccountRegistrar phoneAccountRegistrar,
+            PhoneNumberUtilsAdapter phoneNumberUtilsAdapter) {
+        this(context, phoneAccountRegistrar, phoneNumberUtilsAdapter,
+                new DefaultNotificationBuilderFactory());
     }
 
     public MissedCallNotifierImpl(Context context,
             PhoneAccountRegistrar phoneAccountRegistrar,
+            PhoneNumberUtilsAdapter phoneNumberUtilsAdapter,
             NotificationBuilderFactory notificationBuilderFactory) {
         mContext = context;
         mPhoneAccountRegistrar = phoneAccountRegistrar;
+        mPhoneNumberUtilsAdapter = phoneNumberUtilsAdapter;
         mNotificationManager =
                 (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
         final String notificationComponent = context.getString(R.string.notification_component);
@@ -168,7 +175,7 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
     }
 
     private void markMissedCallsAsRead(final UserHandle userHandle) {
-        AsyncTask.execute(new Runnable("MCNI.mMCAR") {
+        AsyncTask.execute(new Runnable("MCNI.mMCAR", null /*lock*/) {
             @Override
             public void loggedRun() {
                 // Clear the list of new missed calls from the call log.
@@ -600,8 +607,9 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
                                 // Convert the data to a call object
                                 Call call = new Call(Call.CALL_ID_UNKNOWN, mContext, callsManager,
                                         lock, null, contactsAsyncHelper,
-                                        callerInfoAsyncQueryFactory, null, null, null, null,
-                                        Call.CALL_DIRECTION_INCOMING, false, false);
+                                        callerInfoAsyncQueryFactory, mPhoneNumberUtilsAdapter, null,
+                                        null, null, null, Call.CALL_DIRECTION_INCOMING, false,
+                                        false);
                                 call.setDisconnectCause(
                                         new DisconnectCause(DisconnectCause.MISSED));
                                 call.setState(CallState.DISCONNECTED, "throw away call");

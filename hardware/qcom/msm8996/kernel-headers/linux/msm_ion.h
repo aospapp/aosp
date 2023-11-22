@@ -88,47 +88,57 @@ enum cp_mem_usage {
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define ION_FLAG_FORCE_CONTIGUOUS (1 << 30)
 #define ION_FLAG_POOL_FORCE_ALLOC (1 << 16)
+#define ION_FLAG_POOL_PREFETCH (1 << 27)
 #define ION_SECURE ION_FLAG_SECURE
-#define ION_FORCE_CONTIGUOUS ION_FLAG_FORCE_CONTIGUOUS
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define ION_FORCE_CONTIGUOUS ION_FLAG_FORCE_CONTIGUOUS
 #define ION_HEAP(bit) (1 << (bit))
 #define ION_ADSP_HEAP_NAME "adsp"
 #define ION_SYSTEM_HEAP_NAME "system"
-#define ION_VMALLOC_HEAP_NAME ION_SYSTEM_HEAP_NAME
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define ION_VMALLOC_HEAP_NAME ION_SYSTEM_HEAP_NAME
 #define ION_KMALLOC_HEAP_NAME "kmalloc"
 #define ION_AUDIO_HEAP_NAME "audio"
 #define ION_SF_HEAP_NAME "sf"
-#define ION_MM_HEAP_NAME "mm"
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define ION_MM_HEAP_NAME "mm"
 #define ION_CAMERA_HEAP_NAME "camera_preview"
 #define ION_IOMMU_HEAP_NAME "iommu"
 #define ION_MFC_HEAP_NAME "mfc"
-#define ION_WB_HEAP_NAME "wb"
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define ION_WB_HEAP_NAME "wb"
 #define ION_MM_FIRMWARE_HEAP_NAME "mm_fw"
 #define ION_PIL1_HEAP_NAME "pil_1"
 #define ION_PIL2_HEAP_NAME "pil_2"
-#define ION_QSECOM_HEAP_NAME "qsecom"
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define ION_QSECOM_HEAP_NAME "qsecom"
 #define ION_SECURE_HEAP_NAME "secure_heap"
 #define ION_SECURE_DISPLAY_HEAP_NAME "secure_display"
 #define ION_SET_CACHED(__cache) (__cache | ION_FLAG_CACHED)
-#define ION_SET_UNCACHED(__cache) (__cache & ~ION_FLAG_CACHED)
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define ION_SET_UNCACHED(__cache) (__cache & ~ION_FLAG_CACHED)
 #define ION_IS_CACHED(__flags) ((__flags) & ION_FLAG_CACHED)
 struct ion_flush_data {
   ion_user_handle_t handle;
-  int fd;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  int fd;
   void * vaddr;
   unsigned int offset;
   unsigned int length;
-};
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+};
+struct ion_prefetch_regions {
+  unsigned int vmid;
+  size_t __user * sizes;
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  unsigned int nr_sizes;
+};
 struct ion_prefetch_data {
   int heap_id;
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
   unsigned long len;
+  struct ion_prefetch_regions __user * regions;
+  unsigned int nr_regions;
 };
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define ION_IOC_MSM_MAGIC 'M'

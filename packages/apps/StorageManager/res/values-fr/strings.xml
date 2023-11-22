@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2016 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_name" msgid="963247385700831716">"Gestionnaire d\'espace de stockage"</string>
+    <string name="cancel" msgid="7021218262867558825">"Annuler"</string>
+    <string name="storage_menu_free" msgid="1878247401436882778">"Libérer de l\'espace"</string>
+    <string name="deletion_helper_title" msgid="7928959984891140427">"Choisir contenus à suppr."</string>
+    <string name="deletion_helper_app_summary" msgid="1923023368736447552">"<xliff:g id="USED">%1$s</xliff:g> • Il y a <xliff:g id="DAYS">%2$d</xliff:g> jours"</string>
+    <string name="deletion_helper_app_summary_never_used" msgid="7461207117653761032">"<xliff:g id="USED">%1$s</xliff:g> • Jamais utilisée"</string>
+    <string name="deletion_helper_app_summary_unknown_used" msgid="257918462233851162">"<xliff:g id="USED">%1$s</xliff:g> • Date de la dernière utilisation inconnue"</string>
+    <string name="deletion_helper_free_button" msgid="1760529213407548661">"Libérer <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
+    <string name="deletion_helper_photos_title" msgid="8694284659307845664">"Photos et vidéos (<xliff:g id="NUM_ITEMS">%1$d</xliff:g>)"</string>
+    <string name="deletion_helper_photos_summary" msgid="2636724338009030470">"<xliff:g id="USED">%1$s</xliff:g> • Datant de plus de <xliff:g id="DAYS">%2$d</xliff:g> jours"</string>
+    <string name="deletion_helper_downloads_title" msgid="2976599380628177756">"Téléchargements (<xliff:g id="NUMITEMS">%1$d</xliff:g>)"</string>
+    <!-- no translation found for deletion_helper_downloads_category_summary (8545989355108311347) -->
+    <skip />
+    <string name="deletion_helper_downloads_file_summary" msgid="2610952169093565355">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$s</xliff:g>"</string>
+    <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
+    <skip />
+    <string name="deletion_helper_clear_dialog_message" msgid="921129346098616363">"Vous allez supprimer <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> de données sur votre appareil."</string>
+    <string name="deletion_helper_clear_dialog_remove" msgid="3386502418767917932">"Supprimer"</string>
+    <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Gérer l\'espace de stockage automatiquement ?"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"Vous venez de libérer <xliff:g id="USED">%1$s</xliff:g>. Souhaitez-vous autoriser le gestionnaire d\'espace de stockage à libérer automatiquement de l\'espace en supprimant le contenu sauvegardé sur votre appareil ?"</string>
+    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Non, merci"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Activer"</string>
+    <string name="deletion_helper_apps_group_title" msgid="6554321362396920050">"Applications (<xliff:g id="NUM_ITEMS">%1$d</xliff:g>)"</string>
+    <string name="deletion_helper_apps_group_summary" msgid="3466154404460006085">"<xliff:g id="USED">%1$s</xliff:g> • Dernière utilisation il y a <xliff:g id="DAYS">%2$d</xliff:g> jours"</string>
+    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"Automatique"</string>
+    <string name="deletion_helper_manual_title" msgid="3905192395039688529">"Mode manuel"</string>
+    <string name="deletion_helper_preference_title" msgid="803484286872745892">"Libérer de l\'espace"</string>
+    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"Gestion auto de l\'espace de stockage"</string>
+    <string name="automatic_storage_manager_notification_title" msgid="8480483265300964701">"Votre téléphone est à court d\'espace"</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Autorisez le gestionnaire d\'espace de stockage à libérer de l\'espace en supprimant automatiquement les photos et vidéos les plus anciennes, lorsque votre téléphone commence à être de nouveau saturé."</string>
+    <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"Non, merci"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Activer"</string>
+    <string name="deletion_helper_photos_loading_title" msgid="5411813715495227745">"Photos et vidéos"</string>
+    <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Recherche de contenus…"</string>
+</resources>

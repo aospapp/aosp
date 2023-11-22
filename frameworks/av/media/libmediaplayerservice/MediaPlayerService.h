@@ -135,6 +135,7 @@ class MediaPlayerService : public BnMediaPlayerService
                 int event, void *me, void *info);
                void             deleteRecycledTrack_l();
                void             close_l();
+           status_t             updateTrack();
 
         sp<AudioTrack>          mTrack;
         sp<AudioTrack>          mRecycledTrack;
@@ -226,6 +227,7 @@ public:
     virtual status_t            dump(int fd, const Vector<String16>& args);
 
             void                removeClient(wp<Client> client);
+            bool                hasClient(wp<Client> client);
 
     enum {
         MEDIASERVER_PROCESS_DEATH = 0,

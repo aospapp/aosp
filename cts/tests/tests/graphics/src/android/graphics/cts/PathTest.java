@@ -404,6 +404,24 @@ public class PathTest extends TestCase {
         assertFalse(path.isEmpty());
     }
 
+    public void testOffsetTextPath() {
+        Paint paint = new Paint();
+        Path path = new Path();
+        paint.setTextSize(20);
+        String text = "abc";
+        paint.getTextPath(text, 0, text.length() - 1, 0, 0, path);
+        RectF expectedRect = new RectF();
+        path.computeBounds(expectedRect, false);
+        assertFalse(expectedRect.isEmpty());
+        int offset = 10;
+        expectedRect.offset(offset, offset);
+
+        path.offset(offset, offset);
+        RectF offsettedRect = new RectF();
+        path.computeBounds(offsettedRect, false);
+        assertEquals(expectedRect, offsettedRect);
+    }
+
     private static void assertPathsAreEquivalent(Path actual, Path expected) {
         Bitmap actualBitmap = drawAndGetBitmap(actual);
         Bitmap expectedBitmap = drawAndGetBitmap(expected);

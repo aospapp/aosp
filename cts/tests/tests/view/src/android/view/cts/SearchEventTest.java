@@ -33,11 +33,25 @@ public class SearchEventTest extends ActivityInstrumentationTestCase2<SearchEven
         super(SearchEventActivity.class);
     }
 
+    // Wait until mActivity has window focus, or timeout ms elapses.  Return true
+    // iff mActivity gained window focus.
+    private boolean waitForActivityToHaveFocus(long timeout) {
+        long start = System.currentTimeMillis();
+        long cur = System.currentTimeMillis();
+        try {
+            while (!mActivity.hasWindowFocus() && (cur - start) < timeout) {
+                Thread.sleep(50);
+            }
+        } catch (InterruptedException x) {}
+        return mActivity.hasWindowFocus();
+    }
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mInstrumentation = getInstrumentation();
         mActivity = getActivity();
+        assertTrue(waitForActivityToHaveFocus(5000 /* ms = 5s */));
     }
 
     public void testTest() throws Exception {

@@ -11,6 +11,7 @@ LOCAL_SRC_FILES := \
         util/QCameraFlash.cpp \
         util/QCameraPerf.cpp \
         util/QCameraQueue.cpp \
+        util/QCameraCommon.cpp \
         QCamera2Hal.cpp \
         QCamera2Factory.cpp
 
@@ -50,6 +51,11 @@ ifeq ($(TARGET_USES_AOSP),true)
 LOCAL_CFLAGS += -DVANILLA_HAL
 endif
 
+#use media extension
+ifeq ($(TARGET_USES_MEDIA_EXTENSIONS), true)
+LOCAL_CFLAGS += -DUSE_MEDIA_EXTENSIONS
+endif
+
 #HAL 1.0 Flags
 LOCAL_CFLAGS += -DDEFAULT_DENOISE_MODE_ON -DHAL3 -DQCAMERA_REDEFINE_LOG
 
@@ -60,6 +66,7 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/stack/common \
         $(LOCAL_PATH)/stack/mm-camera-interface/inc \
         $(LOCAL_PATH)/util \
+        $(LOCAL_PATH)/HAL3 \
         hardware/libhardware/include/hardware \
         hardware/qcom/media/msm8996/libstagefrighthw \
         $(TARGET_OUT_HEADERS)/mm-core/omxcore \
@@ -95,6 +102,7 @@ LOCAL_C_INCLUDES += \
 LOCAL_SHARED_LIBRARIES := libcamera_client liblog libhardware libutils libcutils libdl libsync libgui
 LOCAL_SHARED_LIBRARIES += libmmcamera_interface libmmjpeg_interface libui libcamera_metadata
 LOCAL_SHARED_LIBRARIES += libqdMetaData libqservice libbinder
+LOCAL_SHARED_LIBRARIES += libcutils libdl
 ifeq ($(TARGET_TS_MAKEUP),true)
 LOCAL_SHARED_LIBRARIES += libts_face_beautify_hal libts_detected_face_hal
 endif
@@ -107,5 +115,4 @@ LOCAL_32_BIT_ONLY := $(BOARD_QTI_CAMERA_32BIT_ONLY)
 include $(BUILD_SHARED_LIBRARY)
 
 include $(call first-makefiles-under,$(LOCAL_PATH))
-
 endif

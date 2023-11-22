@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"음성사서함 번호 없음"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM 카드에 저장된 음성사서함 번호가 없습니다."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"번호 추가"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"기본 다이얼러 앱을 변경하시겠습니까?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="CURRENT_APP">%2$s</xliff:g> 대신 <xliff:g id="NEW_APP">%1$s</xliff:g>을(를) 기본 다이얼러 앱으로 사용하시겠습니까?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g>을(를) 기본 다이얼러 앱으로 사용하시겠습니까?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g>을(를) 기본 전화 앱으로 설정하나요?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"기본으로 설정"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"취소"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g>은(는) 모든 전화를 걸고 제어할 수 있습니다. 신뢰할 수 있는 앱만 기본 전화 앱으로 설정하세요."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"차단된 번호"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"차단한 번호에서 걸려오는 전화나 문자를 더 이상 받지 않습니다."</string>
     <string name="block_number" msgid="1101252256321306179">"번호 추가"</string>

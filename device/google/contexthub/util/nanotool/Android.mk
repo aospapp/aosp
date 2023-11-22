@@ -16,7 +16,7 @@
 
 LOCAL_PATH := $(call my-dir)
 
-NANOTOOL_VERSION := 1.1.0
+NANOTOOL_VERSION := 1.2.0
 
 include $(CLEAR_VARS)
 
@@ -26,6 +26,7 @@ LOCAL_SRC_FILES := \
     calibrationfile.cpp \
     contexthub.cpp \
     log.cpp \
+    logevent.cpp \
     nanomessage.cpp \
     nanotool.cpp \
     resetreasonevent.cpp \

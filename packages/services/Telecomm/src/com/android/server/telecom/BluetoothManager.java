@@ -121,7 +121,7 @@ public class BluetoothManager {
 
     private BluetoothHeadsetProxy mBluetoothHeadset;
     private long mBluetoothConnectionRequestTime;
-    private final Runnable mBluetoothConnectionTimeout = new Runnable("BM.cBA") {
+    private final Runnable mBluetoothConnectionTimeout = new Runnable("BM.cBA", null /*lock*/) {
         @Override
         public void loggedRun() {
             if (!isBluetoothAudioConnected()) {
@@ -132,7 +132,7 @@ public class BluetoothManager {
         }
     };
 
-    private final Runnable mRetryConnectAudio = new Runnable("BM.rCA") {
+    private final Runnable mRetryConnectAudio = new Runnable("BM.rCA", null /*lock*/) {
         @Override
         public void loggedRun() {
             Log.i(this, "Retrying connecting to bluetooth audio.");

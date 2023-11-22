@@ -4,18 +4,22 @@
  *  Use of this source code is governed by a BSD-style license
  *  that can be found in the LICENSE file in the root of the source
  *  tree. An additional intellectual property rights grant can be found
- *  in the file PATENTS.  All contributing project authors may
+ *  in the file PATENTS. All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
 #include "libyuv/basic_types.h"
+
+#include "libyuv/compare_row.h"
+#include "libyuv/row.h"
 
 #ifdef __cplusplus
 namespace libyuv {
 extern "C" {
 #endif
 
-#if !defined(YUV_DISABLE_ASM) && defined(__ARM_NEON__)
+#if !defined(LIBYUV_DISABLE_NEON) && defined(__ARM_NEON__) && \
+    !defined(__aarch64__)
 
 uint32 SumSquareError_NEON(const uint8* src_a, const uint8* src_b, int count) {
   volatile uint32 sse;
@@ -25,10 +29,11 @@ uint32 SumSquareError_NEON(const uint8* src_a, const uint8* src_b, int count) {
     "vmov.u8    q9, #0                         \n"
     "vmov.u8    q11, #0                        \n"
 
-    ".p2align  2                               \n"
   "1:                                          \n"
-    "vld1.u8    {q0}, [%0]!                    \n"
-    "vld1.u8    {q1}, [%1]!                    \n"
+    MEMACCESS(0)
+    "vld1.8     {q0}, [%0]!                    \n"
+    MEMACCESS(1)
+    "vld1.8     {q1}, [%1]!                    \n"
     "subs       %2, %2, #16                    \n"
     "vsubl.u8   q2, d0, d2                     \n"
     "vsubl.u8   q3, d1, d3                     \n"
@@ -53,10 +58,9 @@ uint32 SumSquareError_NEON(const uint8* src_a, const uint8* src_b, int count) {
   return sse;
 }
 
-#endif  // __ARM_NEON__
+#endif  // defined(__ARM_NEON__) && !defined(__aarch64__)
 
 #ifdef __cplusplus
 }  // extern "C"
 }  // namespace libyuv
 #endif
-

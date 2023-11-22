@@ -18,20 +18,10 @@
  ****************************************************************************/
 #ifndef __UAPI_MSM_CAMERA_H
 #define __UAPI_MSM_CAMERA_H
-#ifdef MSM_CAMERA_BIONIC
-#include <sys/types.h>
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#endif
 #include <linux/videodev2.h>
 #include <linux/types.h>
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #include <linux/ioctl.h>
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#ifdef MSM_CAMERA_GCC
-#include <time.h>
-#else
-#include <linux/time.h>
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#endif
 #include <linux/msm_ion.h>
 #define BIT(nr) (1UL << (nr))
 #define MSM_CAM_IOCTL_MAGIC 'm'
@@ -586,7 +576,7 @@ struct outputCfg {
 #define OUTPUT_VIDEO_ALL_CHNLS 9
 #define OUTPUT_ZSL_ALL_CHNLS 10
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#define LAST_AXI_OUTPUT_MODE_ENUM = OUTPUT_ZSL_ALL_CHNLS
+#define LAST_AXI_OUTPUT_MODE_ENUM OUTPUT_ZSL_ALL_CHNLS
 #define OUTPUT_PRIM BIT(8)
 #define OUTPUT_PRIM_ALL_CHNLS BIT(9)
 #define OUTPUT_SEC BIT(10)
@@ -2018,7 +2008,7 @@ struct msm_mctl_set_sdev_data {
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define VIDIOC_MSM_AXI_IRQ _IOWR('V', BASE_VIDIOC_PRIVATE + 21, void *)
 #define VIDIOC_MSM_AXI_BUF_CFG _IOWR('V', BASE_VIDIOC_PRIVATE + 22, void *)
-#define VIDIOC_MSM_AXI_RDI_COUNT_UPDATE _IOWR('V', BASE_VIDIOC_PRIVATE + 23, struct rdi_count_msg)
+#define VIDIOC_MSM_AXI_RDI_COUNT_UPDATE _IOWR('V', BASE_VIDIOC_PRIVATE + 23, void *)
 #define VIDIOC_MSM_VFE_INIT _IO('V', BASE_VIDIOC_PRIVATE + 24)
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define VIDIOC_MSM_VFE_RELEASE _IO('V', BASE_VIDIOC_PRIVATE + 25)

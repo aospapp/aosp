@@ -18,7 +18,9 @@ package com.android.cts.apicoverage;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Representation of a constructor in the API with parameters (arguments). */
 class ApiConstructor implements Comparable<ApiConstructor> {
@@ -29,7 +31,8 @@ class ApiConstructor implements Comparable<ApiConstructor> {
 
     private final boolean mDeprecated;
 
-    private boolean mIsCovered;
+    // A list of test APKs (aka CTS modules) that use this method.
+    private final Set<String> mCoveredWith = new HashSet<>();
 
     ApiConstructor(String name, List<String> parameterTypes, boolean deprecated) {
         mName = name;
@@ -55,10 +58,17 @@ class ApiConstructor implements Comparable<ApiConstructor> {
     }
 
     public boolean isCovered() {
-        return mIsCovered;
+        return !mCoveredWith.isEmpty();
     }
 
-    public void setCovered(boolean covered) {
-        mIsCovered = covered;
+    public void setCovered(String coveredWithModule) {
+        if (coveredWithModule.endsWith(".apk")) {
+            coveredWithModule = coveredWithModule.substring(0, coveredWithModule.length() - 4);
+        }
+        mCoveredWith.add(coveredWithModule);
+    }
+
+    public Set<String> getCoveredWith() {
+        return mCoveredWith;
     }
 }

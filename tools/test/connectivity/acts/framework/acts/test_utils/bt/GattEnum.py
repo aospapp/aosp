@@ -15,30 +15,74 @@
 # the License.
 
 from enum import Enum
-
+from enum import IntEnum
 
 class GattCbErr(Enum):
     CHAR_WRITE_REQ_ERR = "Characteristic Write Request event not found. Expected {}"
+    CHAR_EXEC_WRITE_ERR = "Characteristic Execute Write event not found. Expected {}"
     CHAR_WRITE_ERR = "Characteristic Write event not found. Expected {}"
     DESC_WRITE_REQ_ERR = "Descriptor Write Request event not found. Expected {}"
     DESC_WRITE_ERR = "Descriptor Write event not found. Expected {}"
+    CHAR_READ_ERR = "Characteristic Read event not found. Expected {}"
+    CHAR_READ_REQ_ERR = "Characteristic Read Request not found. Expected {}"
+    DESC_READ_ERR = "Descriptor Read event not found. Expected {}"
+    DESC_READ_REQ_ERR = "Descriptor Read Request event not found. Expected {}"
     RD_REMOTE_RSSI_ERR = "Read Remote RSSI event not found. Expected {}"
     GATT_SERV_DISC_ERR = "GATT Services Discovered event not found. Expected {}"
     SERV_ADDED_ERR = "Service Added event not found. Expected {}"
     MTU_CHANGED_ERR = "MTU Changed event not found. Expected {}"
     GATT_CONN_CHANGE_ERR = "GATT Connection Changed event not found. Expected {}"
-
+    CHAR_CHANGE_ERR = "GATT Characteristic Changed event not fond. Expected {}"
 
 class GattCbStrings(Enum):
     CHAR_WRITE_REQ = "GattServer{}onCharacteristicWriteRequest"
+    CHAR_EXEC_WRITE = "GattServer{}onExecuteWrite"
     CHAR_WRITE = "GattConnect{}onCharacteristicWrite"
     DESC_WRITE_REQ = "GattServer{}onDescriptorWriteRequest"
     DESC_WRITE = "GattConnect{}onDescriptorWrite"
+    CHAR_READ = "GattConnect{}onCharacteristicRead"
+    CHAR_READ_REQ = "GattServer{}onCharacteristicReadRequest"
+    DESC_READ = "GattConnect{}onDescriptorRead"
+    DESC_READ_REQ = "GattServer{}onDescriptorReadRequest"
     RD_REMOTE_RSSI = "GattConnect{}onReadRemoteRssi"
     GATT_SERV_DISC = "GattConnect{}onServicesDiscovered"
     SERV_ADDED = "GattServer{}onServiceAdded"
     MTU_CHANGED = "GattConnect{}onMtuChanged"
     GATT_CONN_CHANGE = "GattConnect{}onConnectionStateChange"
+    CHAR_CHANGE = "GattConnect{}onCharacteristicChanged"
+
+
+class GattEvent(Enum):
+    CHAR_WRITE_REQ = {"evt": GattCbStrings.CHAR_WRITE_REQ.value,
+                      "err": GattCbErr.CHAR_WRITE_REQ_ERR.value}
+    CHAR_EXEC_WRITE = {"evt": GattCbStrings.CHAR_EXEC_WRITE.value,
+                       "err": GattCbErr.CHAR_EXEC_WRITE_ERR.value}
+    CHAR_WRITE = {"evt": GattCbStrings.CHAR_WRITE.value,
+                  "err": GattCbErr.CHAR_WRITE_ERR.value}
+    DESC_WRITE_REQ = {"evt": GattCbStrings.DESC_WRITE_REQ.value,
+                      "err": GattCbErr.DESC_WRITE_REQ_ERR.value}
+    DESC_WRITE = {"evt": GattCbStrings.DESC_WRITE.value,
+                  "err": GattCbErr.DESC_WRITE_ERR.value}
+    CHAR_READ = {"evt": GattCbStrings.CHAR_READ.value,
+                 "err": GattCbErr.CHAR_READ_ERR.value}
+    CHAR_READ_REQ = {"evt": GattCbStrings.CHAR_READ_REQ.value,
+                     "err": GattCbErr.CHAR_READ_REQ_ERR.value}
+    DESC_READ = {"evt": GattCbStrings.DESC_READ.value,
+                 "err": GattCbErr.DESC_READ_ERR.value}
+    DESC_READ_REQ = {"evt": GattCbStrings.DESC_READ_REQ.value,
+                     "err": GattCbErr.DESC_READ_REQ_ERR.value}
+    RD_REMOTE_RSSI = {"evt": GattCbStrings.RD_REMOTE_RSSI.value,
+                      "err": GattCbErr.RD_REMOTE_RSSI_ERR.value}
+    GATT_SERV_DISC = {"evt": GattCbStrings.GATT_SERV_DISC.value,
+                      "err": GattCbErr.GATT_SERV_DISC_ERR.value}
+    SERV_ADDED = {"evt": GattCbStrings.SERV_ADDED.value,
+                  "err": GattCbErr.SERV_ADDED_ERR.value}
+    MTU_CHANGED = {"evt": GattCbStrings.MTU_CHANGED.value,
+                   "err": GattCbErr.MTU_CHANGED_ERR.value}
+    GATT_CONN_CHANGE = {"evt": GattCbStrings.GATT_CONN_CHANGE.value,
+                        "err": GattCbErr.GATT_CONN_CHANGE_ERR.value}
+    CHAR_CHANGE = {"evt": GattCbStrings.CHAR_CHANGE.value,
+                        "err": GattCbErr.CHAR_CHANGE_ERR.value}
 
 
 class GattConnectionState(Enum):
@@ -111,3 +155,9 @@ class MtuSize(Enum):
 class BluetoothGatt(Enum):
     GATT_SUCCESS = 0
     GATT_FAILURE = 0x101
+
+
+class GattTransport(IntEnum):
+    TRANSPORT_AUTO = 0x00
+    TRANSPORT_BREDR = 0x01
+    TRANSPORT_LE = 0x02

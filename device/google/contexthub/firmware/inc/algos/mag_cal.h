@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/types.h>
-
+#include <algos/mat.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -67,6 +67,11 @@ void magCalSetSoftiron(struct MagCal *moc,
 
 void magCalRemoveSoftiron(struct MagCal *moc, float xi, float yi, float zi,
                              float *xo, float *yo, float *zo);
+
+void moc_reset(struct MagCal *moc);
+
+int moc_fit(struct MagCal *moc, struct Vec3 *bias, float *radius);
+
 
 #ifdef __cplusplus
 }

@@ -69,10 +69,9 @@ void proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile* profile,
     if (config->channels != 0 && profile_is_channel_count_valid(profile, config->channels)) {
         proxy->alsa_config.channels = config->channels;
     } else {
-        ALOGW("Invalid channel count %u - using default %u.",
-              config->channels, profile->default_config.channels);
-        proxy->alsa_config.channels = profile->default_config.channels;
-
+        proxy->alsa_config.channels = profile_get_closest_channel_count(profile, config->channels);
+        ALOGW("Invalid channel count %u - using closest %u.",
+              config->channels, proxy->alsa_config.channels);
     }
 
     proxy->alsa_config.period_count = profile->default_config.period_count;
@@ -217,4 +216,18 @@ int proxy_write(alsa_device_proxy * proxy, const void *data, unsigned int count)
 int proxy_read(const alsa_device_proxy * proxy, void *data, unsigned int count)
 {
     return pcm_read(proxy->pcm, data, count);
+}
+
+/*
+ * Debugging
+ */
+void proxy_dump(const alsa_device_proxy* proxy, int fd)
+{
+    if (proxy != NULL) {
+        dprintf(fd, "  channels: %d\n", proxy->alsa_config.channels);
+        dprintf(fd, "  rate: %d\n", proxy->alsa_config.rate);
+        dprintf(fd, "  period_size: %d\n", proxy->alsa_config.period_size);
+        dprintf(fd, "  period_count: %d\n", proxy->alsa_config.period_count);
+        dprintf(fd, "  format: %d\n", proxy->alsa_config.format);
+    }
 }

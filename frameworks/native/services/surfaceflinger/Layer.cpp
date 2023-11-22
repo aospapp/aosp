@@ -51,6 +51,8 @@
 
 #include "RenderEngine/RenderEngine.h"
 
+#include <mutex>
+
 #define DEBUG_RESIZE    0
 
 namespace android {
@@ -155,7 +157,8 @@ void Layer::onFirstRef() {
     sp<IGraphicBufferConsumer> consumer;
     BufferQueue::createBufferQueue(&producer, &consumer);
     mProducer = new MonitoredProducer(producer, mFlinger);
-    mSurfaceFlingerConsumer = new SurfaceFlingerConsumer(consumer, mTextureName);
+    mSurfaceFlingerConsumer = new SurfaceFlingerConsumer(consumer, mTextureName,
+            this);
     mSurfaceFlingerConsumer->setConsumerUsageBits(getEffectiveUsage(0));
     mSurfaceFlingerConsumer->setContentsChangedListener(this);
     mSurfaceFlingerConsumer->setName(mName);
@@ -556,7 +559,7 @@ void Layer::setGeometry(
 #endif
             activeCrop.clear();
         }
-        activeCrop = s.active.transform.inverse().transform(activeCrop);
+        activeCrop = s.active.transform.inverse().transform(activeCrop, true);
         // This needs to be here as transform.transform(Rect) computes the
         // transformed rect and then takes the bounding box of the result before
         // returning. This means
@@ -718,18 +721,33 @@ void Layer::setPerFrameData(const sp<const DisplayDevice>& displayDevice) {
         return;
     }
 
-    // Client or SolidColor layers
-    if (mActiveBuffer == nullptr || mActiveBuffer->handle == nullptr ||
-            mHwcLayers[hwcId].forceClientComposition) {
-        // TODO: This also includes solid color layers, but no API exists to
-        // setup a solid color layer yet
+    // Client layers
+    if (mHwcLayers[hwcId].forceClientComposition ||
+            (mActiveBuffer != nullptr && mActiveBuffer->handle == nullptr)) {
         ALOGV("[%s] Requesting Client composition", mName.string());
         setCompositionType(hwcId, HWC2::Composition::Client);
-        error = hwcLayer->setBuffer(nullptr, Fence::NO_FENCE);
+        return;
+    }
+
+    // SolidColor layers
+    if (mActiveBuffer == nullptr) {
+        setCompositionType(hwcId, HWC2::Composition::SolidColor);
+
+        // For now, we only support black for DimLayer
+        error = hwcLayer->setColor({0, 0, 0, 255});
         if (error != HWC2::Error::None) {
-            ALOGE("[%s] Failed to set null buffer: %s (%d)", mName.string(),
+            ALOGE("[%s] Failed to set color: %s (%d)", mName.string(),
                     to_string(error).c_str(), static_cast<int32_t>(error));
         }
+
+        // Clear out the transform, because it doesn't make sense absent a
+        // source buffer
+        error = hwcLayer->setTransform(HWC2::Transform::None);
+        if (error != HWC2::Error::None) {
+            ALOGE("[%s] Failed to clear transform: %s (%d)", mName.string(),
+                    to_string(error).c_str(), static_cast<int32_t>(error));
+        }
+
         return;
     }
 
@@ -1060,8 +1078,13 @@ void Layer::setCompositionType(int32_t hwcId, HWC2::Composition type,
 }
 
 HWC2::Composition Layer::getCompositionType(int32_t hwcId) const {
+    if (hwcId == DisplayDevice::DISPLAY_ID_INVALID) {
+        // If we're querying the composition type for a display that does not
+        // have a HWC counterpart, then it will always be Client
+        return HWC2::Composition::Client;
+    }
     if (mHwcLayers.count(hwcId) == 0) {
-        ALOGE("getCompositionType called without a valid HWC layer");
+        ALOGE("getCompositionType called with an invalid HWC layer");
         return HWC2::Composition::Invalid;
     }
     return mHwcLayers.at(hwcId).compositionType;
@@ -1095,6 +1118,20 @@ uint32_t Layer::getProducerStickyTransform() const {
     return static_cast<uint32_t>(producerStickyTransform);
 }
 
+bool Layer::latchUnsignaledBuffers() {
+    static bool propertyLoaded = false;
+    static bool latch = false;
+    static std::mutex mutex;
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!propertyLoaded) {
+        char value[PROPERTY_VALUE_MAX] = {};
+        property_get("debug.sf.latch_unsignaled", value, "0");
+        latch = atoi(value);
+        propertyLoaded = true;
+    }
+    return latch;
+}
+
 uint64_t Layer::getHeadFrameNumber() const {
     Mutex::Autolock lock(mQueueItemLock);
     if (!mQueueItems.empty()) {
@@ -1102,6 +1139,29 @@ uint64_t Layer::getHeadFrameNumber() const {
     } else {
         return mCurrentFrameNumber;
     }
+}
+
+bool Layer::headFenceHasSignaled() const {
+#ifdef USE_HWC2
+    if (latchUnsignaledBuffers()) {
+        return true;
+    }
+
+    Mutex::Autolock lock(mQueueItemLock);
+    if (mQueueItems.empty()) {
+        return true;
+    }
+    if (mQueueItems[0].mIsDroppable) {
+        // Even though this buffer's fence may not have signaled yet, it could
+        // be replaced by another buffer before it has a chance to, which means
+        // that it's possible to get into a situation where a buffer is never
+        // able to be latched. To avoid this, grab this buffer anyway.
+        return true;
+    }
+    return mQueueItems[0].mFence->getSignalTime() != INT64_MAX;
+#else
+    return true;
+#endif
 }
 
 bool Layer::addSyncPoint(const std::shared_ptr<SyncPoint>& point) {
@@ -1271,9 +1331,14 @@ void Layer::pushPendingState() {
     // If this transaction is waiting on the receipt of a frame, generate a sync
     // point and send it to the remote layer.
     if (mCurrentState.handle != nullptr) {
-        sp<Handle> handle = static_cast<Handle*>(mCurrentState.handle.get());
-        sp<Layer> handleLayer = handle->owner.promote();
-        if (handleLayer == nullptr) {
+        sp<IBinder> strongBinder = mCurrentState.handle.promote();
+        sp<Handle> handle = nullptr;
+        sp<Layer> handleLayer = nullptr;
+        if (strongBinder != nullptr) {
+            handle = static_cast<Handle*>(strongBinder.get());
+            handleLayer = handle->owner.promote();
+        }
+        if (strongBinder == nullptr || handleLayer == nullptr) {
             ALOGE("[%s] Unable to promote Layer handle", mName.string());
             // If we can't promote the layer we are intended to wait on,
             // then it is expired or otherwise invalid. Allow this transaction
@@ -1361,9 +1426,10 @@ bool Layer::applyPendingStates(State* stateToCommit) {
 
 void Layer::notifyAvailableFrames() {
     auto headFrameNumber = getHeadFrameNumber();
+    bool headFenceSignaled = headFenceHasSignaled();
     Mutex::Autolock lock(mLocalSyncPointMutex);
     for (auto& point : mLocalSyncPoints) {
-        if (headFrameNumber >= point->getFrameNumber()) {
+        if (headFrameNumber >= point->getFrameNumber() && headFenceSignaled) {
             point->setFrameAvailable();
         }
     }
@@ -1573,11 +1639,15 @@ bool Layer::setFlags(uint8_t flags, uint8_t mask) {
     setTransactionFlags(eTransactionNeeded);
     return true;
 }
-bool Layer::setCrop(const Rect& crop) {
+
+bool Layer::setCrop(const Rect& crop, bool immediate) {
     if (mCurrentState.crop == crop)
         return false;
     mCurrentState.sequence++;
-    mCurrentState.crop = crop;
+    mCurrentState.requestedCrop = crop;
+    if (immediate) {
+        mCurrentState.crop = crop;
+    }
     mCurrentState.modified = true;
     setTransactionFlags(eTransactionNeeded);
     return true;
@@ -1674,7 +1744,8 @@ bool Layer::onPreComposition() {
     return mQueuedFrames > 0 || mSidebandStreamChanged || mAutoRefresh;
 }
 
-void Layer::onPostComposition() {
+bool Layer::onPostComposition() {
+    bool frameLatencyNeeded = mFrameLatencyNeeded;
     if (mFrameLatencyNeeded) {
         nsecs_t desiredPresentTime = mSurfaceFlingerConsumer->getTimestamp();
         mFrameTracker.setDesiredPresentTime(desiredPresentTime);
@@ -1706,6 +1777,7 @@ void Layer::onPostComposition() {
         mFrameTracker.advanceFrame();
         mFrameLatencyNeeded = false;
     }
+    return frameLatencyNeeded;
 }
 
 #ifdef USE_HWC2
@@ -1754,6 +1826,13 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
             return outDirtyRegion;
         }
 
+        // If the head buffer's acquire fence hasn't signaled yet, return and
+        // try again later
+        if (!headFenceHasSignaled()) {
+            mFlinger->signalLayerUpdate();
+            return outDirtyRegion;
+        }
+
         // Capture the old state of the layer for comparisons later
         const State& s(getDrawingState());
         const bool oldOpacity = isOpaque(s);
@@ -1766,16 +1845,19 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
             bool stickyTransformSet;
             const char* name;
             int32_t overrideScalingMode;
+            bool& freezePositionUpdates;
 
             Reject(Layer::State& front, Layer::State& current,
                     bool& recomputeVisibleRegions, bool stickySet,
                     const char* name,
-                    int32_t overrideScalingMode)
+                    int32_t overrideScalingMode,
+                    bool& freezePositionUpdates)
                 : front(front), current(current),
                   recomputeVisibleRegions(recomputeVisibleRegions),
                   stickyTransformSet(stickySet),
                   name(name),
-                  overrideScalingMode(overrideScalingMode) {
+                  overrideScalingMode(overrideScalingMode),
+                  freezePositionUpdates(freezePositionUpdates) {
             }
 
             virtual bool reject(const sp<GraphicBuffer>& buf,
@@ -1867,13 +1949,20 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
                     recomputeVisibleRegions = true;
                 }
 
+                if (front.crop != front.requestedCrop) {
+                    front.crop = front.requestedCrop;
+                    current.crop = front.requestedCrop;
+                    recomputeVisibleRegions = true;
+                }
+                freezePositionUpdates = false;
+
                 return false;
             }
         };
 
         Reject r(mDrawingState, getCurrentState(), recomputeVisibleRegions,
                 getProducerStickyTransform() != 0, mName.string(),
-                mOverrideScalingMode);
+                mOverrideScalingMode, mFreezePositionUpdates);
 
 
         // Check all of our local sync points to ensure that all transactions
@@ -2016,7 +2105,6 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
             if (bufWidth != uint32_t(oldActiveBuffer->width) ||
                 bufHeight != uint32_t(oldActiveBuffer->height)) {
                 recomputeVisibleRegions = true;
-                mFreezePositionUpdates = false;
             }
         }
 
@@ -2180,6 +2268,24 @@ void Layer::getFenceData(String8* outName, uint64_t* outFrameNumber,
     *outAcquireFence = mSurfaceFlingerConsumer->getCurrentFence();
     *outPrevReleaseFence = mSurfaceFlingerConsumer->getPrevReleaseFence();
 }
+
+std::vector<OccupancyTracker::Segment> Layer::getOccupancyHistory(
+        bool forceFlush) {
+    std::vector<OccupancyTracker::Segment> history;
+    status_t result = mSurfaceFlingerConsumer->getOccupancyHistory(forceFlush,
+            &history);
+    if (result != NO_ERROR) {
+        ALOGW("[%s] Failed to obtain occupancy history (%d)", mName.string(),
+                result);
+        return {};
+    }
+    return history;
+}
+
+bool Layer::getTransformToDisplayInverse() const {
+    return mSurfaceFlingerConsumer->getTransformToDisplayInverse();
+}
+
 // ---------------------------------------------------------------------------
 
 Layer::LayerCleaner::LayerCleaner(const sp<SurfaceFlinger>& flinger,

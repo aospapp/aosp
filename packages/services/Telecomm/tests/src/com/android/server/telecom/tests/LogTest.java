@@ -16,29 +16,33 @@
 
 package com.android.server.telecom.tests;
 
-import android.content.ContentResolver;
-import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.internal.os.SomeArgs;
-import com.android.server.telecom.Runnable;
+import com.android.server.telecom.Analytics;
+import com.android.server.telecom.Call;
 import com.android.server.telecom.Session;
 import com.android.server.telecom.SystemLoggingContainer;
 import com.android.server.telecom.Log;
 
 import org.junit.Assert;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockitoAnnotations;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for Telecom's Logging system.
@@ -454,6 +458,26 @@ public class LogTest extends TelecomTestCase{
         Runtime.getRuntime().gc();
         Thread.sleep(1000);
         assertEquals(null, sessionRef.get());
+    }
+
+    @SmallTest
+    public void testEventRecordTiming() throws Exception {
+        Call call = mock(Call.class);
+        Analytics.CallInfo mockCallInfo = mock(Analytics.CallInfo.class);
+        when(call.getAnalytics()).thenReturn(mockCallInfo);
+        int minWaitTime = 40;
+        Log.event(call, Log.Events.REQUEST_ACCEPT);
+        Thread.sleep(minWaitTime);
+        Log.event(call, Log.Events.SET_ACTIVE);
+
+        ArgumentCaptor<Log.CallEventRecord> captor =
+                ArgumentCaptor.forClass(Log.CallEventRecord.class);
+        verify(mockCallInfo).setCallEvents(captor.capture());
+        List<Log.CallEventRecord.EventTiming> eventTimings =
+                captor.getValue().extractEventTimings();
+        eventTimings.stream()
+                .filter(timing -> timing.name.equals("accept"))
+                .forEach(timing -> assertTrue(timing.time > minWaitTime));
     }
 
     private void verifyMethodCall(String parentSessionName, String methodName, int sessionId,

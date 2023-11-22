@@ -48,6 +48,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import junit.framework.AssertionFailedError;
+
 /**
  * Test for checking that the {@link PackageManager} is reporting the correct features.
  */
@@ -258,10 +260,18 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
 
     public void testNfcFeatures() {
         if (NfcAdapter.getDefaultAdapter(mContext) != null) {
-            assertAvailable(PackageManager.FEATURE_NFC);
-            assertAvailable(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
+            // Watches MAY support all FEATURE_NFC features when an NfcAdapter is available, but
+            // non-watches MUST support them both.
+            if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+                assertOneAvailable(PackageManager.FEATURE_NFC,
+                    PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
+            } else {
+                assertAvailable(PackageManager.FEATURE_NFC);
+                assertAvailable(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
+            }
         } else {
             assertNotAvailable(PackageManager.FEATURE_NFC);
+            assertNotAvailable(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
         }
     }
 
@@ -496,6 +506,16 @@ public class SystemFeaturesTest extends InstrumentationTestCase {
                 mPackageManager.hasSystemFeature(feature));
         assertFalse("PackageManager#getSystemAvailableFeatures should NOT have " + feature,
                 mAvailableFeatures.contains(feature));
+    }
+
+    private void assertOneAvailable(String feature1, String feature2) {
+        if ((mPackageManager.hasSystemFeature(feature1) && mAvailableFeatures.contains(feature1)) ||
+            (mPackageManager.hasSystemFeature(feature2) && mAvailableFeatures.contains(feature2))) {
+            return;
+        } else {
+            throw new AssertionFailedError("Must support at least one of " + feature1 + " or " +
+                feature2);
+        }
     }
 
     private void assertFeature(boolean exist, String feature) {

@@ -18,7 +18,6 @@ package com.android.compatibility.common.preconditions;
 
 import android.app.KeyguardManager;
 import android.content.Context;
-import android.os.Build;
 
 /**
  * ScreenLockHelper is used to check whether the device is protected by a locked screen.
@@ -30,9 +29,6 @@ public class ScreenLockHelper {
      * is no way to programmatically distinguish between the two.
      */
     public static boolean isDeviceSecure(Context context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return true; // KeyguardManager.isDeviceSecure() added in M, skip this check
-        }
         KeyguardManager km = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
         return km.isDeviceSecure();
     }

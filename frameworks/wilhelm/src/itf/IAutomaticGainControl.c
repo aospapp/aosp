@@ -17,8 +17,6 @@
 /* Automatic Gain Control implementation */
 #include "sles_allinclusive.h"
 
-#include <media/EffectsFactoryApi.h>
-
 #include <audio_effects/effect_agc.h>
 
 /**
@@ -68,43 +66,9 @@ SLresult IAndroidAutomaticGainControl_IsEnabled(SLAndroidAutomaticGainControlItf
     SL_LEAVE_INTERFACE
 }
 
-SLresult IAndroidAutomaticGainControl_IsAvailable(SLAndroidAutomaticGainControlItf self,
-                                                  SLboolean *pEnabled)
-{
-    SL_ENTER_INTERFACE
-
-   *pEnabled = false;
-
-    uint32_t numEffects = 0;
-    int ret = EffectQueryNumberEffects(&numEffects);
-    if (ret != 0) {
-        ALOGE("IAndroidAutomaticGainControl_IsAvailable() error %d querying number of effects",
-              ret);
-        result = SL_RESULT_FEATURE_UNSUPPORTED;
-   } else {
-        ALOGV("EffectQueryNumberEffects() numEffects=%d", numEffects);
-
-        effect_descriptor_t fxDesc;
-        for (uint32_t i = 0 ; i < numEffects ; i++) {
-            if (EffectQueryEffect(i, &fxDesc) == 0) {
-                ALOGV("effect %d is called %s", i, fxDesc.name);
-                if (memcmp(&fxDesc.type, SL_IID_ANDROIDAUTOMATICGAINCONTROL,
-                           sizeof(effect_uuid_t)) == 0) {
-                    ALOGI("found effect \"%s\" from %s", fxDesc.name, fxDesc.implementor);
-                    *pEnabled = true;
-                    break;
-                }
-            }
-        }
-        result = SL_RESULT_SUCCESS;
-    }
-    SL_LEAVE_INTERFACE
-}
-
 static const struct SLAndroidAutomaticGainControlItf_ IAndroidAutomaticGainControl_Itf = {
     IAndroidAutomaticGainControl_SetEnabled,
-    IAndroidAutomaticGainControl_IsEnabled,
-    IAndroidAutomaticGainControl_IsAvailable
+    IAndroidAutomaticGainControl_IsEnabled
 };
 
 void IAndroidAutomaticGainControl_init(void *self)

@@ -17,8 +17,10 @@
 /** \file OpenSLESUT.c OpenSL ES Utility Toolkit */
 
 #include <SLES/OpenSLES.h>
+#include <OMXAL/OpenMAXAL.h>
 #ifdef ANDROID
 #include <SLES/OpenSLES_Android.h>
+#include <OMXAL/OpenMAXAL_Android.h>
 #endif
 #include "OpenSLESUT.h"
 #include <stdio.h>
@@ -36,7 +38,8 @@ typedef struct
 // ## is token concatenation e.g. a##b becomes ab
 // # is stringize operator to convert a symbol to a string constant e.g. #a becomes "a"
 
-#define _(x) { &SL_IID_##x, #x }
+#define _(x) { &SL_IID_##x, "SL_IID_" #x }
+#define _X(x) { (const SLInterfaceID *) &XA_IID_##x, "XA_IID_" #x }
 
 /** \brief Array of mappings from interface IDs to display names */
 
@@ -88,12 +91,15 @@ static Pair pairs[] = {
 #if 0 // ifdef USE_OUTPUTMIXEXT
     _(OUTPUTMIXEXT),
 #endif
+    _X(ENGINE),
+    _X(VIDEODECODERCAPABILITIES),
 #ifdef ANDROID
     _(ANDROIDEFFECT),
     _(ANDROIDEFFECTCAPABILITIES),
     _(ANDROIDEFFECTSEND),
     _(ANDROIDCONFIGURATION),
     _(ANDROIDSIMPLEBUFFERQUEUE),
+    _(ANDROIDBUFFERQUEUESOURCE),
     _(ANDROIDACOUSTICECHOCANCELLATION),
     _(ANDROIDAUTOMATICGAINCONTROL),
     _(ANDROIDNOISESUPPRESSION)

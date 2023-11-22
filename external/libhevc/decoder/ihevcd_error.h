@@ -123,5 +123,10 @@ typedef enum
      */
     IHEVCD_VUI_PARAMS_NOT_FOUND,
 
+    /**
+     * SEI mastering parameters not found
+     */
+    IHEVCD_SEI_MASTERING_PARAMS_NOT_FOUND,
+
 }IHEVCD_ERROR_T;
 #endif /* _IHEVCD_ERROR_H_ */

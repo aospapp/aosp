@@ -26,7 +26,6 @@ from queue import Empty
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.bt_test_utils import get_bt_mac_address
 from acts.test_utils.bt.bt_test_utils import rfcomm_accept
 from acts.test_utils.bt.bt_test_utils import rfcomm_connect
 from acts.test_utils.bt.bt_test_utils import take_btsnoop_logs
@@ -62,7 +61,7 @@ class RfcommStressTest(BluetoothBaseTest):
 
     def orchestrate_rfcomm_connect(self, server_mac):
         accept_thread = threading.Thread(target=rfcomm_accept,
-                                         args=(self.server_ad.droid, ))
+                                         args=(self.server_ad, ))
         self.thread_list.append(accept_thread)
         accept_thread.start()
         connect_thread = threading.Thread(

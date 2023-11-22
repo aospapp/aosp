@@ -15,5 +15,5 @@
 -->
 <resources>
     <string name="app_name">CtsVrTestCases</string>
-
+    <string name="vr_service_name">VR Listener for CTS</string>
 </resources>

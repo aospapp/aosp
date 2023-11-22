@@ -23,6 +23,7 @@
 #include <plat/inc/plat.h>
 #include <plat/inc/exti.h>
 #include <plat/inc/syscfg.h>
+#include <plat/inc/wdt.h>
 #include <plat/inc/dma.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -178,10 +179,8 @@ void platEarlyLogFlush(void)
 void platLogFlush(void *userData)
 {
 #if defined(DEBUG_LOG_EVT)
-    if (userData && mLateBoot) {
-        if (!osEnqueueEvt(EVENT_TYPE_BIT_DISCARDABLE | EVT_DEBUG_LOG, userData, heapFree))
-            heapFree(userData);
-    }
+    if (userData && mLateBoot)
+        osEnqueueEvtOrFree(EVENT_TYPE_BIT_DISCARDABLE | EVT_DEBUG_LOG, userData, heapFree);
 #endif
 }
 
@@ -192,24 +191,27 @@ bool platLogPutcharF(void *userData, char ch)
         gpioBitbangedUartOut('\r');
     gpioBitbangedUartOut(ch);
 #endif
-#ifdef DEBUG_UART_UNITNO
-    usartPutchat(&mDbgUart, ch);
-#elif defined(DEBUG_LOG_EVT)
+#if defined(DEBUG_UART_UNITNO)
+    usartPutchar(&mDbgUart, ch);
+#endif
+#if defined(DEBUG_LOG_EVT)
     struct HostIntfDataBuffer *buffer;
 
     if (userData) {
         buffer = userData;
-        if (buffer->length == sizeof(uint64_t) + HOSTINTF_SENSOR_DATA_MAX) {
-            buffer->buffer[buffer->length - 1] = '\n';
-        } else if (!mLateBoot) {
-            if (mEarlyLogBufferOffset == EARLY_LOG_BUF_SIZE) {
-                buffer->buffer[buffer->length - 1] = '\n';
-            } else {
-                buffer->buffer[buffer->length++] = ch;
-                mEarlyLogBufferOffset++;
-            }
-        } else {
+        size_t maxSize = sizeof(buffer->buffer);
+
+        // if doing early logging, and early log buffer is full, ignore the rest of early output
+        if (!mLateBoot && mEarlyLogBufferOffset >= EARLY_LOG_BUF_SIZE && buffer->length < maxSize)
+            maxSize = buffer->length;
+
+        if (buffer->length < maxSize) {
             buffer->buffer[buffer->length++] = ch;
+            if (!mLateBoot)
+                mEarlyLogBufferOffset++;
+        } else {
+            buffer->buffer[maxSize - 1] = '\n';
+            return false;
         }
     }
 #endif
@@ -292,7 +294,6 @@ void platInitialize(void)
     tim->EGR = TIM_EGR_UG; // force a reload of the prescaler
     NVIC_EnableIRQ(TIM2_IRQn);
 
-    /* set up RTC */
     rtcInit();
 
     /* bring up systick */
@@ -546,7 +547,7 @@ struct PlatSleepAndClockInfo {
         .maxWakeupTime = 111000ull,
         .prepare = sleepClockRtcPrepare,
         .wake = sleepClockRtcWake,
-        .userData = (void*)stm32f144SleepModeStopMRFPD,
+        .userData = (void*)stm32f411SleepModeStopMRFPD,
     },
 #endif
 #ifndef STM32F4xx_DISABLE_MR_SLEEP
@@ -559,7 +560,7 @@ struct PlatSleepAndClockInfo {
         .maxWakeupTime = 14500ull,
         .prepare = sleepClockRtcPrepare,
         .wake = sleepClockRtcWake,
-        .userData = (void*)stm32f144SleepModeStopMR,
+        .userData = (void*)stm32f411SleepModeStopMR,
     },
 #endif
 #ifndef STM32F4xx_DISABLE_TIM2_SLEEP
@@ -657,21 +658,25 @@ void platSleep(void)
     }
 
     //turn ints off in prep for sleep
+    wdtDisableClk();
     intState = cpuIntsOff();
 
     //options? config it
-    if (sleepClock->prepare && !sleepClock->prepare(mWakeupTime ? length - sleepClock->maxWakeupTime : 0, mMaxJitterPpm, mMaxDriftPpm, mMaxErrTotalPpm, sleepClock->userData, &savedData))
-        return;
+    if (sleepClock->prepare &&
+        sleepClock->prepare(mWakeupTime ? length - sleepClock->maxWakeupTime : 0,
+                            mMaxJitterPpm, mMaxDriftPpm, mMaxErrTotalPpm,
+                            sleepClock->userData, &savedData)) {
 
-    asm volatile ("wfi\n"
-        "nop" :::"memory");
+        asm volatile ("wfi\n"
+            "nop" :::"memory");
 
-    //wakeup
-    if (sleepClock->wake)
-        sleepClock->wake(sleepClock->userData, &savedData);
-
+        //wakeup
+        if (sleepClock->wake)
+            sleepClock->wake(sleepClock->userData, &savedData);
+    }
     //re-enable interrupts and let the handlers run
     cpuIntsRestore(intState);
+    wdtEnableClk();
 }
 
 void* platGetPersistentRamStore(uint32_t *bytes)
@@ -686,4 +691,9 @@ uint32_t platFreeResources(uint32_t tid)
     uint32_t irqCount = extiUnchainAll(tid);
 
     return (dmaCount << 8) | irqCount;
+}
+
+void platPeriodic()
+{
+    wdtPing();
 }

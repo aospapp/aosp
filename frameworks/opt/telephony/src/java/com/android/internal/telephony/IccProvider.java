@@ -32,7 +32,6 @@ import android.telephony.Rlog;
 
 import java.util.List;
 
-import com.android.internal.telephony.IIccPhoneBook;
 import com.android.internal.telephony.uicc.AdnRecord;
 import com.android.internal.telephony.uicc.IccConstants;
 
@@ -428,8 +427,8 @@ public class IccProvider extends ContentProvider {
     addIccRecordToEf(int efType, String name, String number, String[] emails,
             String pin2, int subId) {
         if (DBG) log("addIccRecordToEf: efType=0x" + Integer.toHexString(efType).toUpperCase() +
-                ", name=" + name + ", number=" + number + ", emails=" + emails +
-                ", subscription=" + subId);
+                ", name=" + Rlog.pii(TAG, name) + ", number=" + Rlog.pii(TAG, number) +
+                ", emails=" + Rlog.pii(TAG, emails) + ", subscription=" + subId);
 
         boolean success = false;
 
@@ -458,8 +457,8 @@ public class IccProvider extends ContentProvider {
     updateIccRecordInEf(int efType, String oldName, String oldNumber,
             String newName, String newNumber, String pin2, int subId) {
         if (DBG) log("updateIccRecordInEf: efType=0x" + Integer.toHexString(efType).toUpperCase() +
-                ", oldname=" + oldName + ", oldnumber=" + oldNumber +
-                ", newname=" + newName + ", newnumber=" + newNumber +
+                ", oldname=" + Rlog.pii(TAG, oldName) + ", oldnumber=" + Rlog.pii(TAG, oldNumber) +
+                ", newname=" + Rlog.pii(TAG, newName) + ", newnumber=" + Rlog.pii(TAG, newName) +
                 ", subscription=" + subId);
 
         boolean success = false;
@@ -484,9 +483,9 @@ public class IccProvider extends ContentProvider {
     private boolean deleteIccRecordFromEf(int efType, String name, String number, String[] emails,
             String pin2, int subId) {
         if (DBG) log("deleteIccRecordFromEf: efType=0x" +
-                Integer.toHexString(efType).toUpperCase() +
-                ", name=" + name + ", number=" + number + ", emails=" + emails +
-                ", pin2=" + pin2 + ", subscription=" + subId);
+                Integer.toHexString(efType).toUpperCase() + ", name=" + Rlog.pii(TAG, name) +
+                ", number=" + Rlog.pii(TAG, number) + ", emails=" + Rlog.pii(TAG, emails) +
+                ", pin2=" + Rlog.pii(TAG, pin2) + ", subscription=" + subId);
 
         boolean success = false;
 
@@ -518,7 +517,7 @@ public class IccProvider extends ContentProvider {
             String alphaTag = record.getAlphaTag();
             String number = record.getNumber();
 
-            if (DBG) log("loadRecord: " + alphaTag + ", " + number + ",");
+            if (DBG) log("loadRecord: " + alphaTag + ", " + Rlog.pii(TAG, number));
             contact[0] = alphaTag;
             contact[1] = number;
 
@@ -526,7 +525,7 @@ public class IccProvider extends ContentProvider {
             if (emails != null) {
                 StringBuilder emailString = new StringBuilder();
                 for (String email: emails) {
-                    if (DBG) log("Adding email:" + email);
+                    log("Adding email:" + Rlog.pii(TAG, email));
                     emailString.append(email);
                     emailString.append(",");
                 }

@@ -30,11 +30,13 @@ namespace android {
  * host software.
  */
 enum class EventType {
+    AppFromHostEvent = 0x000000F8,
     FirstSensorEvent = 0x00000200,
     LastSensorEvent  = 0x000002FF,
     ConfigureSensor  = 0x00000300,
     AppToHostEvent   = 0x00000401,
     ResetReasonEvent = 0x00000403,
+    LogEvent         = 0x474F4C41,
 };
 
 /*
@@ -139,6 +141,7 @@ class ReadEventResponse : public NanoResponse {
     bool IsAppToHostEvent() const;
     bool IsSensorEvent() const;
     bool IsResetReasonEvent() const;
+    bool IsLogEvent() const;
     uint32_t GetEventType() const;
 
     // Event data associated with this response.
@@ -149,6 +152,7 @@ class ReadEventResponse : public NanoResponse {
     static bool IsAppToHostEvent(uint32_t event_type);
     static bool IsSensorEvent(uint32_t event_type);
     static bool IsResetReasonEvent(uint32_t event_type);
+    static bool IsLogEvent(uint32_t event_type);
 };
 
 /*
@@ -161,7 +165,8 @@ class ConfigureSensorRequest : public WriteEventRequest {
         Enable,
         Flush,
         ConfigData,
-        Calibrate
+        Calibrate,
+        SelfTest
     };
 
     ConfigureSensorRequest();
@@ -187,6 +192,14 @@ class ConfigureSensorRequest : public WriteEventRequest {
 
   private:
     std::vector<uint8_t> extra_data_;
+};
+
+class BridgeVersionInfoRequest : public WriteEventRequest {
+  public:
+    //BridgeVersionInfoRequest() {};
+    std::vector<uint8_t> GetBytes() const override;
+    EventType GetEventType() const override;
+    std::string ToString() const override;
 };
 
 }  // namespace android

@@ -26,7 +26,6 @@ from acts.test_utils.bt.BleEnum import ScanSettingsMatchNum
 from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
 from acts.test_utils.bt.bt_test_utils import adv_succ
 from acts.test_utils.bt.bt_test_utils import cleanup_scanners_and_advertisers
-from acts.test_utils.bt.bt_test_utils import get_advanced_droid_list
 from acts.test_utils.bt.bt_test_utils import log_energy_info
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.bt_test_utils import scan_result
@@ -40,12 +39,8 @@ class BleOnLostOnFoundTest(BluetoothBaseTest):
 
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
-        self.droid_list = get_advanced_droid_list(self.android_devices)
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
-        if self.droid_list[1]['max_advertisements'] == 0:
-            self.tests = ()
-            return
 
     def teardown_test(self):
         self.log.info(log_energy_info(self.android_devices, "End"))

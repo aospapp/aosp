@@ -29,7 +29,6 @@ import com.android.internal.telecom.IVideoCallback;
 import com.android.internal.telecom.IVideoProvider;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -130,6 +129,31 @@ public class VideoProviderProxy extends Connection.VideoProvider {
                 Log.startSession("VPP.rSMR");
                 synchronized (mLock) {
                     logFromVideoProvider("receiveSessionModifyRequest: " + videoProfile);
+                    Log.event(mCall, Log.Events.RECEIVE_VIDEO_REQUEST,
+                            VideoProfile.videoStateToString(videoProfile.getVideoState()));
+
+                    mCall.getAnalytics().addVideoEvent(
+                            Analytics.RECEIVE_REMOTE_SESSION_MODIFY_REQUEST,
+                            videoProfile.getVideoState());
+
+                    if (!mCall.isVideoCallingSupported() &&
+                            VideoProfile.isVideo(videoProfile.getVideoState())) {
+                        // If video calling is not supported by the phone account, and we receive
+                        // a request to upgrade to video, automatically reject it without informing
+                        // the InCallService.
+
+                        Log.event(mCall, Log.Events.SEND_VIDEO_RESPONSE, "video not supported");
+                        VideoProfile responseProfile = new VideoProfile(
+                                VideoProfile.STATE_AUDIO_ONLY);
+                        try {
+                            mConectionServiceVideoProvider.sendSessionModifyResponse(
+                                    responseProfile);
+                        } catch (RemoteException e) {
+                        }
+
+                        // Don't want to inform listeners of the request as we've just rejected it.
+                        return;
+                    }
 
                     // Inform other Telecom components of the session modification request.
                     for (Listener listener : mListeners) {
@@ -154,10 +178,17 @@ public class VideoProviderProxy extends Connection.VideoProvider {
         @Override
         public void receiveSessionModifyResponse(int status, VideoProfile requestProfile,
                 VideoProfile responseProfile) {
+            logFromVideoProvider("receiveSessionModifyResponse: status=" + status +
+                    " requestProfile=" + requestProfile + " responseProfile=" + responseProfile);
+            String eventMessage = "Status Code : " + status + " Video State: " +
+                    (responseProfile != null ? responseProfile.getVideoState() : "null");
+            Log.event(mCall, Log.Events.RECEIVE_VIDEO_RESPONSE, eventMessage);
             synchronized (mLock) {
-                logFromVideoProvider("receiveSessionModifyResponse: status=" + status +
-                        " requestProfile=" + requestProfile + " responseProfile=" +
-                        responseProfile);
+                if (status == Connection.VideoProvider.SESSION_MODIFY_REQUEST_SUCCESS) {
+                    mCall.getAnalytics().addVideoEvent(
+                            Analytics.RECEIVE_REMOTE_SESSION_MODIFY_RESPONSE,
+                            requestProfile.getVideoState());
+                }
                 VideoProviderProxy.this.receiveSessionModifyResponse(status, requestProfile,
                         responseProfile);
             }
@@ -337,6 +368,11 @@ public class VideoProviderProxy extends Connection.VideoProvider {
     public void onSendSessionModifyRequest(VideoProfile fromProfile, VideoProfile toProfile) {
         synchronized (mLock) {
             logFromInCall("sendSessionModifyRequest: from=" + fromProfile + " to=" + toProfile);
+            Log.event(mCall, Log.Events.SEND_VIDEO_REQUEST,
+                    VideoProfile.videoStateToString(toProfile.getVideoState()));
+            mCall.getAnalytics().addVideoEvent(
+                    Analytics.SEND_LOCAL_SESSION_MODIFY_REQUEST,
+                    toProfile.getVideoState());
             try {
                 mConectionServiceVideoProvider.sendSessionModifyRequest(fromProfile, toProfile);
             } catch (RemoteException e) {
@@ -354,6 +390,11 @@ public class VideoProviderProxy extends Connection.VideoProvider {
     public void onSendSessionModifyResponse(VideoProfile responseProfile) {
         synchronized (mLock) {
             logFromInCall("sendSessionModifyResponse: " + responseProfile);
+            Log.event(mCall, Log.Events.SEND_VIDEO_RESPONSE,
+                    VideoProfile.videoStateToString(responseProfile.getVideoState()));
+            mCall.getAnalytics().addVideoEvent(
+                    Analytics.SEND_LOCAL_SESSION_MODIFY_RESPONSE,
+                    responseProfile.getVideoState());
             try {
                 mConectionServiceVideoProvider.sendSessionModifyResponse(responseProfile);
             } catch (RemoteException e) {

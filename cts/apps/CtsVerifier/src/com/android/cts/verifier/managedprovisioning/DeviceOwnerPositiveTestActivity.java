@@ -68,6 +68,7 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
     private static final String DISALLOW_USB_FILE_TRANSFER_ID = "DISALLOW_USB_FILE_TRANSFER";
     private static final String SET_USER_ICON_TEST_ID = "SET_USER_ICON";
     private static final String DISALLOW_DATA_ROAMING_ID = "DISALLOW_DATA_ROAMING";
+    private static final String DISALLOW_FACTORY_RESET_ID = "DISALLOW_FACTORY_RESET";
     private static final String POLICY_TRANSPARENCY_TEST_ID = "POLICY_TRANSPARENCY";
     private static final String REMOVE_DEVICE_OWNER_TEST_ID = "REMOVE_DEVICE_OWNER";
 
@@ -200,6 +201,16 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
                                     R.string.device_owner_settings_go,
                                     new Intent(Settings.ACTION_DATA_ROAMING_SETTINGS))}));
         }
+
+        // DISALLOW_FACTORY_RESET
+        adapter.add(createInteractiveTestItem(this, DISALLOW_FACTORY_RESET_ID,
+                R.string.device_owner_disallow_factory_reset,
+                R.string.device_owner_disallow_factory_reset_info,
+                new ButtonInfo[] {
+                        new ButtonInfo(
+                                R.string.device_owner_user_restriction_set,
+                                createSetUserRestrictionIntent(
+                                        UserManager.DISALLOW_FACTORY_RESET))}));
 
         // DISALLOW_CONFIG_BLUETOOTH
         if (packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {

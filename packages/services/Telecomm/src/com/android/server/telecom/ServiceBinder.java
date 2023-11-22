@@ -336,22 +336,28 @@ abstract class ServiceBinder {
      */
     private void setBinder(IBinder binder) {
         if (mBinder != binder) {
-            mBinder = binder;
-
-            setServiceInterface(binder);
-
             if (binder == null) {
+                removeServiceInterface();
+                mBinder = null;
                 for (Listener l : mListeners) {
                     l.onUnbind(this);
                 }
+            } else {
+                mBinder = binder;
+                setServiceInterface(binder);
             }
         }
     }
 
     /**
-     * Sets the service interface after the service is bound or unbound.
+     * Sets the service interface after the service is bound.
      *
-     * @param binder The actual bound service implementation.
+     * @param binder The new binder interface that is being set.
      */
     protected abstract void setServiceInterface(IBinder binder);
+
+    /**
+     * Removes the service interface before the service is unbound.
+     */
+    protected abstract void removeServiceInterface();
 }

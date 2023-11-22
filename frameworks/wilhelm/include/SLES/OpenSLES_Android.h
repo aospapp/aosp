@@ -417,10 +417,6 @@ struct SLAndroidAcousticEchoCancellationItf_ {
         SLAndroidAcousticEchoCancellationItf self,
         SLboolean *pEnabled
     );
-    SLresult (*IsAvailable)(
-        SLAndroidAcousticEchoCancellationItf self,
-        SLboolean *pEnabled
-    );
 };
 
 /*---------------------------------------------------------------------------*/
@@ -440,10 +436,6 @@ struct SLAndroidAutomaticGainControlItf_ {
         SLAndroidAutomaticGainControlItf self,
         SLboolean *pEnabled
     );
-    SLresult (*IsAvailable)(
-        SLAndroidAutomaticGainControlItf self,
-        SLboolean *pEnabled
-    );
 };
 
 /*---------------------------------------------------------------------------*/
@@ -460,10 +452,6 @@ struct SLAndroidNoiseSuppressionItf_ {
         SLboolean enabled
     );
     SLresult (*IsEnabled)(
-        SLAndroidNoiseSuppressionItf self,
-        SLboolean *pEnabled
-    );
-    SLresult (*IsAvailable)(
         SLAndroidNoiseSuppressionItf self,
         SLboolean *pEnabled
     );

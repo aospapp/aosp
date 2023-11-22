@@ -38,6 +38,7 @@ import android.view.Surface;
 import android.net.Uri;
 
 import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.DynamicConfigDeviceSide;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
@@ -72,20 +73,11 @@ public class DecoderTest extends MediaPlayerTestBase {
     private MediaCodecTunneledPlayer mMediaCodecPlayer;
     private static final int SLEEP_TIME_MS = 1000;
     private static final long PLAY_TIME_MS = TimeUnit.MILLISECONDS.convert(1, TimeUnit.MINUTES);
-    private static final Uri AUDIO_URL = Uri.parse(
-            "http://redirector.c.youtube.com/videoplayback?id=c80658495af60617"
-                + "&itag=18&source=youtube&ip=0.0.0.0&ipbits=0&expire=19000000000"
-                + "&sparams=ip,ipbits,expire,id,itag,source"
-                + "&signature=46A04ED550CA83B79B60060BA80C79FDA5853D26."
-                + "49582D382B4A9AFAA163DED38D2AE531D85603C0"
-                + "&key=ik0&user=android-device-test");  // H.264 Base + AAC
-    private static final Uri VIDEO_URL = Uri.parse(
-            "http://redirector.c.youtube.com/videoplayback?id=c80658495af60617"
-                + "&itag=18&source=youtube&ip=0.0.0.0&ipbits=0&expire=19000000000"
-                + "&sparams=ip,ipbits,expire,id,itag,source"
-                + "&signature=46A04ED550CA83B79B60060BA80C79FDA5853D26."
-                + "49582D382B4A9AFAA163DED38D2AE531D85603C0"
-                + "&key=ik0&user=android-device-test");  // H.264 Base + AAC
+
+    private static final String AUDIO_URL_KEY = "decoder_test_audio_url";
+    private static final String VIDEO_URL_KEY = "decoder_test_video_url";
+    private static final String MODULE_NAME = "CtsMediaTestCases";
+    private DynamicConfigDeviceSide dynamicConfig;
 
     @Override
     protected void setUp() throws Exception {
@@ -109,6 +101,8 @@ public class DecoderTest extends MediaPlayerTestBase {
         }
         bis.close();
         masterFd.close();
+
+        dynamicConfig = new DynamicConfigDeviceSide(MODULE_NAME);
     }
 
     @Override
@@ -297,12 +291,14 @@ public class DecoderTest extends MediaPlayerTestBase {
      * aspects contained in the color box and VUI for the test stream.
      * P = primaries, T = transfer, M = coeffs, R = range. '-' means
      * empty value.
-     *                                  |   colr       |    VUI
-     * --------------------------------------------------------------
-     *         File Name                |  P  T  M  R  |  P  T  M  R
-     * --------------------------------------------------------------
-     *  color_176x144_bt709_lr_sdr_h264 |  1  1  1  0  |  -  -  -  -
-     *  color_176x144_bt601_fr_sdr_h264 |  1  6  6  0  |  5  2  2  1
+     *                                      |     colr     |    VUI
+     * -------------------------------------------------------------------
+     *         File Name                    |  P  T  M  R  |  P  T  M  R
+     * -------------------------------------------------------------------
+     *  color_176x144_bt709_lr_sdr_h264     |  1  1  1  0  |  -  -  -  -
+     *  color_176x144_bt601_625_fr_sdr_h264 |  1  6  6  0  |  5  2  2  1
+     *  color_176x144_bt601_525_lr_sdr_h264 |  6  5  4  0  |  2  6  6  0
+     *  color_176x144_srgb_lr_sdr_h264      |  2  0  2  1  |  1  13 1  0
      */
     public void testH264ColorAspects() throws Exception {
         testColorAspects(
@@ -310,9 +306,87 @@ public class DecoderTest extends MediaPlayerTestBase {
                 MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT709,
                 MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
         testColorAspects(
-                R.raw.color_176x144_bt601_fr_sdr_h264, 2 /* testId */,
+                R.raw.color_176x144_bt601_625_fr_sdr_h264, 2 /* testId */,
                 MediaFormat.COLOR_RANGE_FULL, MediaFormat.COLOR_STANDARD_BT601_PAL,
                 MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+        testColorAspects(
+                R.raw.color_176x144_bt601_525_lr_sdr_h264, 3 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT601_NTSC,
+                MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+        testColorAspects(
+                R.raw.color_176x144_srgb_lr_sdr_h264, 4 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT709,
+                2 /* MediaFormat.COLOR_TRANSFER_SRGB */);
+    }
+
+    /**
+     * Test ColorAspects of all the HEVC decoders. Decoders should handle
+     * the colors aspects presented in both the mp4 atom 'colr' and VUI
+     * in the bitstream correctly. The following table lists the color
+     * aspects contained in the color box and VUI for the test stream.
+     * P = primaries, T = transfer, M = coeffs, R = range. '-' means
+     * empty value.
+     *                                      |     colr     |    VUI
+     * -------------------------------------------------------------------
+     *         File Name                    |  P  T  M  R  |  P  T  M  R
+     * -------------------------------------------------------------------
+     *  color_176x144_bt709_lr_sdr_h265     |  1  1  1  0  |  -  -  -  -
+     *  color_176x144_bt601_625_fr_sdr_h265 |  1  6  6  0  |  5  2  2  1
+     *  color_176x144_bt601_525_lr_sdr_h265 |  6  5  4  0  |  2  6  6  0
+     *  color_176x144_srgb_lr_sdr_h265      |  2  0  2  1  |  1  13 1  0
+     */
+    public void testH265ColorAspects() throws Exception {
+        testColorAspects(
+                R.raw.color_176x144_bt709_lr_sdr_h265, 1 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT709,
+                MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+        testColorAspects(
+                R.raw.color_176x144_bt601_625_fr_sdr_h265, 2 /* testId */,
+                MediaFormat.COLOR_RANGE_FULL, MediaFormat.COLOR_STANDARD_BT601_PAL,
+                MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+        testColorAspects(
+                R.raw.color_176x144_bt601_525_lr_sdr_h265, 3 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT601_NTSC,
+                MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+        testColorAspects(
+                R.raw.color_176x144_srgb_lr_sdr_h265, 4 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT709,
+                2 /* MediaFormat.COLOR_TRANSFER_SRGB */);
+    }
+
+    /**
+     * Test ColorAspects of all the MPEG2 decoders if avaiable. Decoders should
+     * handle the colors aspects presented in both the mp4 atom 'colr' and Sequence
+     * in the bitstream correctly. The following table lists the color aspects
+     * contained in the color box and SeqInfo for the test stream.
+     * P = primaries, T = transfer, M = coeffs, R = range. '-' means
+     * empty value.
+     *                                       |     colr     |    SeqInfo
+     * -------------------------------------------------------------------
+     *         File Name                     |  P  T  M  R  |  P  T  M  R
+     * -------------------------------------------------------------------
+     *  color_176x144_bt709_lr_sdr_mpeg2     |  1  1  1  0  |  -  -  -  -
+     *  color_176x144_bt601_625_lr_sdr_mpeg2 |  1  6  6  0  |  5  2  2  0
+     *  color_176x144_bt601_525_lr_sdr_mpeg2 |  6  5  4  0  |  2  6  6  0
+     *  color_176x144_srgb_lr_sdr_mpeg2      |  2  0  2  0  |  1  13 1  0
+     */
+    public void testMPEG2ColorAspectsTV() throws Exception {
+        testColorAspects(
+                R.raw.color_176x144_bt709_lr_sdr_mpeg2, 1 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT709,
+                MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+        testColorAspects(
+                R.raw.color_176x144_bt601_625_lr_sdr_mpeg2, 2 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT601_PAL,
+                MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+        testColorAspects(
+                R.raw.color_176x144_bt601_525_lr_sdr_mpeg2, 3 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT601_NTSC,
+                MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+        testColorAspects(
+                R.raw.color_176x144_srgb_lr_sdr_mpeg2, 4 /* testId */,
+                MediaFormat.COLOR_RANGE_LIMITED, MediaFormat.COLOR_STANDARD_BT709,
+                2 /* MediaFormat.COLOR_TRANSFER_SRGB */);
     }
 
     private void testColorAspects(
@@ -1431,7 +1505,7 @@ public class DecoderTest extends MediaPlayerTestBase {
         return decoded;
     }
 
-    private void queueConfig(MediaCodec codec, MediaFormat format) {
+    private static void queueConfig(MediaCodec codec, MediaFormat format) {
         for (String csdKey : CSD_KEYS) {
             if (!format.containsKey(csdKey)) {
                 continue;
@@ -2130,6 +2204,10 @@ public class DecoderTest extends MediaPlayerTestBase {
             codecOutputBuffers = codec.getOutputBuffers();
         } else if (resetMode == RESET_MODE_FLUSH) {
             codec.flush();
+
+            // We must always queue CSD after a flush that is potentially
+            // before we receive output format has changed.
+            queueConfig(codec, format);
         }
 
         // start decode loop
@@ -2662,8 +2740,10 @@ public class DecoderTest extends MediaPlayerTestBase {
         mMediaCodecPlayer = new MediaCodecTunneledPlayer(
                 getActivity().getSurfaceHolder(), true, am.generateAudioSessionId());
 
-        mMediaCodecPlayer.setAudioDataSource(AUDIO_URL, null);
-        mMediaCodecPlayer.setVideoDataSource(VIDEO_URL, null);
+        Uri audioUri = Uri.parse(dynamicConfig.getValue(AUDIO_URL_KEY));
+        Uri videoUri = Uri.parse(dynamicConfig.getValue(VIDEO_URL_KEY));
+        mMediaCodecPlayer.setAudioDataSource(audioUri, null);
+        mMediaCodecPlayer.setVideoDataSource(videoUri, null);
         assertTrue("MediaCodecPlayer.start() failed!", mMediaCodecPlayer.start());
         assertTrue("MediaCodecPlayer.prepare() failed!", mMediaCodecPlayer.prepare());
 
@@ -2702,8 +2782,10 @@ public class DecoderTest extends MediaPlayerTestBase {
         mMediaCodecPlayer = new MediaCodecTunneledPlayer(
                 getActivity().getSurfaceHolder(), true, am.generateAudioSessionId());
 
-        mMediaCodecPlayer.setAudioDataSource(AUDIO_URL, null);
-        mMediaCodecPlayer.setVideoDataSource(VIDEO_URL, null);
+        Uri audioUri = Uri.parse(dynamicConfig.getValue(AUDIO_URL_KEY));
+        Uri videoUri = Uri.parse(dynamicConfig.getValue(VIDEO_URL_KEY));
+        mMediaCodecPlayer.setAudioDataSource(audioUri, null);
+        mMediaCodecPlayer.setVideoDataSource(videoUri, null);
         assertTrue("MediaCodecPlayer.start() failed!", mMediaCodecPlayer.start());
         assertTrue("MediaCodecPlayer.prepare() failed!", mMediaCodecPlayer.prepare());
 

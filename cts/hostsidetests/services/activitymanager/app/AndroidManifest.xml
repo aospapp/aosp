@@ -46,7 +46,7 @@
         />
         <activity android:name=".NoRelaunchActivity"
                 android:resizeableActivity="true"
-                android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
+                android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|fontScale"
                 android:exported="true"
                 android:taskAffinity="nobody.but.NoRelaunchActivity"
         />
@@ -54,7 +54,7 @@
                 android:resizeableActivity="true"
                 android:exported="true"
         />
-        <activity android:name=".LaunchToSideActivity"
+        <activity android:name=".LaunchingActivity"
                 android:resizeableActivity="true"
                 android:exported="true"
                 android:taskAffinity="nobody.but.LaunchToSideActivity"
@@ -159,6 +159,19 @@
             android:exported="true"
             android:launchMode="singleInstance"
         />
+        <activity android:name=".TrampolineActivity"
+                  android:exported="true"
+                  android:theme="@android:style/Theme.NoDisplay"
+        />
+        <activity android:name=".BroadcastReceiverActivity"
+                  android:resizeableActivity="true"
+                  android:exported="true"
+        />
+        <activity-alias android:enabled="true"
+                android:exported="true"
+                android:name=".EntryPointAliasActivity"
+                android:targetActivity=".TrampolineActivity" >
+        </activity-alias>
     </application>
 </manifest>
 

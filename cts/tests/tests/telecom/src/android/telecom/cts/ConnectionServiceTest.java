@@ -18,9 +18,11 @@ package android.telecom.cts;
 
 import static android.telecom.cts.TestUtils.*;
 
+import android.content.ComponentName;
 import android.telecom.Call;
 import android.telecom.Connection;
 import android.telecom.ConnectionService;
+import android.telecom.PhoneAccountHandle;
 import android.util.Log;
 
 import java.util.Collection;
@@ -56,6 +58,52 @@ public class ConnectionServiceTest extends BaseTelecomTestWithMockServices {
         mInCallCallbacks.lock.drainPermits();
         final Call call = mInCallCallbacks.getService().getLastCall();
         assertCallState(call, Call.STATE_HOLDING);
+    }
+
+    public void testAddExistingConnection_invalidPhoneAccountPackageName() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        placeAndVerifyCall();
+        verifyConnectionForOutgoingCall();
+
+        // Add second connection (add existing connection)
+        final MockConnection connection = new MockConnection();
+        connection.setOnHold();
+        ComponentName invalidName = new ComponentName("com.android.phone",
+                "com.android.services.telephony.TelephonyConnectionService");
+        // This command will fail and a SecurityException will be thrown by Telecom. The Exception
+        // will then be absorbed by the ConnectionServiceAdapter.
+        CtsConnectionService.addExistingConnectionToTelecom(new PhoneAccountHandle(invalidName,
+                "Test"), connection);
+        // Make sure that only the original Call exists.
+        assertNumCalls(mInCallCallbacks.getService(), 1);
+        mInCallCallbacks.lock.drainPermits();
+        final Call call = mInCallCallbacks.getService().getLastCall();
+        assertCallState(call, Call.STATE_DIALING);
+    }
+
+    public void testAddExistingConnection_invalidPhoneAccountAccountId() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        placeAndVerifyCall();
+        verifyConnectionForOutgoingCall();
+
+        // Add second connection (add existing connection)
+        final MockConnection connection = new MockConnection();
+        connection.setOnHold();
+        ComponentName validName = new ComponentName(PACKAGE, COMPONENT);
+        // This command will fail because the PhoneAccount is not registered to Telecom currently.
+        CtsConnectionService.addExistingConnectionToTelecom(new PhoneAccountHandle(validName,
+                "Invalid Account Id"), connection);
+        // Make sure that only the original Call exists.
+        assertNumCalls(mInCallCallbacks.getService(), 1);
+        mInCallCallbacks.lock.drainPermits();
+        final Call call = mInCallCallbacks.getService().getLastCall();
+        assertCallState(call, Call.STATE_DIALING);
     }
 
     public void testGetAllConnections() {

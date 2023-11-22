@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Chýba číslo hlasovej schránky"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Na SIM karte nie je uložené žiadne číslo hlasovej schránky."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Pridať číslo"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Chcete zmeniť predvolenú aplikáciu vytáčania?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Chcete použiť aplikáciu <xliff:g id="NEW_APP">%1$s</xliff:g> namiesto aplikácie <xliff:g id="CURRENT_APP">%2$s</xliff:g> ako predvolenú aplikáciu vytáčania?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Chcete použiť aplikáciu <xliff:g id="NEW_APP">%s</xliff:g> ako predvolenú aplikáciu vytáčania?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Nastaviť <xliff:g id="NEW_APP">%s</xliff:g> ako predvolanú aplikáciu na telefonovanie?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Nastaviť ako predvolené"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Zrušiť"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> bude môcť uskutočňovať hovory a ovládať všetky aspekty hovorov. Ako predvolenú aplikáciu na telefonovanie by ste si mali nastaviť len aplikáciu, ktorej dôverujete."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Blokované čísla"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Z blokovaných čísel nebudete prijímať hovory ani textové správy."</string>
     <string name="block_number" msgid="1101252256321306179">"Pridať číslo"</string>

@@ -19,14 +19,13 @@ package android.platform.test.helpers;
 import android.app.Instrumentation;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.SystemClock;
+import android.platform.test.helpers.exceptions.UnknownUiException;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Until;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
-
-import junit.framework.Assert;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -130,17 +129,21 @@ public class GoogleKeyboardHelperImpl extends AbstractGoogleKeyboardHelper {
                 skipGoogleNowButton.click();
             }
             BySelector closeSelector = By.text(Pattern.compile("CLOSE", Pattern.CASE_INSENSITIVE));
-            Assert.assertTrue("Could not find close button to dismiss Google Keyboard dialog",
-                    mDevice.wait(Until.hasObject(closeSelector), 5000));
-            mDevice.findObject(closeSelector).click();
+            UiObject2 closeButton = mDevice.wait(Until.findObject(closeSelector), 5000);
+            if (closeButton == null) {
+                throw new UnknownUiException("Could not find close button to dismiss the" +
+                        "Google Keyboard dialog.");
+            }
+            closeButton.click();
             mDevice.wait(Until.gone(closeSelector), 5000);
         }
 
     }
 
     private static Set<Character> createImmutableSet(String setCharacters) {
-        Assert.assertNotNull("setCharacters cannot be null", setCharacters);
-
+        if (setCharacters == null) {
+            throw new IllegalArgumentException("setCharacters cannot be null.");
+        }
         Set<Character> tempSet = new HashSet<>();
         for (int i = 0; i < setCharacters.length(); ++i) {
             tempSet.add(setCharacters.charAt(i));
@@ -222,15 +225,17 @@ public class GoogleKeyboardHelperImpl extends AbstractGoogleKeyboardHelper {
 
     private void toggleShiftMode() {
         UiObject2 shiftKey = getShiftKey();
-        Assert.assertNotNull("Could not find Shift key", shiftKey);
-
+        if (shiftKey == null) {
+            throw new UnknownUiException("Could not find the Shift key.");
+        }
         shiftKey.click();
     }
 
     private void switchToLetterMode() {
         UiObject2 letterKey = getLetterKey();
-        Assert.assertNotNull("Could not find Letter key", letterKey);
-
+        if (letterKey == null) {
+            throw new UnknownUiException("Could not find the letter key.");
+        }
         letterKey.click();
     }
 
@@ -243,9 +248,11 @@ public class GoogleKeyboardHelperImpl extends AbstractGoogleKeyboardHelper {
             toggleShiftMode();
         }
 
-        Assert.assertTrue("Could not switch to lower case letters mode on Google Keyboard",
-                mDevice.wait(Until.hasObject(By.clazz(UI_KEYBOARD_KEY_CLASS).desc(
-                String.valueOf(KEYBOARD_TEST_LOWER_CASE_LETTER))), KEYBOARD_MODE_CHANGE_TIMEOUT));
+        boolean success = mDevice.wait(Until.hasObject(By.clazz(UI_KEYBOARD_KEY_CLASS).desc(
+                String.valueOf(KEYBOARD_TEST_LOWER_CASE_LETTER))), KEYBOARD_MODE_CHANGE_TIMEOUT);
+        if (!success) {
+            throw new UnknownUiException("Could not switch to lower case letters mode.");
+        }
     }
 
     private void switchToUpperCaseMode() {
@@ -257,22 +264,27 @@ public class GoogleKeyboardHelperImpl extends AbstractGoogleKeyboardHelper {
             toggleShiftMode();
         }
 
-        Assert.assertTrue("Could not switch to upper case letters mode on Google Keyboard",
-                mDevice.wait(Until.hasObject(By.clazz(UI_KEYBOARD_KEY_CLASS).desc(
-                String.valueOf(KEYBOARD_TEST_UPPER_CASE_LETTER))), KEYBOARD_MODE_CHANGE_TIMEOUT));
+        boolean success = mDevice.wait(Until.hasObject(By.clazz(UI_KEYBOARD_KEY_CLASS).desc(
+                String.valueOf(KEYBOARD_TEST_UPPER_CASE_LETTER))), KEYBOARD_MODE_CHANGE_TIMEOUT);
+        if (!success) {
+            throw new UnknownUiException("Could not switch to upper case letters mode.");
+        }
     }
 
     private void switchToNumberMode() {
         if (!isOnNumberMode()) {
             UiObject2 numberKey = getNumberKey();
-            Assert.assertNotNull("Could not find Number key", numberKey);
-
+            if (numberKey == null) {
+                throw new UnknownUiException("Could not find Number key.");
+            }
             numberKey.click();
         }
 
-        Assert.assertTrue("Could not switch to number mode on Google Keyboard",
-                mDevice.wait(Until.hasObject(By.clazz(UI_KEYBOARD_KEY_CLASS).desc(
-                String.valueOf(KEYBOARD_TEST_NUMBER))), KEYBOARD_MODE_CHANGE_TIMEOUT));
+        boolean success = mDevice.wait(Until.hasObject(By.clazz(UI_KEYBOARD_KEY_CLASS).desc(
+                String.valueOf(KEYBOARD_TEST_NUMBER))), KEYBOARD_MODE_CHANGE_TIMEOUT);
+        if (!success) {
+            throw new UnknownUiException("Could not switch to number mode on Google Keyboard.");
+        }
     }
 
     private void switchToSymbolMode() {
@@ -282,14 +294,18 @@ public class GoogleKeyboardHelperImpl extends AbstractGoogleKeyboardHelper {
 
         if (isOnNumberMode()) {
             UiObject2 symbolKey = getSymbolKey();
-            Assert.assertNotNull("Could not find Symbol key", symbolKey);
+            if (symbolKey == null) {
+                throw new UnknownUiException("Could not find the Symbol key.");
+            }
 
             symbolKey.click();
         }
 
-        Assert.assertTrue("Could not switch to symbol mode on Google Keyboard",
-                mDevice.wait(Until.hasObject(By.clazz(UI_KEYBOARD_KEY_CLASS).desc(
-                String.valueOf(KEYBOARD_TEST_SYMBOL))), KEYBOARD_MODE_CHANGE_TIMEOUT));
+        boolean success = mDevice.wait(Until.hasObject(By.clazz(UI_KEYBOARD_KEY_CLASS).desc(
+                String.valueOf(KEYBOARD_TEST_SYMBOL))), KEYBOARD_MODE_CHANGE_TIMEOUT);
+        if (!success) {
+            throw new UnknownUiException("Could not switch to Symbol mode.");
+        }
     }
 
     /*
@@ -306,7 +322,9 @@ public class GoogleKeyboardHelperImpl extends AbstractGoogleKeyboardHelper {
      */
     @Override
     public void typeText(String text, long delayBetweenKeyPresses) {
-        Assert.assertTrue("Google Keyboard is not open", isKeyboardOpen());
+        if (!isKeyboardOpen()) {
+            throw new IllegalStateException("Google Keyboard is not open.");
+        }
         for (int i = 0; i < text.length(); ++i) {
             char c = text.charAt(i);
 
@@ -322,11 +340,14 @@ public class GoogleKeyboardHelperImpl extends AbstractGoogleKeyboardHelper {
             } else if (KEYBOARD_OTHER_SYMBOLS.contains(c)) {
                 switchToSymbolMode();
             } else {
-                Assert.fail(String.format("Unrecognized character '%c'", c));
+                throw new IllegalArgumentException(
+                        String.format("Unrecognized character '%c'", c));
             }
             UiObject2 keyboardKey = getKeyboardKey(c);
-            Assert.assertNotNull(String.format("Could not find key '%c' on Google Keyboard", c),
-                    keyboardKey);
+            if (keyboardKey == null) {
+                throw new UnknownUiException(
+                        String.format("Could not find key '%c' on Google Keyboard", c));
+            }
 
             keyboardKey.click();
             SystemClock.sleep(delayBetweenKeyPresses);

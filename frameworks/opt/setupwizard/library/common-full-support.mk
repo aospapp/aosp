@@ -9,7 +9,7 @@
 #   LOCAL_RESOURCE_DIR := \
 #        $(LOCAL_PATH)/res
 #
-#   include frameworks/opt/setupwizard/library/common-eclair-mr1.mk
+#   include frameworks/opt/setupwizard/library/common-full-support.mk
 #
 
 # Check that LOCAL_RESOURCE_DIR is defined

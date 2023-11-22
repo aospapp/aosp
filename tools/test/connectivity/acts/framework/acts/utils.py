@@ -40,7 +40,8 @@ class NexusModelNames:
     N5v2 = 'bullhead'
     N6 = 'shamu'
     N6v2 = 'angler'
-
+    N6v3 = 'marlin'
+    N5v3 = 'sailfish'
 
 class DozeModeStatus:
     ACTIVE = "ACTIVE"
@@ -52,7 +53,7 @@ valid_filename_chars = "-_." + ascii_letters_and_digits
 
 models = ("sprout", "occam", "hammerhead", "bullhead", "razor", "razorg",
           "shamu", "angler", "volantis", "volantisg", "mantaray", "fugu",
-          "ryu")
+          "ryu", "marlin", "sailfish")
 
 manufacture_name_to_model = {
     "flo": "razor",

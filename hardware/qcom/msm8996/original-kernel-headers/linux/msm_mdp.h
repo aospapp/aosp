@@ -70,7 +70,7 @@
 #define MSMFB_LPM_ENABLE	_IOWR(MSMFB_IOCTL_MAGIC, 170, unsigned int)
 #define MSMFB_MDP_PP_GET_FEATURE_VERSION _IOWR(MSMFB_IOCTL_MAGIC, 171, \
 					      struct mdp_pp_feature_version)
-#define MSMFB_SET_PERSISTENCE_MODE	_IOWR(MSMFB_IOCTL_MAGIC, 171, unsigned int)
+#define MSMFB_SET_PERSISTENCE_MODE	_IOWR(MSMFB_IOCTL_MAGIC, 172, unsigned int)
 
 #define FB_TYPE_3D_PANEL 0x10101010
 #define MDP_IMGTYPE2_START 0x10000
@@ -210,10 +210,13 @@ enum {
 	MDP_RGBX_1010102_UBWC,
 	MDP_Y_CBCR_H2V2_P010,
 	MDP_Y_CBCR_H2V2_TP10_UBWC,
+	MDP_CRYCBY_H2V1,  /* CrYCbY interleave */
 	MDP_IMGTYPE_LIMIT1 = MDP_IMGTYPE_END,
 	MDP_FB_FORMAT = MDP_IMGTYPE2_START,    /* framebuffer format */
 	MDP_IMGTYPE_LIMIT2 /* Non valid image type after this enum */
 };
+
+#define MDP_CRYCBY_H2V1 MDP_CRYCBY_H2V1
 
 enum {
 	PMEM_IMG,

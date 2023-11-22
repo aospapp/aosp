@@ -274,8 +274,24 @@ LOCAL_CPP_EXTENSION := $(libbrillo_cpp_extension)
 LOCAL_MODULE := libbrillo
 LOCAL_SRC_FILES := $(libbrillo_core_sources) $(libbrillo_linux_sources)
 LOCAL_C_INCLUDES := $(libbrillo_includes)
-LOCAL_SHARED_LIBRARIES := $(libbrillo_shared_libraries)
-LOCAL_STATIC_LIBRARIES := libmodpb64
+LOCAL_STATIC_LIBRARIES := $(libbrillo_shared_libraries) libmodpb64
+LOCAL_EXPORT_STATIC_LIBRARY_HEADERS := $(LOCAL_STATIC_LIBRARIES)
+LOCAL_CFLAGS := $(libbrillo_CFLAGS)
+LOCAL_CPPFLAGS := $(libbrillo_CPPFLAGS)
+LOCAL_CLANG := true
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+include $(BUILD_STATIC_LIBRARY)
+
+# Static stream library for target
+# ========================================================
+include $(CLEAR_VARS)
+LOCAL_CPP_EXTENSION := $(libbrillo_cpp_extension)
+LOCAL_MODULE := libbrillo-stream
+LOCAL_SRC_FILES := $(libbrillo_stream_sources)
+LOCAL_C_INCLUDES := $(libbrillo_includes)
+LOCAL_STATIC_LIBRARIES := $(libbrillo_shared_libraries) libbrillo \
+    libcrypto_static libssl_static
+LOCAL_EXPORT_STATIC_LIBRARY_HEADERS := $(LOCAL_STATIC_LIBRARIES)
 LOCAL_CFLAGS := $(libbrillo_CFLAGS)
 LOCAL_CPPFLAGS := $(libbrillo_CPPFLAGS)
 LOCAL_CLANG := true

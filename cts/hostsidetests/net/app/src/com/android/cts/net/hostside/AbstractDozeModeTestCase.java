@@ -132,13 +132,26 @@ abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetwor
             setDozeMode(true);
             assertBackgroundNetworkAccess(false);
 
-            sendNotification(42);
-            assertBackgroundNetworkAccess(true);
-            // Make sure access is disabled after it expires
-            SystemClock.sleep(NETWORK_TIMEOUT_MS);
-            assertBackgroundNetworkAccess(false);
+            testNotification(4, NOTIFICATION_TYPE_CONTENT);
+            testNotification(8, NOTIFICATION_TYPE_DELETE);
+            testNotification(15, NOTIFICATION_TYPE_FULL_SCREEN);
+            testNotification(16, NOTIFICATION_TYPE_BUNDLE);
+            testNotification(23, NOTIFICATION_TYPE_ACTION);
+            testNotification(42, NOTIFICATION_TYPE_ACTION_BUNDLE);
+            testNotification(108, NOTIFICATION_TYPE_ACTION_REMOTE_INPUT);
         } finally {
             resetDeviceIdleSettings();
+        }
+    }
+
+    private void testNotification(int id, String type) throws Exception {
+        sendNotification(id, type);
+        assertBackgroundNetworkAccess(true);
+        if (type.equals(NOTIFICATION_TYPE_ACTION)) {
+            // Make sure access is disabled after it expires. Since this check considerably slows
+            // downs the CTS tests, do it just once.
+            SystemClock.sleep(NETWORK_TIMEOUT_MS);
+            assertBackgroundNetworkAccess(false);
         }
     }
 

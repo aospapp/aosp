@@ -63,7 +63,7 @@ from acts.test_utils.tel.tel_test_utils import toggle_volte
 from acts.test_utils.tel.tel_test_utils import verify_incall_state
 from acts.test_utils.tel.tel_test_utils import wait_for_network_generation
 from acts.test_utils.tel.tel_test_utils import wait_for_network_rat_for_subscription
-from acts.test_utils.tel.tel_test_utils import wait_for_ringing_event
+from acts.test_utils.tel.tel_test_utils import wait_for_ringing_call
 from acts.test_utils.tel.tel_test_utils import wait_for_telecom_ringing
 from acts.test_utils.tel.tel_test_utils import wait_for_video_enabled
 from acts.test_utils.tel.tel_voice_utils import is_call_hd
@@ -94,9 +94,6 @@ def phone_setup_video_for_subscription(log, ad, sub_id):
     Returns:
         True if ad (sub_id) is setup correctly and idle for video call.
     """
-
-    # FIXME: temporarily disable selinux due to b/26953532
-    ad.adb.shell("setenforce", "0")
 
     toggle_airplane_mode(log, ad, False)
     if not set_wfc_mode(log, ad, WFC_MODE_DISABLED):
@@ -146,7 +143,7 @@ def phone_idle_video_for_subscription(log, ad, sub_id):
 
     if not wait_for_video_enabled(log, ad, MAX_WAIT_TIME_VOLTE_ENABLED):
         log.error(
-            "{} failed to <report volte enabled true> within {}s.".format(
+            "{} failed to <report video calling enabled> within {}s.".format(
                 ad.serial, MAX_WAIT_TIME_VOLTE_ENABLED))
         return False
     return True
@@ -422,32 +419,12 @@ def wait_and_answer_video_call_for_subscription(
         True: if incoming call is received and answered successfully.
         False: for errors
     """
-    ad.ed.clear_all_events()
-    ad.droid.telephonyStartTrackingCallStateForSubscription(sub_id)
-    if (not ad.droid.telecomIsRinging() and
-            ad.droid.telephonyGetCallStateForSubscription(sub_id) !=
-            TELEPHONY_STATE_RINGING):
-        try:
-            event_ringing = wait_for_ringing_event(
-                log, ad, MAX_WAIT_TIME_CALLEE_RINGING)
-            if event_ringing is None:
-                log.error("No Ringing Event.")
-                return False
-        finally:
-            ad.droid.telephonyStopTrackingCallStateChangeForSubscription(
-                sub_id)
 
-        if not incoming_number:
-            result = True
-        else:
-            result = check_phone_number_match(
-                event_ringing['data']['incomingNumber'], incoming_number)
-
-        if not result:
-            log.error("Incoming Number not match")
-            log.error("Expected number:{}, actual number:{}".format(
-                incoming_number, event_ringing['data']['incomingNumber']))
-            return False
+    if not wait_for_ringing_call(log, ad, incoming_number):
+        log.error(
+            "Video call could not be established: <{}> never rang.".format(
+                ad.serial))
+        return False
 
     ad.ed.clear_all_events()
 

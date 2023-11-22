@@ -121,6 +121,53 @@ public class LinkAccessibilityHelperTest extends AndroidTestCase {
         info.recycle();
     }
 
+    @SmallTest
+    public void testNullLayout() {
+        // Setting the padding will cause the layout to be null-ed out.
+        mTextView.setPadding(1, 1, 1, 1);
+
+        AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
+        mHelper.onPopulateNodeForVirtualView(0, info);
+
+        Rect bounds = new Rect();
+        info.getBoundsInParent(bounds);
+        assertEquals("LinkSpan bounds should be (0, 0, 1, 1)",
+                new Rect(0, 0, 1, 1), bounds);
+
+        info.recycle();
+    }
+
+    @SmallTest
+    public void testRtlLayout() {
+        // Redo setUp with a Hebrew (RTL) string.
+        mSpan = new LinkSpan("foobar");
+        SpannableStringBuilder ssb = new SpannableStringBuilder("מכונה בתרגום");
+        ssb.setSpan(mSpan, 1, 2, 0 /* flags */);
+
+        mTextView = new TextView(getContext());
+        mTextView.setText(ssb);
+        mTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        mHelper = new TestLinkAccessibilityHelper(mTextView);
+
+        mTextView.measure(dp2Px(500), dp2Px(500));
+        mTextView.layout(dp2Px(0), dp2Px(0), dp2Px(500), dp2Px(500));
+        // End redo setup
+
+        AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
+        mHelper.onPopulateNodeForVirtualView(1, info);
+
+        assertEquals("LinkSpan description should be \"כ\"",
+                "כ", info.getContentDescription().toString());
+        assertTrue("LinkSpan should be focusable", info.isFocusable());
+        assertTrue("LinkSpan should be clickable", info.isClickable());
+        Rect bounds = new Rect();
+        info.getBoundsInParent(bounds);
+        assertEquals("LinkSpan bounds should be (70.5dp, 0dp, 78.5dp, 20.5dp)",
+                new Rect(dp2Px(70.5f), dp2Px(0f), dp2Px(78.5f), dp2Px(20.5f)), bounds);
+
+        info.recycle();
+    }
+
     private int dp2Px(float dp) {
         if (mDisplayMetrics == null) {
             mDisplayMetrics = getContext().getResources().getDisplayMetrics();

@@ -234,28 +234,55 @@ public class GlifLayout extends TemplateLayout {
     }
 
     public void setProgressBarShown(boolean shown) {
-        final View progressBar = findManagedViewById(R.id.suw_layout_progress);
         if (shown) {
+            View progressBar = getProgressBar();
             if (progressBar != null) {
                 progressBar.setVisibility(View.VISIBLE);
-            } else {
-                final ViewStub progressBarStub =
-                        (ViewStub) findManagedViewById(R.id.suw_layout_progress_stub);
-                if (progressBarStub != null) {
-                    progressBarStub.inflate();
-                }
             }
-            setProgressBarColor(mPrimaryColor);
         } else {
+            View progressBar = peekProgressBar();
             if (progressBar != null) {
                 progressBar.setVisibility(View.GONE);
             }
         }
     }
 
+    /**
+     * Gets the progress bar in the layout. If the progress bar has not been used before, it will be
+     * installed (i.e. inflated from its view stub).
+     *
+     * @return The progress bar of this layout. May be null only if the template used doesn't have a
+     *         progress bar built-in.
+     */
+    private ProgressBar getProgressBar() {
+        final View progressBar = peekProgressBar();
+        if (progressBar == null) {
+            final ViewStub progressBarStub =
+                    (ViewStub) findManagedViewById(R.id.suw_layout_progress_stub);
+            if (progressBarStub != null) {
+                progressBarStub.inflate();
+            }
+            setProgressBarColor(mPrimaryColor);
+        }
+        return peekProgressBar();
+    }
+
+    /**
+     * Gets the progress bar in the layout only if it has been installed.
+     * {@link #setProgressBarShown(boolean)} should be called before this to ensure the progress bar
+     * is set up correctly.
+     *
+     * @return The progress bar of this layout, or null if the progress bar is not installed. The
+     *         null case can happen either if {@link #setProgressBarShown(boolean)} with true was
+     *         not called before this, or if the template does not contain a progress bar.
+     */
+    public ProgressBar peekProgressBar() {
+        return (ProgressBar) findManagedViewById(R.id.suw_layout_progress);
+    }
+
     private void setProgressBarColor(ColorStateList color) {
         if (Build.VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
-            final ProgressBar bar = (ProgressBar) findManagedViewById(R.id.suw_layout_progress);
+            final ProgressBar bar = peekProgressBar();
             if (bar != null) {
                 bar.setIndeterminateTintList(color);
             }

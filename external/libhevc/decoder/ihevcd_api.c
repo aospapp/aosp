@@ -758,6 +758,34 @@ static IV_API_CALL_STATUS_T api_check_struct_sanity(iv_obj_t *ps_handle,
 
                     break;
                 }
+                case IHEVCD_CXA_CMD_CTL_GET_SEI_MASTERING_PARAMS:
+                {
+                    ihevcd_cxa_ctl_get_sei_mastering_params_ip_t *ps_ip;
+                    ihevcd_cxa_ctl_get_sei_mastering_params_op_t *ps_op;
+
+                    ps_ip = (ihevcd_cxa_ctl_get_sei_mastering_params_ip_t *)pv_api_ip;
+                    ps_op = (ihevcd_cxa_ctl_get_sei_mastering_params_op_t *)pv_api_op;
+
+                    if(ps_ip->u4_size
+                                    != sizeof(ihevcd_cxa_ctl_get_sei_mastering_params_ip_t))
+                    {
+                        ps_op->u4_error_code |= 1 << IVD_UNSUPPORTEDPARAM;
+                        ps_op->u4_error_code |=
+                                        IVD_IP_API_STRUCT_SIZE_INCORRECT;
+                        return IV_FAIL;
+                    }
+
+                    if(ps_op->u4_size
+                                    != sizeof(ihevcd_cxa_ctl_get_sei_mastering_params_op_t))
+                    {
+                        ps_op->u4_error_code |= 1 << IVD_UNSUPPORTEDPARAM;
+                        ps_op->u4_error_code |=
+                                        IVD_OP_API_STRUCT_SIZE_INCORRECT;
+                        return IV_FAIL;
+                    }
+
+                    break;
+                }
                 case IHEVCD_CXA_CMD_CTL_SET_NUM_CORES:
                 {
                     ihevcd_cxa_ctl_set_num_cores_ip_t *ps_ip;
@@ -3139,6 +3167,82 @@ WORD32 ihevcd_get_vui_params(iv_obj_t *ps_codec_obj,
 *******************************************************************************
 *
 * @brief
+*  Gets SEI mastering display color volume parameters
+*
+* @par Description:
+*  Gets SEI mastering display color volume parameters
+*
+* @param[in] ps_codec_obj
+*  Pointer to codec object at API level
+*
+* @param[in] pv_api_ip
+*  Pointer to input argument structure
+*
+* @param[out] pv_api_op
+*  Pointer to output argument structure
+*
+* @returns  Status
+*
+* @remarks
+*
+*
+*******************************************************************************
+*/
+WORD32 ihevcd_get_sei_mastering_params(iv_obj_t *ps_codec_obj,
+                             void *pv_api_ip,
+                             void *pv_api_op)
+{
+    ihevcd_cxa_ctl_get_sei_mastering_params_ip_t *ps_ip;
+    ihevcd_cxa_ctl_get_sei_mastering_params_op_t *ps_op;
+    codec_t *ps_codec = (codec_t *)ps_codec_obj->pv_codec_handle;
+    sei_params_t *ps_sei;
+    mastering_dis_col_vol_sei_params_t *ps_mastering_dis_col_vol;
+    WORD32 i;
+
+    ps_ip = (ihevcd_cxa_ctl_get_sei_mastering_params_ip_t *)pv_api_ip;
+    ps_op = (ihevcd_cxa_ctl_get_sei_mastering_params_op_t *)pv_api_op;
+    UNUSED(ps_ip);
+    if(NULL == ps_codec->ps_disp_buf)
+    {
+        ps_op->u4_error_code = IHEVCD_SEI_MASTERING_PARAMS_NOT_FOUND;
+        return IV_FAIL;
+    }
+    ps_sei = &ps_codec->ps_disp_buf->s_sei_params;
+    if((0 == ps_sei->i4_sei_mastering_disp_colour_vol_params_present_flags)
+                    || (0 == ps_sei->i1_sei_parameters_present_flag))
+    {
+        ps_op->u4_error_code = IHEVCD_SEI_MASTERING_PARAMS_NOT_FOUND;
+        return IV_FAIL;
+    }
+
+    ps_mastering_dis_col_vol = &ps_sei->s_mastering_dis_col_vol_sei_params;
+
+    for(i = 0; i < 3; i++)
+    {
+        ps_op->au2_display_primaries_x[i] =
+                    ps_mastering_dis_col_vol->au2_display_primaries_x[i];
+
+        ps_op->au2_display_primaries_y[i] =
+                    ps_mastering_dis_col_vol->au2_display_primaries_y[i];
+    }
+
+    ps_op->u2_white_point_x = ps_mastering_dis_col_vol->u2_white_point_x;
+
+    ps_op->u2_white_point_y = ps_mastering_dis_col_vol->u2_white_point_y;
+
+    ps_op->u4_max_display_mastering_luminance =
+                    ps_mastering_dis_col_vol->u4_max_display_mastering_luminance;
+
+    ps_op->u4_min_display_mastering_luminance =
+                    ps_mastering_dis_col_vol->u4_min_display_mastering_luminance;
+
+    return IV_SUCCESS;
+}
+
+/**
+*******************************************************************************
+*
+* @brief
 *  Sets Processor type
 *
 * @par Description:
@@ -3369,6 +3473,10 @@ WORD32 ihevcd_ctl(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
             break;
         case IHEVCD_CXA_CMD_CTL_GET_VUI_PARAMS:
             ret = ihevcd_get_vui_params(ps_codec_obj, (void *)pv_api_ip,
+                                        (void *)pv_api_op);
+            break;
+        case IHEVCD_CXA_CMD_CTL_GET_SEI_MASTERING_PARAMS:
+            ret = ihevcd_get_sei_mastering_params(ps_codec_obj, (void *)pv_api_ip,
                                         (void *)pv_api_op);
             break;
         case IHEVCD_CXA_CMD_CTL_SET_PROCESSOR:

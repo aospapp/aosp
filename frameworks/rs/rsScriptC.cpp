@@ -29,6 +29,7 @@
 
 #include <sys/stat.h>
 
+#include <sstream>
 #include <string>
 
 #ifdef USE_MINGW
@@ -201,15 +202,12 @@ void ScriptC::runForEach(Context *rsc,
     // Trace this function call.
     // To avoid overhead we only build the string if tracing is actually
     // enabled.
-    String8 *AString = NULL;
-    const char *String = "";
+    std::stringstream ss;
     if (ATRACE_ENABLED()) {
-        AString = new String8("runForEach_");
-        AString->append(mHal.info.exportedForeachFuncList[slot].first);
-        String = AString->string();
+        ss << "runForEach slot[" << slot << "]";
     }
-    ATRACE_NAME(String);
-    (void)String;
+    ATRACE_NAME(ss.str().c_str());
+
     if (mRSC->hadFatalError()) return;
 
     Context::PushState ps(rsc);
@@ -232,10 +230,6 @@ void ScriptC::runForEach(Context *rsc,
     } else {
         rsc->setError(RS_ERROR_FATAL_DRIVER,
                       "Driver support for multi-input not present");
-    }
-
-    if (AString) {
-        delete AString;
     }
 }
 

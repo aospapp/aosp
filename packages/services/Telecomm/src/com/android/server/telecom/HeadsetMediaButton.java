@@ -135,6 +135,9 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
     /** ${inheritDoc} */
     @Override
     public void onCallRemoved(Call call) {
+        if (call.isExternalCall()) {
+            return;
+        }
         if (!mCallsManager.hasAnyCalls()) {
             mMediaSessionHandler.obtainMessage(MSG_MEDIA_SESSION_SET_ACTIVE, 0, 0).sendToTarget();
         }

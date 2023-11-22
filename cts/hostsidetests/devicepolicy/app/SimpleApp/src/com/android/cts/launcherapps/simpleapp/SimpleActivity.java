@@ -38,10 +38,19 @@ public class SimpleActivity extends Activity {
         Log.i(TAG, "Created for user " + android.os.Process.myUserHandle());
     }
 
+    @Override
     public void onStart() {
         super.onStart();
         Intent reply = new Intent();
         reply.setAction(ACTIVITY_LAUNCHED_ACTION);
         sendBroadcast(reply);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (intent.getExtras().getBoolean("finish")) {
+            finish();
+        }
     }
 }

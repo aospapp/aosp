@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2016 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_name" msgid="963247385700831716">"存储空间管理器"</string>
+    <string name="cancel" msgid="7021218262867558825">"取消"</string>
+    <string name="storage_menu_free" msgid="1878247401436882778">"释放空间"</string>
+    <string name="deletion_helper_title" msgid="7928959984891140427">"选择要移除的内容"</string>
+    <string name="deletion_helper_app_summary" msgid="1923023368736447552">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$d</xliff:g> 天前使用过"</string>
+    <string name="deletion_helper_app_summary_never_used" msgid="7461207117653761032">"<xliff:g id="USED">%1$s</xliff:g> • 从未使用过"</string>
+    <string name="deletion_helper_app_summary_unknown_used" msgid="257918462233851162">"<xliff:g id="USED">%1$s</xliff:g> • 不确定上次使用时间"</string>
+    <string name="deletion_helper_free_button" msgid="1760529213407548661">"释放 <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
+    <string name="deletion_helper_photos_title" msgid="8694284659307845664">"照片和视频（<xliff:g id="NUM_ITEMS">%1$d</xliff:g> 项）"</string>
+    <string name="deletion_helper_photos_summary" msgid="2636724338009030470">"<xliff:g id="USED">%1$s</xliff:g> • 超过 <xliff:g id="DAYS">%2$d</xliff:g> 天以前"</string>
+    <string name="deletion_helper_downloads_title" msgid="2976599380628177756">"下载内容（<xliff:g id="NUMITEMS">%1$d</xliff:g> 项）"</string>
+    <!-- no translation found for deletion_helper_downloads_category_summary (8545989355108311347) -->
+    <skip />
+    <string name="deletion_helper_downloads_file_summary" msgid="2610952169093565355">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$s</xliff:g> 天"</string>
+    <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
+    <skip />
+    <string name="deletion_helper_clear_dialog_message" msgid="921129346098616363">"从您的设备中移除 <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 内容。"</string>
+    <string name="deletion_helper_clear_dialog_remove" msgid="3386502418767917932">"移除"</string>
+    <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"要让系统自动管理存储空间吗？"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"已释放 <xliff:g id="USED">%1$s</xliff:g>。要让存储空间管理器从您的设备中移除已备份的内容，从而自动释放存储空间吗？"</string>
+    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"不用了"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"开启"</string>
+    <string name="deletion_helper_apps_group_title" msgid="6554321362396920050">"应用（<xliff:g id="NUM_ITEMS">%1$d</xliff:g> 个）"</string>
+    <string name="deletion_helper_apps_group_summary" msgid="3466154404460006085">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$d</xliff:g> 天前使用过"</string>
+    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"自动"</string>
+    <string name="deletion_helper_manual_title" msgid="3905192395039688529">"手动"</string>
+    <string name="deletion_helper_preference_title" msgid="803484286872745892">"立即释放空间"</string>
+    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"存储空间自动管理服务"</string>
+    <string name="automatic_storage_manager_notification_title" msgid="8480483265300964701">"您手机的存储空间不足"</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"让存储空间管理器在您手机的存储空间即将再次耗尽时，自动移除旧照片和视频以释放存储空间。"</string>
+    <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"不用了"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"开启"</string>
+    <string name="deletion_helper_photos_loading_title" msgid="5411813715495227745">"照片和视频"</string>
+    <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"正在查找内容…"</string>
+</resources>

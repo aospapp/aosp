@@ -38,3 +38,10 @@ LOCAL_MODULE := traceroute6
 LOCAL_MODULE_TAGS := debug
 LOCAL_SRC_FILES := traceroute6.c
 include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+LOCAL_CFLAGS := $(iputils_cflags)
+LOCAL_MODULE := arping
+LOCAL_MODULE_TAGS := debug
+LOCAL_SRC_FILES := arping.c
+include $(BUILD_EXECUTABLE)

@@ -50,6 +50,10 @@ public class AppLaunchTests extends InstrumentationTestCase {
 
     private static final String TAG = "AppLaunchInstrumentation";
     private static final String TARGETPACKAGE = "targetpackage";
+    private static final String SIMPLEPERF_BIN = "simpleperf_bin";
+    private static final String SIMPLEPERF_EVT = "simpleperf_event";
+    private static final String SIMPLEPERF_DATA = "simpleperf_data";
+    private static final String DISPATCHER = "dispatcher";
     private static final String ACTIVITYLIST = "activitylist";
     private static final String LAUNCHCOUNT = "launchcount";
     private static final String RECORDTRACE = "recordtrace";
@@ -61,6 +65,10 @@ public class AppLaunchTests extends InstrumentationTestCase {
     private Context mContext;
     private Bundle mResult;
     private String mTargetPackageName;
+    private String mSimpleperfBin;
+    private String mSimpleperfEvt;
+    private String mSimpleperfDir;
+    private String mDispatcher;
     private int mLaunchCount;
     private String mCustomActivityList;
     private PackageInfo mPackageInfo;
@@ -79,6 +87,13 @@ public class AppLaunchTests extends InstrumentationTestCase {
         assertNotNull("Unable to get the args", args);
         mTargetPackageName = args.getString(TARGETPACKAGE);
         assertNotNull("Target package name not set", mTargetPackageName);
+        mSimpleperfEvt = args.getString(SIMPLEPERF_EVT);
+        mDispatcher = args.getString(DISPATCHER);
+        if (mDispatcher != null && !mDispatcher.isEmpty()) {
+            mSimpleperfBin = args.getString(SIMPLEPERF_BIN);
+            mSimpleperfEvt = args.getString(SIMPLEPERF_EVT);
+            mSimpleperfDir = args.getString(SIMPLEPERF_DATA);
+        }
         mCustomActivityList = args.getString(ACTIVITYLIST);
         if (mCustomActivityList == null || mCustomActivityList.isEmpty()) {
             // Get full list of activities from the target package
@@ -104,14 +119,27 @@ public class AppLaunchTests extends InstrumentationTestCase {
         assertNotNull("Unable to get the root of the external storage", root);
         File logsDir = new File(root, "atrace_logs");
         assertTrue("Unable to create the directory to store atrace logs", logsDir.mkdir());
+        if (mDispatcher != null && !mDispatcher.isEmpty()) {
+            if (mSimpleperfDir == null)
+                mSimpleperfDir = "/sdcard/perf_simpleperf/";
+            File simpleperfDir = new File(mSimpleperfDir);
+            assertTrue("Unable to create the directory to store simpleperf data", simpleperfDir.mkdir());
+        }
         for (int count = 0; count < mLaunchCount; count++) {
             for (String activityName : mActivityList) {
                 ComponentName cn = new ComponentName(mTargetPackageName,
-                        activityName);
+                        mDispatcher != null ? mDispatcher : activityName);
                 Intent intent = new Intent(Intent.ACTION_MAIN);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 intent.setComponent(cn);
+
+                if (mDispatcher != null) {
+                    intent.putExtra("ACTIVITY_NAME", activityName);
+                    intent.putExtra("SIMPLEPERF_DIR", mSimpleperfDir);
+                    intent.putExtra("SIMPLEPERF_EVT", mSimpleperfEvt);
+                    intent.putExtra("SIMPLEPERF_BIN", mSimpleperfBin);
+                }
 
                 // Start the atrace
                 if (mRecordTrace) {
@@ -126,6 +154,16 @@ public class AppLaunchTests extends InstrumentationTestCase {
                 // Launch the activity
                 mContext.startActivity(intent);
                 Thread.sleep(5 * 1000);
+
+                // Make sure we stops simpleperf
+                if (mDispatcher != null) {
+                    try {
+                        Runtime.getRuntime().exec("pkill -l SIGINT simpleperf").waitFor();
+                    } catch (Exception e) {
+                        Log.v(TAG, "simpleperf throw exception");
+                        e.printStackTrace();
+                    }
+                }
 
                 // Dump atrace info and write it to file
                 if (mRecordTrace) {

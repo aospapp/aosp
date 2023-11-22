@@ -27,7 +27,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import com.android.setupwizardlib.items.ItemGroup;
 import com.android.setupwizardlib.items.ItemInflater;
@@ -139,7 +138,7 @@ public class SetupWizardRecyclerLayout extends SetupWizardLayout {
         if (mRecyclerView instanceof HeaderRecyclerView) {
             mHeader = ((HeaderRecyclerView) mRecyclerView).getHeader();
         }
-        mDividerDecoration = DividerItemDecoration.getDefault(getContext());
+        mDividerDecoration = new DividerItemDecoration(getContext());
         mRecyclerView.addItemDecoration(mDividerDecoration);
     }
 

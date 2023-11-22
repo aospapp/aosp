@@ -29,8 +29,8 @@
     <string name="view_details_title" msgid="1780427629491781473">"သတိပေးချက် အသေးစိတ်များ"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"ဒီ ထုတ်လွှင့်ချက်ကို ဖျက်ရမလား?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"ရရှိထားသည့် ထုတ်လွှင့် စာတို အားလုံး ဖျက်ရမလား?"</string>
-    <string name="button_delete" msgid="4672451757925194350">"ပယ်ဖျက်"</string>
-    <string name="button_cancel" msgid="7479958360523246140">"မလုပ်တော့ပါ"</string>
+    <string name="button_delete" msgid="4672451757925194350">"ဖျက်ရန်"</string>
+    <string name="button_cancel" msgid="7479958360523246140">"မလုပ်တော့"</string>
     <string name="etws_earthquake_warning" msgid="6428741104423152511">"မြေငလျင် သတိပေးရေး"</string>
     <string name="etws_tsunami_warning" msgid="6173964105145900312">"ဆူနာမီ သတိပေးချက်"</string>
     <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"မြေငလျင် နှင့် ဆူနာမီ သတိပေးရေး"</string>
@@ -48,7 +48,6 @@
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"အရေးပေါ် သတိပေးချက် ဆက်တင်များ"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"အကြောင်းကြားမှုများ ဖွင့်ပါ"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"အရေးပေါ် သတိပေးရေး ထုတ်လွှင့်ချက်များကို ပြပါ"</string>
-    <string name="alert_sound_duration_title" msgid="4712853569849108005">"သတိပေးသံ ကြာရှည်မှု"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"သတိပေးနှုန်း"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"စကားပြော သတိပေးချက် သတင်းတို"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"အရေးပေါ် သတိပေးရေး သတင်းများကို ပြောကြားရန် စာသား-မှ-စကားကို အသုံးပြုပါ"</string>
@@ -67,7 +66,7 @@
     <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"သတိပေးလျှင် တုန်ခါပါ"</string>
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"ဘရာဇီးလ်အတွက် ဆက်တင်များ"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"ချာနယ် ၅၀ ထုတ်လွှင့်မှုများကို ပြပါ"</string>
-    <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"ဘရာဇီးလ်နိုင်ငံမှာ ဒေသအလိုက် သတင်း အသစ်များ ထုတ်လွှင့်ရေးအတွက် ချာနယ် ၅၀ ကို အသုံးပြုသည်"</string>
+    <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"ဘရာဇီးနိုင်ငံတွင် ဒေသဆိုင်ရာ သတင်း အသစ်များ ထုတ်လွှင့်ရေးအတွက် ချန်နယ် ၅၀ ကို အသုံးပြုသည်"</string>
     <string name="category_dev_settings_title" msgid="6194393458398329994">"ပြုစုပေးခဲ့သူ၏ ရွေးချယ်မှုများ"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"သတိပေးချက် အမျိုးအစား:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"ဘူမိရုပ်ပိုင်းဆိုင်ရာ"</string>
@@ -106,19 +105,13 @@
     <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"ပထမ CMAS သတိပေးချက် (သမ္မတအဆင့် သတိပေးချက်မှ လွဲပြီး) ကို ပြပြီးနောက် ထွက်ရေး မေးမြန်းကွက်ကို ပြပါ။"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"ထွက်ရေး မေးမြန်းကွက်ကို ပြပါ။"</string>
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"သင်သည် လောလောဆယ်မှာ အရေးပေါ် သတိပေးချက်များကို ရရှိနေသည်။ သင်သည်  အရေးပေါ် သတိပေးချက်များကို ဆက်ရလိုပါသလား?"</string>
-    <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"လို"</string>
+    <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Yes"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"No"</string>
-  <string-array name="alert_sound_duration_entries">
-    <item msgid="5353482200312892037">"၂ စက္ကန့်"</item>
-    <item msgid="5656092384277009212">"၄ စက္ကန့်"</item>
-    <item msgid="253564899252909788">"၆ စက္ကန့်"</item>
-    <item msgid="7514102744524534421">"၈ စက္ကန့်"</item>
-    <item msgid="6062562309271376642">"၁၀ စက္ကန့်"</item>
-  </string-array>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"တစ်ကြိမ်"</item>
     <item msgid="9097229303902157183">"၂ မိနစ်တိုင်း"</item>
-    <item msgid="5676933700148002666">"၁၅ မိနစ်တိုင်း"</item>
-    <item msgid="694355015442188708">"ပိတ်"</item>
+    <item msgid="5718214950343391480">"၅ မိနစ်တိုင်း"</item>
+    <item msgid="3863339891188103437">"၁၅ မိနစ်တိုင်း"</item>
+    <item msgid="6868848414437854609">"ပိတ်ပါ"</item>
   </string-array>
 </resources>

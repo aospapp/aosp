@@ -422,7 +422,7 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
 
         mColorModePreference = (ColorModePreference) findPreference(KEY_COLOR_MODE);
         mColorModePreference.updateCurrentAndSupported();
-        if (mColorModePreference.getTransformsCount() < 2) {
+        if (mColorModePreference.getColorModeCount() < 2) {
             removePreference(KEY_COLOR_MODE);
             mColorModePreference = null;
         }
@@ -582,6 +582,7 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
                 Settings.Secure.BLUETOOTH_HCI_LOG, 0) != 0);
         if (mEnableOemUnlock != null) {
             updateSwitchPreference(mEnableOemUnlock, isOemUnlockEnabled(getActivity()));
+            mEnableOemUnlock.setEnabled(isOemUnlockAllowed());
         }
         updateSwitchPreference(mDebugViewAttributes, Settings.Global.getInt(cr,
                 Settings.Global.DEBUG_VIEW_ATTRIBUTES, 0) != 0);
@@ -839,6 +840,10 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
 
     private static boolean showEnableOemUnlockPreference() {
         return !SystemProperties.get(PERSISTENT_DATA_BLOCK_PROP).equals("");
+    }
+
+    private boolean isOemUnlockAllowed() {
+        return !mUm.hasUserRestriction(UserManager.DISALLOW_OEM_UNLOCK);
     }
 
     private void updateBugreportOptions() {
@@ -1748,8 +1753,12 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
      * devices allow users to flash other OSes to them.
      */
     static void setOemUnlockEnabled(Context context, boolean enabled) {
-        PersistentDataBlockManager manager =(PersistentDataBlockManager)
-                context.getSystemService(Context.PERSISTENT_DATA_BLOCK_SERVICE);
-        manager.setOemUnlockEnabled(enabled);
+        try {
+            PersistentDataBlockManager manager = (PersistentDataBlockManager)
+                    context.getSystemService(Context.PERSISTENT_DATA_BLOCK_SERVICE);
+            manager.setOemUnlockEnabled(enabled);
+        } catch (SecurityException e) {
+            Log.e(TAG, "Fail to set oem unlock.", e);
+        }
     }
 }

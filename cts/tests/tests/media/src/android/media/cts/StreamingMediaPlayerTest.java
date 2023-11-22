@@ -26,6 +26,8 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.webkit.cts.CtsTestServer;
 
+import com.android.compatibility.common.util.DynamicConfigDeviceSide;
+
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -35,7 +37,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
     private static final String TAG = "StreamingMediaPlayerTest";
 
+    private static final String HTTP_H263_AMR_VIDEO_1_KEY =
+            "streaming_media_player_test_http_h263_amr_video1";
+    private static final String HTTP_H263_AMR_VIDEO_2_KEY =
+            "streaming_media_player_test_http_h263_amr_video2";
+    private static final String HTTP_H264_BASE_AAC_VIDEO_1_KEY =
+            "streaming_media_player_test_http_h264_base_aac_video1";
+    private static final String HTTP_H264_BASE_AAC_VIDEO_2_KEY =
+            "streaming_media_player_test_http_h264_base_aac_video2";
+    private static final String HTTP_MPEG4_SP_AAC_VIDEO_1_KEY =
+            "streaming_media_player_test_http_mpeg4_sp_aac_video1";
+    private static final String HTTP_MPEG4_SP_AAC_VIDEO_2_KEY =
+            "streaming_media_player_test_http_mpeg4_sp_aac_video2";
+    private static final String MODULE_NAME = "CtsMediaTestCases";
+    private DynamicConfigDeviceSide dynamicConfig;
+
     private CtsTestServer mServer;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        dynamicConfig = new DynamicConfigDeviceSide(MODULE_NAME);
+    }
 
 /* RTSP tests are more flaky and vulnerable to network condition.
    Disable until better solution is available
@@ -73,12 +96,8 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        playVideoTest("http://redirector.c.youtube.com/videoplayback?id=271de9756065677e"
-                + "&itag=13&source=youtube&ip=0.0.0.0&ipbits=0&expire=19000000000"
-                + "&sparams=ip,ipbits,expire,id,itag,source"
-                + "&signature=5729247E22691EBB3E804DDD523EC42DC17DD8CE"
-                + ".443B81C1E8E6D64E4E1555F568BA46C206507D78"
-                + "&key=ik0&user=android-device-test", 176, 144);
+        String urlString = dynamicConfig.getValue(HTTP_H263_AMR_VIDEO_1_KEY);
+        playVideoTest(urlString, 176, 144);
     }
 
     public void testHTTP_H263_AMR_Video2() throws Exception {
@@ -86,12 +105,8 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        playVideoTest("http://redirector.c.youtube.com/videoplayback?id=c80658495af60617"
-                + "&itag=13&source=youtube&ip=0.0.0.0&ipbits=0&expire=19000000000"
-                + "&sparams=ip,ipbits,expire,id,itag,source"
-                + "&signature=508D82AB36939345BF6B8D0623CB6CABDD9C64C3"
-                + ".9B3336A96846DF38E5343C46AA57F6CF2956E427"
-                + "&key=ik0&user=android-device-test", 176, 144);
+        String urlString = dynamicConfig.getValue(HTTP_H263_AMR_VIDEO_2_KEY);
+        playVideoTest(urlString, 176, 144);
     }
 
     public void testHTTP_MPEG4SP_AAC_Video1() throws Exception {
@@ -99,12 +114,8 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        playVideoTest("http://redirector.c.youtube.com/videoplayback?id=271de9756065677e"
-                + "&itag=17&source=youtube&ip=0.0.0.0&ipbits=0&expire=19000000000"
-                + "&sparams=ip,ipbits,expire,id,itag,source"
-                + "&signature=837198AAADF6F36BA6B2D324F690A7C5B7AFE3FF"
-                + ".7138CE5E36D718220726C1FC305497FF2D082249"
-                + "&key=ik0&user=android-device-test", 176, 144);
+        String urlString = dynamicConfig.getValue(HTTP_MPEG4_SP_AAC_VIDEO_1_KEY);
+        playVideoTest(urlString, 176, 144);
     }
 
     public void testHTTP_MPEG4SP_AAC_Video2() throws Exception {
@@ -112,12 +123,8 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        playVideoTest("http://redirector.c.youtube.com/videoplayback?id=c80658495af60617"
-                + "&itag=17&source=youtube&ip=0.0.0.0&ipbits=0&expire=19000000000"
-                + "&sparams=ip,ipbits,expire,id,itag,source"
-                + "&signature=70E979A621001201BC18622BDBF914FA870BDA40"
-                + ".6E78890B80F4A33A18835F775B1FF64F0A4D0003"
-                + "&key=ik0&user=android-device-test", 176, 144);
+        String urlString = dynamicConfig.getValue(HTTP_MPEG4_SP_AAC_VIDEO_2_KEY);
+        playVideoTest(urlString, 176, 144);
     }
 
     public void testHTTP_H264Base_AAC_Video1() throws Exception {
@@ -125,12 +132,8 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        playVideoTest("http://redirector.c.youtube.com/videoplayback?id=271de9756065677e"
-                + "&itag=18&source=youtube&ip=0.0.0.0&ipbits=0&expire=19000000000"
-                + "&sparams=ip,ipbits,expire,id,itag,source"
-                + "&signature=667AEEF54639926662CE62361400B8F8C1753B3F"
-                + ".15F46C382C68A9F121BA17BF1F56BEDEB4B06091"
-                + "&key=ik0&user=android-device-test", 640, 360);
+        String urlString = dynamicConfig.getValue(HTTP_H264_BASE_AAC_VIDEO_1_KEY);
+        playVideoTest(urlString, 640, 360);
     }
 
     public void testHTTP_H264Base_AAC_Video2() throws Exception {
@@ -138,12 +141,8 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        playVideoTest("http://redirector.c.youtube.com/videoplayback?id=c80658495af60617"
-                + "&itag=18&source=youtube&ip=0.0.0.0&ipbits=0&expire=19000000000"
-                + "&sparams=ip,ipbits,expire,id,itag,source"
-                + "&signature=46A04ED550CA83B79B60060BA80C79FDA5853D26"
-                + ".49582D382B4A9AFAA163DED38D2AE531D85603C0"
-                + "&key=ik0&user=android-device-test", 640, 360);
+        String urlString = dynamicConfig.getValue(HTTP_H264_BASE_AAC_VIDEO_2_KEY);
+        playVideoTest(urlString, 640, 360);
     }
 
     // Streaming HLS video from YouTube

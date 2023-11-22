@@ -653,7 +653,8 @@ VirtualDevice::VirtualDevice(Hwcomposer& hwc)
       mLastConnectionStatus(false),
       mCachedBufferCapcity(16),
       mDecWidth(0),
-      mDecHeight(0)
+      mDecHeight(0),
+      mFpsDivider(1)
 {
     CTRACE();
 #ifdef INTEL_WIDI
@@ -2218,6 +2219,17 @@ bool VirtualDevice::initialize()
 {
     mRgbLayer = -1;
     mYuvLayer = -1;
+    char prop[PROPERTY_VALUE_MAX];
+    char *retptr;
+
+    if (property_get("hwc.fps_divider", prop, "1") > 0) {
+        uint32_t divider = strtoul(prop, &retptr, 10);
+        if (*retptr == '\0' && divider > 1 && divider < 60) {
+            mFpsDivider = divider;
+            ALOGI("Virtual display, setting HWC FPS divider to %d", mFpsDivider);
+        }
+    }
+
 #ifdef INTEL_WIDI
     // Add initialization codes here. If init fails, invoke DEINIT_AND_RETURN_FALSE();
     mNextConfig.typeChangeListener = NULL;
@@ -2306,6 +2318,11 @@ void VirtualDevice::onVsync(int64_t timestamp)
 
 void VirtualDevice::dump(Dump& d)
 {
+}
+
+uint32_t VirtualDevice::getFpsDivider()
+{
+    return mFpsDivider;
 }
 
 void VirtualDevice::deinitialize()

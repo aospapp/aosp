@@ -34,6 +34,7 @@
 #include <linux/input.h>
 #include <linux/uinput.h>
 #include <media/stagefright/foundation/ADebug.h>
+#include <sched.h>
 #include <sys/inotify.h>
 
 #define APP_ID_GET_VENDOR(appid)       ((appid) >> 24)
@@ -47,6 +48,7 @@
 #define NANOHUB_LOCK_DIR        "/data/system/nanohub_lock"
 #define NANOHUB_LOCK_FILE       NANOHUB_LOCK_DIR "/lock"
 #define MAG_BIAS_FILE_PATH      "/sys/class/power_supply/battery/compass_compensation"
+#define DOUBLE_TOUCH_FILE_PATH  "/sys/android_touch/synaptics_rmi4_dsx/wake_event"
 
 #define NANOHUB_LOCK_DIR_PERMS  (S_IRUSR | S_IWUSR | S_IXUSR)
 
@@ -59,6 +61,8 @@
 #define ACCEL_RAW_KSCALE        (8.0f * 9.81f / 32768.0f)
 
 #define OS_LOG_EVENT            0x474F4C41  // ascii: ALOG
+
+#define HUBCONNECTION_SCHED_FIFO_PRIORITY 10
 
 #ifdef LID_STATE_REPORTING_ENABLED
 const char LID_STATE_PROPERTY[] = "sensors.contexthub.lid_state";
@@ -90,8 +94,7 @@ HubConnection *HubConnection::getInstance()
 HubConnection::HubConnection()
     : Thread(false /* canCallJava */),
       mRing(10 *1024),
-      mActivityCbCookie(NULL),
-      mActivityCb(NULL),
+      mActivityEventHandler(NULL),
       mStepCounterOffset(0ull),
       mLastStepCount(0ull)
 {
@@ -99,6 +102,7 @@ HubConnection::HubConnection()
     mMagAccuracy = SENSOR_STATUS_UNRELIABLE;
     mMagAccuracyRestore = SENSOR_STATUS_UNRELIABLE;
     mGyroBias[0] = mGyroBias[1] = mGyroBias[2] = 0.0f;
+    mAccelBias[0] = mAccelBias[1] = mAccelBias[2] = 0.0f;
 
     memset(&mSensorState, 0x00, sizeof(mSensorState));
     mFd = open(NANOHUB_FILE_PATH, O_RDWR);
@@ -123,6 +127,20 @@ HubConnection::HubConnection()
         mNumPollFds++;
     }
 #endif  // USB_MAG_BIAS_REPORTING_ENABLED
+
+#ifdef DOUBLE_TOUCH_ENABLED
+    mDoubleTouchPollIndex = -1;
+    int doubleTouchFd = open(DOUBLE_TOUCH_FILE_PATH, O_RDONLY);
+    if (doubleTouchFd < 0) {
+        ALOGW("Double touch file open failed: %s", strerror(errno));
+    } else {
+        mPollFds[mNumPollFds].fd = doubleTouchFd;
+        mPollFds[mNumPollFds].events = 0;
+        mPollFds[mNumPollFds].revents = 0;
+        mDoubleTouchPollIndex = mNumPollFds;
+        mNumPollFds++;
+    }
+#endif  // DOUBLE_TOUCH_ENABLED
 
     mSensorState[COMMS_SENSOR_ACCEL].sensorType = SENS_TYPE_ACCEL;
     mSensorState[COMMS_SENSOR_GYRO].sensorType = SENS_TYPE_GYRO;
@@ -164,6 +182,30 @@ HubConnection::HubConnection()
     mSensorState[COMMS_SENSOR_DOUBLE_TWIST].rate = SENSOR_RATE_ONCHANGE;
     mSensorState[COMMS_SENSOR_DOUBLE_TAP].sensorType = SENS_TYPE_DOUBLE_TAP;
     mSensorState[COMMS_SENSOR_DOUBLE_TAP].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_WRIST_TILT].sensorType = SENS_TYPE_WRIST_TILT;
+    mSensorState[COMMS_SENSOR_WRIST_TILT].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START].sensorType = SENS_TYPE_ACTIVITY_IN_VEHICLE_START;
+    mSensorState[COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_IN_VEHICLE_STOP].sensorType = SENS_TYPE_ACTIVITY_IN_VEHICLE_STOP;
+    mSensorState[COMMS_SENSOR_ACTIVITY_IN_VEHICLE_STOP].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_ON_BICYCLE_START].sensorType = SENS_TYPE_ACTIVITY_ON_BICYCLE_START;
+    mSensorState[COMMS_SENSOR_ACTIVITY_ON_BICYCLE_START].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_ON_BICYCLE_STOP].sensorType = SENS_TYPE_ACTIVITY_ON_BICYCLE_STOP;
+    mSensorState[COMMS_SENSOR_ACTIVITY_ON_BICYCLE_STOP].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_WALKING_START].sensorType = SENS_TYPE_ACTIVITY_WALKING_START;
+    mSensorState[COMMS_SENSOR_ACTIVITY_WALKING_START].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_WALKING_STOP].sensorType = SENS_TYPE_ACTIVITY_WALKING_STOP;
+    mSensorState[COMMS_SENSOR_ACTIVITY_WALKING_STOP].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_RUNNING_START].sensorType = SENS_TYPE_ACTIVITY_RUNNING_START;
+    mSensorState[COMMS_SENSOR_ACTIVITY_RUNNING_START].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_RUNNING_STOP].sensorType = SENS_TYPE_ACTIVITY_RUNNING_STOP;
+    mSensorState[COMMS_SENSOR_ACTIVITY_RUNNING_STOP].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_STILL_START].sensorType = SENS_TYPE_ACTIVITY_STILL_START;
+    mSensorState[COMMS_SENSOR_ACTIVITY_STILL_START].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_STILL_STOP].sensorType = SENS_TYPE_ACTIVITY_STILL_STOP;
+    mSensorState[COMMS_SENSOR_ACTIVITY_STILL_STOP].rate = SENSOR_RATE_ONCHANGE;
+    mSensorState[COMMS_SENSOR_ACTIVITY_TILTING].sensorType = SENS_TYPE_ACTIVITY_TILTING;
+    mSensorState[COMMS_SENSOR_ACTIVITY_TILTING].rate = SENSOR_RATE_ONCHANGE;
 
 #ifdef LID_STATE_REPORTING_ENABLED
     initializeUinputNode();
@@ -188,6 +230,16 @@ HubConnection::~HubConnection()
 void HubConnection::onFirstRef()
 {
     run("HubConnection", PRIORITY_URGENT_DISPLAY);
+    enableSchedFifoMode();
+}
+
+// Set main thread to SCHED_FIFO to lower sensor event latency when system is under load
+void HubConnection::enableSchedFifoMode() {
+    struct sched_param param = {0};
+    param.sched_priority = HUBCONNECTION_SCHED_FIFO_PRIORITY;
+    if (sched_setscheduler(getTid(), SCHED_FIFO | SCHED_RESET_ON_FORK, &param) != 0) {
+        ALOGE("Couldn't set SCHED_FIFO for HubConnection thread");
+    }
 }
 
 status_t HubConnection::initCheck() const
@@ -231,6 +283,9 @@ static bool getCalibrationInt32(
         const sp<JSONObject> &settings, const char *key, int32_t *out,
         size_t numArgs) {
     sp<JSONArray> array;
+    for (size_t i = 0; i < numArgs; i++) {
+        out[i] = 0;
+    }
     if (!settings->getArray(key, &array)) {
         return false;
     } else {
@@ -246,6 +301,9 @@ static bool getCalibrationInt32(
 static bool getCalibrationFloat(
         const sp<JSONObject> &settings, const char *key, float out[3]) {
     sp<JSONArray> array;
+    for (size_t i = 0; i < 3; i++) {
+        out[i] = 0.0f;
+    }
     if (!settings->getArray(key, &array)) {
         return false;
     } else {
@@ -286,6 +344,7 @@ static void loadSensorSettings(sp<JSONObject>* settings,
 
 void HubConnection::saveSensorSettings() const {
     File saved_settings_file(CONTEXTHUB_SAVED_SETTINGS_PATH, "w");
+    sp<JSONObject> settingsObject = new JSONObject;
 
     status_t err;
     if ((err = saved_settings_file.initCheck()) != OK) {
@@ -304,9 +363,21 @@ void HubConnection::saveSensorSettings() const {
 #endif  // USB_MAG_BIAS_REPORTING_ENABLED
     magArray->addFloat(mMagBias[1]);
     magArray->addFloat(mMagBias[2]);
-
-    sp<JSONObject> settingsObject = new JSONObject;
     settingsObject->setArray("mag", magArray);
+
+    // Add gyro settings
+    sp<JSONArray> gyroArray = new JSONArray;
+    gyroArray->addFloat(mGyroBias[0]);
+    gyroArray->addFloat(mGyroBias[1]);
+    gyroArray->addFloat(mGyroBias[2]);
+    settingsObject->setArray("gyro_sw", gyroArray);
+
+    // Add accel settings
+    sp<JSONArray> accelArray = new JSONArray;
+    accelArray->addFloat(mAccelBias[0]);
+    accelArray->addFloat(mAccelBias[1]);
+    accelArray->addFloat(mAccelBias[2]);
+    settingsObject->setArray("accel_sw", accelArray);
 
     // Write the JSON string to disk.
     AString serializedSettings = settingsObject->toString();
@@ -336,10 +407,9 @@ void HubConnection::processSample(uint64_t timestamp, uint32_t type, uint32_t se
 
     switch (sensor) {
     case COMMS_SENSOR_ACTIVITY:
-        if (mActivityCb != NULL) {
-            (*mActivityCb)(mActivityCbCookie, timestamp / 1000ull,
-                false, /* is_flush */
-                (float)(sample->idata & 0x7), 0.0, 0.0);
+        if (mActivityEventHandler != NULL) {
+            mActivityEventHandler->OnActivityEvent(sample->idata & 0x7,
+                                                   timestamp);
         }
         break;
     case COMMS_SENSOR_PRESSURE:
@@ -364,6 +434,7 @@ void HubConnection::processSample(uint64_t timestamp, uint32_t type, uint32_t se
     case COMMS_SENSOR_SIGNIFICANT_MOTION:
     case COMMS_SENSOR_TILT:
     case COMMS_SENSOR_DOUBLE_TWIST:
+    case COMMS_SENSOR_WRIST_TILT:
         initEv(&nev[cnt++], timestamp, type, sensor)->data[0] = 1.0f;
         break;
     case COMMS_SENSOR_GESTURE:
@@ -462,10 +533,17 @@ void HubConnection::processSample(uint64_t timestamp, uint32_t type, uint32_t se
             ue->z_bias = mGyroBias[2];
         }
         break;
+    case COMMS_SENSOR_ACCEL_BIAS:
+        mAccelBias[0] = sample->x;
+        mAccelBias[1] = sample->y;
+        mAccelBias[2] = sample->z;
+        saveSensorSettings();
+        break;
     case COMMS_SENSOR_GYRO_BIAS:
         mGyroBias[0] = sample->x;
         mGyroBias[1] = sample->y;
         mGyroBias[2] = sample->z;
+        saveSensorSettings();
         break;
     case COMMS_SENSOR_MAG:
         magAccuracyUpdate(sample->x, sample->y, sample->z);
@@ -654,6 +732,7 @@ ssize_t HubConnection::processBuf(uint8_t *buf, ssize_t len)
         case SENS_TYPE_TO_EVENT(SENS_TYPE_ACCEL):
             type = SENSOR_TYPE_ACCELEROMETER;
             sensor = COMMS_SENSOR_ACCEL;
+            bias = COMMS_SENSOR_ACCEL_BIAS;
             three = true;
             break;
         case SENS_TYPE_TO_EVENT(SENS_TYPE_ACCEL_RAW):
@@ -778,6 +857,66 @@ ssize_t HubConnection::processBuf(uint8_t *buf, ssize_t len)
             sensor = COMMS_SENSOR_DOUBLE_TAP;
             three = true;
             break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_WRIST_TILT):
+            type = SENSOR_TYPE_WRIST_TILT_GESTURE;
+            sensor = COMMS_SENSOR_WRIST_TILT;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_IN_VEHICLE_START):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_IN_VEHICLE_STOP):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_IN_VEHICLE_STOP;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_ON_BICYCLE_START):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_ON_BICYCLE_START;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_ON_BICYCLE_STOP):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_ON_BICYCLE_STOP;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_WALKING_START):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_WALKING_START;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_WALKING_STOP):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_WALKING_STOP;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_RUNNING_START):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_RUNNING_START;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_RUNNING_STOP):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_RUNNING_STOP;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_STILL_START):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_STILL_START;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_STILL_STOP):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_STILL_STOP;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_ACTIVITY_TILTING):
+            type = 0;
+            sensor = COMMS_SENSOR_ACTIVITY_TILTING;
+            one = true;
+            break;
         case EVT_RESET_REASON:
             uint32_t resetReason;
             memcpy(&resetReason, data->buffer, sizeof(resetReason));
@@ -822,10 +961,8 @@ ssize_t HubConnection::processBuf(uint8_t *buf, ssize_t len)
 
         for (i=0; i<data->firstSample.numFlushes; i++) {
             if (sensor == COMMS_SENSOR_ACTIVITY) {
-                if (mActivityCb != NULL) {
-                    (*mActivityCb)(mActivityCbCookie, 0ull, /* when_us */
-                        true, /* is_flush */
-                        0.0f, 0.0f, 0.0f);
+                if (mActivityEventHandler != NULL) {
+                    mActivityEventHandler->OnFlush();
                 }
             } else {
                 memset(&ev, 0x00, sizeof(sensors_event_t));
@@ -855,16 +992,38 @@ void HubConnection::sendCalibrationOffsets()
 {
     sp<JSONObject> settings;
     sp<JSONObject> saved_settings;
-    int32_t accel[3], gyro[3], proximity, proximity_array[4];
+    struct {
+        int32_t hw[3];
+        float sw[3];
+    } gyro, accel;
+    int32_t proximity, proximity_array[4];
     float barometer, mag[3], light;
+    bool gyro_hw_cal_exists, gyro_sw_cal_exists;
+    bool accel_hw_cal_exists, accel_sw_cal_exists;
 
     loadSensorSettings(&settings, &saved_settings);
 
-    if (getCalibrationInt32(settings, "accel", accel, 3))
-        queueDataInternal(COMMS_SENSOR_ACCEL, accel, sizeof(accel));
+    accel_hw_cal_exists = getCalibrationInt32(settings, "accel", accel.hw, 3);
+    accel_sw_cal_exists = getCalibrationFloat(saved_settings, "accel_sw", accel.sw);
+    if (accel_hw_cal_exists || accel_sw_cal_exists) {
+        // Store SW bias so we can remove bias for uncal data
+        mAccelBias[0] = accel.sw[0];
+        mAccelBias[1] = accel.sw[1];
+        mAccelBias[2] = accel.sw[2];
 
-    if (getCalibrationInt32(settings, "gyro", gyro, 3))
-        queueDataInternal(COMMS_SENSOR_GYRO, gyro, sizeof(gyro));
+        queueDataInternal(COMMS_SENSOR_ACCEL, &accel, sizeof(accel));
+    }
+
+    gyro_hw_cal_exists = getCalibrationInt32(settings, "gyro", gyro.hw, 3);
+    gyro_sw_cal_exists = getCalibrationFloat(saved_settings, "gyro_sw", gyro.sw);
+    if (gyro_hw_cal_exists || gyro_sw_cal_exists) {
+        // Store SW bias so we can remove bias for uncal data
+        mGyroBias[0] = gyro.sw[0];
+        mGyroBias[1] = gyro.sw[1];
+        mGyroBias[2] = gyro.sw[2];
+
+        queueDataInternal(COMMS_SENSOR_GYRO, &gyro, sizeof(gyro));
+    }
 
     if (settings->getFloat("barometer", &barometer))
         queueDataInternal(COMMS_SENSOR_PRESSURE, &barometer, sizeof(barometer));
@@ -878,8 +1037,14 @@ void HubConnection::sendCalibrationOffsets()
     if (settings->getFloat("light", &light))
         queueDataInternal(COMMS_SENSOR_LIGHT, &light, sizeof(light));
 
-    if (getCalibrationFloat(saved_settings, "mag", mag))
+    if (getCalibrationFloat(saved_settings, "mag", mag)) {
+        // Store SW bias so we can remove bias for uncal data
+        mMagBias[0] = mag[0];
+        mMagBias[1] = mag[1];
+        mMagBias[2] = mag[2];
+
         queueDataInternal(COMMS_SENSOR_MAG, mag, sizeof(mag));
+    }
 }
 
 bool HubConnection::threadLoop() {
@@ -917,6 +1082,18 @@ bool HubConnection::threadLoop() {
         }
 #endif // USB_MAG_BIAS_REPORTING_ENABLED
 
+#ifdef DOUBLE_TOUCH_ENABLED
+        if (mDoubleTouchPollIndex >= 0 && mPollFds[mDoubleTouchPollIndex].revents & POLLERR) {
+            // Read from double touch file
+            char buf[16];
+            lseek(mPollFds[mDoubleTouchPollIndex].fd, 0, SEEK_SET);
+            ::read(mPollFds[mDoubleTouchPollIndex].fd, buf, 16);
+            sensors_event_t gestureEvent;
+            initEv(&gestureEvent, elapsedRealtimeNano(), SENSOR_TYPE_PICK_UP_GESTURE, COMMS_SENSOR_GESTURE)->data[0] = 8;
+            mRing.write(&gestureEvent, 1);
+        }
+#endif // DOUBLE_TOUCH_ENABLED
+
         if (mPollFds[0].revents & POLLIN) {
             uint8_t recv[256];
             ssize_t len = ::read(mFd, recv, sizeof(recv));
@@ -939,13 +1116,10 @@ ssize_t HubConnection::read(sensors_event_t *ev, size_t size) {
     return mRing.read(ev, size);
 }
 
-void HubConnection::setActivityCallback(
-        void *cookie,
-        void (*cb)(void *, uint64_t time_ms, bool, float x, float y, float z))
+void HubConnection::setActivityCallback(ActivityEventHandler *eventHandler)
 {
     Mutex::Autolock autoLock(mLock);
-    mActivityCbCookie = cookie;
-    mActivityCb = cb;
+    mActivityEventHandler = eventHandler;
 }
 
 void HubConnection::initConfigCmd(struct ConfigCmd *cmd, int handle)
@@ -1032,7 +1206,6 @@ void HubConnection::queueSetDelay(int handle, nsecs_t sampling_period_ns)
 
 void HubConnection::queueBatch(
         int handle,
-        __attribute__((unused)) int flags,
         nsecs_t sampling_period_ns,
         nsecs_t max_report_latency_ns)
 {

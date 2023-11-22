@@ -36,6 +36,7 @@
         <item name="listPreferredItemPaddingLeft">?attr/suwMarginSides</item>
         <item name="listPreferredItemPaddingRight">?attr/suwMarginSides</item>
         <item name="suwCardBackground">@drawable/suw_card_bg_dark</item>
+        <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_dark</item>
         <item name="suwMarginSides">@dimen/suw_layout_margin_sides</item>
         <item name="suwNavBarTheme">@style/SuwNavBarThemeDark</item>
@@ -59,30 +60,33 @@
         <item name="listPreferredItemPaddingLeft">?attr/suwMarginSides</item>
         <item name="listPreferredItemPaddingRight">?attr/suwMarginSides</item>
         <item name="suwCardBackground">@drawable/suw_card_bg_light</item>
+        <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_light</item>
         <item name="suwMarginSides">@dimen/suw_layout_margin_sides</item>
         <item name="suwNavBarTheme">@style/SuwNavBarThemeLight</item>
         <item name="textAppearanceListItemSmall">@style/TextAppearance.SuwItemSummary</item>
     </style>
 
-    <!-- Placeholder for GLIF dark theme, colors are not updated yet -->
     <style name="SuwThemeGlif" parent="Theme.AppCompat.NoActionBar">
         <item name="android:indeterminateTint" tools:ignore="NewApi">?attr/colorControlActivated</item>
         <!-- Specify the indeterminateTintMode to work around a bug in Lollipop -->
         <item name="android:indeterminateTintMode" tools:ignore="NewApi">src_in</item>
         <item name="android:listPreferredItemHeight">@dimen/suw_items_preferred_height</item>
+        <item name="android:listPreferredItemPaddingEnd" tools:ignore="NewApi">?attr/suwMarginSides</item>
+        <item name="android:listPreferredItemPaddingStart" tools:ignore="NewApi">?attr/suwMarginSides</item>
         <item name="android:navigationBarColor" tools:ignore="NewApi">@android:color/black</item>
         <item name="android:statusBarColor" tools:ignore="NewApi">@android:color/transparent</item>
         <item name="android:textAppearanceListItemSmall" tools:ignore="NewApi">?attr/textAppearanceListItemSmall</item>
-        <item name="android:textColorLink">@color/suw_link_color_light</item>
+        <item name="android:textColorLink">@color/suw_link_color_dark</item>
         <item name="android:windowAnimationStyle">@style/Animation.SuwWindowAnimation</item>
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
 
-        <item name="colorAccent">@color/suw_color_accent_light</item>
-        <item name="colorPrimary">@color/suw_color_accent_light</item>
+        <item name="colorAccent">@color/suw_color_accent_glif_dark</item>
+        <item name="colorPrimary">@color/suw_color_accent_glif_dark</item>
         <item name="listPreferredItemPaddingLeft">?attr/suwMarginSides</item>
         <item name="listPreferredItemPaddingRight">?attr/suwMarginSides</item>
+        <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description.Glif</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_dark</item>
         <item name="suwMarginSides">@dimen/suw_glif_margin_sides</item>
         <item name="textAppearanceListItem">@style/TextAppearance.SuwGlifItemTitle</item>
@@ -104,10 +108,11 @@
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
 
-        <item name="colorAccent">@color/suw_color_accent_light</item>
-        <item name="colorPrimary">@color/suw_color_accent_light</item>
+        <item name="colorAccent">@color/suw_color_accent_glif_light</item>
+        <item name="colorPrimary">@color/suw_color_accent_glif_light</item>
         <item name="listPreferredItemPaddingLeft">?attr/suwMarginSides</item>
         <item name="listPreferredItemPaddingRight">?attr/suwMarginSides</item>
+        <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description.Glif</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_light</item>
         <item name="suwMarginSides">@dimen/suw_glif_margin_sides</item>
         <item name="textAppearanceListItem">@style/TextAppearance.SuwGlifItemTitle</item>

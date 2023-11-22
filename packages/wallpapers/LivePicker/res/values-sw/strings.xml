@@ -31,4 +31,6 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Inapakia taswira hai..."</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"Skrini ya kwanza"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"Skrini ya kwanza na skrini iliyofungwa"</string>
+    <string name="collapse_attribution_panel" msgid="4998500891743118630">"Kunja kidirisha cha maelezo ya mandhari"</string>
+    <string name="expand_attribution_panel" msgid="3151357815478885438">"Panua kidirisha cha maelezo ya mandhari"</string>
 </resources>

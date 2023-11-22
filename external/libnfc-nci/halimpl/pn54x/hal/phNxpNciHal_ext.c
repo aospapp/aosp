@@ -34,9 +34,11 @@ extern int kovio_detected;
 extern int disable_kovio;
 extern int send_to_upper_kovio;
 extern uint32_t cleanup_timer;
-static uint8_t icode_detected = 0x00;
+uint8_t icode_detected = 0x00;
 uint8_t icode_send_eof = 0x00;
+#if(NFC_NXP_CHIP_TYPE == PN548C2)
 uint8_t nfcdep_detected = 0x00;
+#endif
 static uint8_t ee_disc_done = 0x00;
 uint8_t EnableP2P_PrioLogic = FALSE;
 static uint32_t RfDiscID = 1;
@@ -50,6 +52,8 @@ extern uint32_t wFwVerRsp;
 /* External global variable to get FW version from FW file*/
 extern uint16_t wFwVer;
 
+uint16_t fw_maj_ver;
+uint16_t rom_version;
 /* local buffer to store CORE_INIT response */
 static uint32_t bCoreInitRsp[40];
 static uint32_t iCoreInitRspLen;
@@ -163,10 +167,12 @@ NFCSTATUS phNxpNciHal_process_ext_rsp (uint8_t *p_ntf, uint16_t *p_len)
     if (p_ntf[0] == 0x61 &&
             p_ntf[1] == 0x05)
     {
+#if(NFC_NXP_CHIP_TYPE == PN548C2)
         if (nfcdep_detected)
         {
             nfcdep_detected = 0x00;
         }
+#endif
 
         switch (p_ntf[4])
         {
@@ -181,7 +187,9 @@ NFCSTATUS phNxpNciHal_process_ext_rsp (uint8_t *p_ntf, uint16_t *p_len)
             break;
         case 0x03:
             NXPLOG_NCIHAL_D("NxpNci: RF Interface = NFC-DEP");
+#if(NFC_NXP_CHIP_TYPE == PN548C2)
             nfcdep_detected = 0x01;
+#endif
             break;
         case 0x80:
             NXPLOG_NCIHAL_D("NxpNci: RF Interface = MIFARE");
@@ -294,8 +302,6 @@ NFCSTATUS phNxpNciHal_process_ext_rsp (uint8_t *p_ntf, uint16_t *p_len)
             icode_send_eof == 2)
     {
         icode_send_eof = 3;
-        status = NFCSTATUS_FAILED;
-        return status;
     }
     else if (p_ntf[0] == 0x00 &&
                 p_ntf[1] == 0x00 &&
@@ -351,6 +357,8 @@ NFCSTATUS phNxpNciHal_process_ext_rsp (uint8_t *p_ntf, uint16_t *p_len)
         iCoreInitRspLen = *p_len;
         memcpy(bCoreInitRsp, p_ntf, *p_len);
         NXPLOG_NCIHAL_D ("NxpNci> FW Version: %x.%x.%x", p_ntf[len-2], p_ntf[len-1], p_ntf[len]);
+        fw_maj_ver = p_ntf[len-1];
+        rom_version = p_ntf[len-2];
     }
     //4200 02 00 01
     else if(p_ntf[0] == 0x42 && p_ntf[1] == 0x00 && ee_disc_done == 0x01)
@@ -394,6 +402,7 @@ NFCSTATUS phNxpNciHal_process_ext_rsp (uint8_t *p_ntf, uint16_t *p_len)
     else if(p_ntf[0] == 0x60 && p_ntf[1] == 0x00)
     {
         NXPLOG_NCIHAL_E ("CORE_RESET_NTF received!");
+#if(NFC_NXP_CHIP_TYPE == PN548C2)
         if ( nfcdep_detected &&
                !(p_ntf[2] == 0x06 && p_ntf[3] == 0xA0 && p_ntf[4] == 0x00
                      && ((p_ntf[5] == 0xC9 && p_ntf[6] == 0x95
@@ -403,6 +412,7 @@ NFCSTATUS phNxpNciHal_process_ext_rsp (uint8_t *p_ntf, uint16_t *p_len)
         {
             nfcdep_detected = 0x00;
         }
+#endif
         phNxpNciHal_emergency_recovery ();
         status = NFCSTATUS_FAILED;
         return status;
@@ -672,7 +682,7 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t *cmd_len, uint8_t *p_cmd_data,
             *cmd_len = 8;
         }
     }
-#if(NFC_NXP_CHIP_TYPE == PN547C2)
+
     if (retval == 0x01 &&
         p_cmd_data[0] == 0x21 &&
         p_cmd_data[1] == 0x00)
@@ -687,9 +697,7 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t *cmd_len, uint8_t *p_cmd_data,
         status = NFCSTATUS_SUCCESS;
         NXPLOG_NCIHAL_D ("Going through extns - Adding Mifare in RF Discovery - END");
     }
-    else
-#endif
-    if (p_cmd_data[3] == 0x81 &&
+    else if (p_cmd_data[3] == 0x81 &&
             p_cmd_data[4] == 0x01 &&
             p_cmd_data[5] == 0x03)
     {
@@ -739,8 +747,10 @@ NFCSTATUS phNxpNciHal_write_ext(uint16_t *cmd_len, uint8_t *p_cmd_data,
         NXPLOG_NCIHAL_D ("> Polling Loop Started");
         icode_detected = 0;
         icode_send_eof = 0;
+#if(NFC_NXP_CHIP_TYPE == PN548C2)
         // Cache discovery cmd for recovery
         phNxpNciHal_discovery_cmd_ext (p_cmd_data, *cmd_len);
+#endif
     }
     //22000100
     else if (p_cmd_data[0] == 0x22 &&

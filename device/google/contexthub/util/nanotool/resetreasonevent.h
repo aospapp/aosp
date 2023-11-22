@@ -17,7 +17,6 @@
 #ifndef RESET_REASON_EVENT_H_
 #define RESET_REASON_EVENT_H_
 
-#include "contexthub.h"
 #include "nanomessage.h"
 
 namespace android {

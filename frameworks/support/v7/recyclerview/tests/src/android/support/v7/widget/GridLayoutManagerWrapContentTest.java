@@ -25,6 +25,9 @@ import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 
 import android.app.Activity;
 import android.graphics.Rect;
+import android.os.Build;
+import android.support.test.filters.SdkSuppress;
+import android.test.suitebuilder.annotation.MediumTest;
 import android.view.Gravity;
 import android.view.View;
 
@@ -35,11 +38,13 @@ import org.junit.runners.Parameterized;
 import java.util.Arrays;
 import java.util.List;
 
+@MediumTest
 @RunWith(Parameterized.class)
 public class GridLayoutManagerWrapContentTest extends BaseWrapContentTest {
     private boolean mHorizontal = false;
     private int mSpanCount = 3;
     private RecyclerView.ItemDecoration mItemDecoration;
+
     public GridLayoutManagerWrapContentTest(Rect padding) {
         super(new WrapContentConfig(false, false, padding));
     }
@@ -72,6 +77,7 @@ public class GridLayoutManagerWrapContentTest extends BaseWrapContentTest {
         return recyclerView;
     }
 
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.M)
     @Test
     public void testUnspecifiedWithHint() throws Throwable {
         unspecifiedWithHintTest(mHorizontal);
@@ -175,6 +181,36 @@ public class GridLayoutManagerWrapContentTest extends BaseWrapContentTest {
                 new Rect(0, 10, 20, 20)
         };
         layoutAndCheck(lp, adapter, expected, 60, 20);
+    }
+
+    @Test
+    public void testVerticalWithHorizontalMargins() throws Throwable {
+        TestedFrameLayout.FullControlLayoutParams lp =
+                mWrapContentConfig.toLayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+        WrapContentAdapter adapter = new WrapContentAdapter(
+                new MeasureBehavior(100, 50, 100, WRAP_CONTENT).withMargins(10, 0, 5, 0)
+        );
+        Rect[] expected = new Rect[] {
+                new Rect(0, 0, 115, 50)
+        };
+        layoutAndCheck(lp, adapter, expected, 345, 50);
+    }
+
+    @Test
+    public void testHorizontalWithHorizontalMargins() throws Throwable {
+        mHorizontal = true;
+        mSpanCount = 1;
+        TestedFrameLayout.FullControlLayoutParams lp =
+                mWrapContentConfig.toLayoutParams(WRAP_CONTENT, WRAP_CONTENT);
+        WrapContentAdapter adapter = new WrapContentAdapter(
+                new MeasureBehavior(100, 50, 100, WRAP_CONTENT).withMargins(10, 0, 5, 0),
+                new MeasureBehavior(100, 50, 100, WRAP_CONTENT).withMargins(3, 4, 5, 6)
+        );
+        Rect[] expected = new Rect[] {
+                new Rect(0, 0, 115, 50),
+                new Rect(115, 0, 223, 60)
+        };
+        layoutAndCheck(lp, adapter, expected, 223, 60);
     }
 
     @Override

@@ -64,8 +64,8 @@
     <string name="sms_mms" msgid="4887206338311086612">"MMS telefonga sms jo‘natish"</string>
     <string name="sms_by_shortcut" msgid="2675928528835074838">"<xliff:g id="CONTACT_NAME">%s</xliff:g> (Xabar yozish)"</string>
     <string name="description_video_call" msgid="4907306403398614909">"Videoqo‘ng‘iroq qilish"</string>
-    <string name="clearFrequentsConfirmation_title" msgid="1482750234535491083">"Ko‘p gaplashilganlar tozalansinmi?"</string>
-    <string name="clearFrequentsConfirmation" msgid="1117709667923254374">"Kontaktlar va Telefon ilovalaridagi tez-tez aloqa qilingan kontaktlar ro‘yxati tozalanadi hamda e-pochta ilovalari sizning shaxsiy sozlamalaringizga moslashadi."</string>
+    <string name="clearFrequentsConfirmation_title" msgid="1482750234535491083">"Bu ro‘yxat tozalansinmi?"</string>
+    <string name="clearFrequentsConfirmation" msgid="1117709667923254374">"Kontaktlar va Telefon ilovalaridagi tez-tez aloqa qilingan kontaktlar ro‘yxati tozalanadi hamda e-pochta ilovalari manzillarni eslab qolishni qaytadan boshlaydi."</string>
     <string name="clearFrequentsProgress_title" msgid="3738406170865048982">"Ko‘p gaplashilganlar tozalanmoqda…"</string>
     <string name="status_available" msgid="4832569677396634846">"Aloqada"</string>
     <string name="status_away" msgid="6267905184545881094">"Tashqarida"</string>

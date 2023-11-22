@@ -85,7 +85,8 @@ public abstract class BaseUserRestrictionsTest extends BaseDeviceAdminTest {
 
     public static final String[] HIDDEN_AND_PROHIBITED = new String[] {
             "no_record_audio",
-            "no_wallpaper"
+            "no_wallpaper",
+            "no_oem_unlock"
     };
 
     protected void assertLayeredRestriction(String restriction, boolean expected) {

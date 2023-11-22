@@ -30,6 +30,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.telecom.Connection;
 import android.telecom.PhoneAccount;
+import android.telecom.VideoProfile;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -98,7 +99,7 @@ public class BluetoothPhoneServiceImpl {
                     Log.i(TAG, "BT - answering call");
                     Call call = mCallsManager.getRingingCall();
                     if (call != null) {
-                        mCallsManager.answerCall(call, call.getVideoState());
+                        mCallsManager.answerCall(call, VideoProfile.STATE_AUDIO_ONLY);
                         return true;
                     }
                     return false;
@@ -291,11 +292,17 @@ public class BluetoothPhoneServiceImpl {
     public CallsManagerListener mCallsManagerListener = new CallsManagerListenerBase() {
         @Override
         public void onCallAdded(Call call) {
+            if (call.isExternalCall()) {
+                return;
+            }
             updateHeadsetWithCallState(false /* force */);
         }
 
         @Override
         public void onCallRemoved(Call call) {
+            if (call.isExternalCall()) {
+                return;
+            }
             mClccIndexMap.remove(call);
             updateHeadsetWithCallState(false /* force */);
         }
@@ -318,6 +325,9 @@ public class BluetoothPhoneServiceImpl {
 
         @Override
         public void onCallStateChanged(Call call, int oldState, int newState) {
+            if (call.isExternalCall()) {
+                return;
+            }
             // If a call is being put on hold because of a new connecting call, ignore the
             // CONNECTING since the BT state update needs to send out the numHeld = 1 + dialing
             // state atomically.
@@ -335,7 +345,8 @@ public class BluetoothPhoneServiceImpl {
             // state. We can assume that the active call will be automatically held which will
             // send another update at which point we will be in the right state.
             if (mCallsManager.getActiveCall() != null
-                    && oldState == CallState.CONNECTING && newState == CallState.DIALING) {
+                    && oldState == CallState.CONNECTING &&
+                    (newState == CallState.DIALING || newState == CallState.PULLING)) {
                 return;
             }
             updateHeadsetWithCallState(false /* force */);
@@ -343,6 +354,9 @@ public class BluetoothPhoneServiceImpl {
 
         @Override
         public void onIsConferencedChanged(Call call) {
+            if (call.isExternalCall()) {
+                return;
+            }
             /*
              * Filter certain onIsConferencedChanged callbacks. Unfortunately this needs to be done
              * because conference change events are not atomic and multiple callbacks get fired
@@ -486,7 +500,7 @@ public class BluetoothPhoneServiceImpl {
             if (activeCall != null) {
                 mCallsManager.disconnectCall(activeCall);
                 if (ringingCall != null) {
-                    mCallsManager.answerCall(ringingCall, ringingCall.getVideoState());
+                    mCallsManager.answerCall(ringingCall, VideoProfile.STATE_AUDIO_ONLY);
                 } else if (heldCall != null) {
                     mCallsManager.unholdCall(heldCall);
                 }
@@ -499,7 +513,7 @@ public class BluetoothPhoneServiceImpl {
                 updateHeadsetWithCallState(true /* force */);
                 return true;
             } else if (ringingCall != null) {
-                mCallsManager.answerCall(ringingCall, ringingCall.getVideoState());
+                mCallsManager.answerCall(ringingCall, VideoProfile.STATE_AUDIO_ONLY);
                 return true;
             } else if (heldCall != null) {
                 // CallsManager will hold any active calls when unhold() is called on a
@@ -809,6 +823,7 @@ public class BluetoothPhoneServiceImpl {
             case CallState.CONNECTING:
             case CallState.SELECT_PHONE_ACCOUNT:
             case CallState.DIALING:
+            case CallState.PULLING:
                 // Yes, this is correctly returning ALERTING.
                 // "Dialing" for BT means that we have sent information to the service provider
                 // to place the call but there is no confirmation that the call is going through.

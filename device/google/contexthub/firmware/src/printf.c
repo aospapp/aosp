@@ -264,6 +264,14 @@ more_fmt:
 #undef GET_UVAL64
 #undef GET_SVAL64
 
+                case 'h':
+                    // Technically, we're supposed to cast down to short/char, so that
+                    // { int x = 256; printf("%hhd", x); } would yield "0" (assuming 32-bit int
+                    // and 8-bit char). But the more common usage would be to expect the caller
+                    // to do printf("%hhd", (char) x) to get this output, which we're assuming
+                    // here to make our implementation simpler.
+                    goto more_fmt;
+
                 case 'L':
                 case 'l':
                     if (useLong)

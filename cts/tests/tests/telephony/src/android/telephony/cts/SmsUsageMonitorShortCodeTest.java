@@ -20,7 +20,6 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
-import android.telephony.TelephonyManager;
 import com.android.internal.telephony.SmsUsageMonitor;
 
 import android.telephony.PhoneNumberUtils;
@@ -30,7 +29,6 @@ import android.telephony.PhoneNumberUtils;
  */
 public class SmsUsageMonitorShortCodeTest extends InstrumentationTestCase {
 
-    private TelephonyManager mTelephonyManager;
     private PackageManager mPackageManager;
     private Context mContext;
 
@@ -488,12 +486,6 @@ public class SmsUsageMonitorShortCodeTest extends InstrumentationTestCase {
         super.setUp();
         mContext = getInstrumentation().getTargetContext();
         mPackageManager = mContext.getPackageManager();
-        mTelephonyManager = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
-    }
-
-    private boolean isCDMA112(String address) {
-        return (mTelephonyManager.getPhoneType() == TelephonyManager.PHONE_TYPE_CDMA)
-                && "112".equals(address);
     }
 
     private static int expectedReturnCode(String address) {
@@ -511,8 +503,7 @@ public class SmsUsageMonitorShortCodeTest extends InstrumentationTestCase {
         SmsUsageMonitor monitor = new SmsUsageMonitor(mContext);
         for (ShortCodeTest test : sShortCodeTests) {
             assertEquals("country: " + test.countryIso + " number: " + test.address,
-                    test.category, isCDMA112(test.address) ? CATEGORY_NOT_SHORT_CODE :
-                    monitor.checkDestination(test.address, test.countryIso));
+                    test.category, monitor.checkDestination(test.address, test.countryIso));
         }
     }
 }

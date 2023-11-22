@@ -82,6 +82,7 @@ public class SwitchItem extends Item implements CompoundButton.OnCheckedChangeLi
     public void onBindView(View view) {
         super.onBindView(view);
         final SwitchCompat switchView = (SwitchCompat) view.findViewById(R.id.suw_items_switch);
+        switchView.setOnCheckedChangeListener(null);
         switchView.setChecked(mChecked);
         switchView.setOnCheckedChangeListener(this);
         switchView.setEnabled(isEnabled());
@@ -93,6 +94,7 @@ public class SwitchItem extends Item implements CompoundButton.OnCheckedChangeLi
 
     @Override
     public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+        mChecked = isChecked;
         if (mListener != null) {
             mListener.onCheckedChange(this, isChecked);
         }

@@ -42,7 +42,7 @@ public class ThemeTestUtils {
         }
 
         final ZipOutputStream zipOut = new ZipOutputStream(new FileOutputStream(file));
-        final byte[] data = new byte[4096];
+        final byte[] data = new byte[8192];
         for (int i = 0; i < srcFiles.length; i++) {
             final FileInputStream fileIn = new FileInputStream(srcFiles[i]);
             final ZipEntry entry = new ZipEntry(srcFiles[i].getName());

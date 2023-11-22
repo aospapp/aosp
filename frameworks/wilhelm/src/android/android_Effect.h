@@ -70,6 +70,21 @@ extern android::status_t android_erev_getParam(android::sp<android::AudioEffect>
         int32_t param, void *pValue);
 
 /**************************************************************************************************
+ * AEC functions
+ ****************************/
+extern void android_aec_init(audio_session_t sessionId, IAndroidAcousticEchoCancellation* iaec);
+
+/**************************************************************************************************
+ * AGC functions
+ ****************************/
+extern void android_agc_init(audio_session_t sessionId, IAndroidAutomaticGainControl* iagc);
+
+/**************************************************************************************************
+ * NS functions
+ ****************************/
+extern void android_ns_init(audio_session_t sessionId, IAndroidNoiseSuppression* ins);
+
+/**************************************************************************************************
  * Generic Effect functions
  ****************************/
 extern SLresult android_genericFx_queryNumEffects(SLuint32 *pNumSupportedAudioEffects);

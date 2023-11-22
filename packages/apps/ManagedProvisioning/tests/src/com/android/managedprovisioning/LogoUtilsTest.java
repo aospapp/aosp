@@ -115,7 +115,7 @@ public class LogoUtilsTest extends AndroidTestCase {
 
         // First let's compute the expected logo. It is the default one, resized if too big.
         Bitmap expected = BitmapFactory.decodeResource(getContext().getResources(),
-                R.drawable.briefcase_icon);
+                R.drawable.ic_corp_icon);
         expected = LogoUtils.resizeBitmap(expected, maxWidth, maxHeight);
 
         // Now, get the actual logo

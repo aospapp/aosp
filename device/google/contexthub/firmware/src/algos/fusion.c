@@ -54,13 +54,15 @@
 #define MAX_VALID_MAGNETIC_FIELD    75.0f
 #define MAX_VALID_MAGNETIC_FIELD_SQ (MAX_VALID_MAGNETIC_FIELD * MAX_VALID_MAGNETIC_FIELD)
 
-#define MIN_VALID_MAGNETIC_FIELD    30.0f
+#define MIN_VALID_MAGNETIC_FIELD    20.0f   //norminal mag field strength is 25uT in some area
 #define MIN_VALID_MAGNETIC_FIELD_SQ (MIN_VALID_MAGNETIC_FIELD * MIN_VALID_MAGNETIC_FIELD)
 
 #define MIN_VALID_CROSS_PRODUCT_MAG     1.0e-3
 #define MIN_VALID_CROSS_PRODUCT_MAG_SQ  (MIN_VALID_CROSS_PRODUCT_MAG * MIN_VALID_CROSS_PRODUCT_MAG)
 
 #define DELTA_TIME_MARGIN 1.0e-9f
+
+#define TRUST_DURATION_MANUAL_MAG_CAL      5.f  //unit: seconds
 
 void initFusion(struct Fusion *fusion, uint32_t flags) {
     fusion->flags = flags;
@@ -95,12 +97,16 @@ void initFusion(struct Fusion *fusion, uint32_t flags) {
         initVec3(&fusion->mData[0], 0.0f, 0.0f, 0.0f);
         initVec3(&fusion->mData[1], 0.0f, 0.0f, 0.0f);
         initVec3(&fusion->mData[2], 0.0f, 0.0f, 0.0f);
+
     } else  {
         // mask off disabled sensor bit
         fusion->mInitState &= (ACC
                                | ((fusion->flags & FUSION_USE_MAG) ? MAG : 0)
                                | ((fusion->flags & FUSION_USE_GYRO) ? GYRO : 0));
     }
+
+    fusionSetMagTrust(fusion, NORMAL);
+    fusion->lastMagInvalid = false;
 }
 
 int fusionHasEstimate(const struct Fusion *fusion) {
@@ -218,6 +224,8 @@ static int fusion_init_complete(struct Fusion *fusion, int what, const struct Ve
         initZeroMatrix(&fusion->P[0][1]);
         initZeroMatrix(&fusion->P[1][0]);
         initZeroMatrix(&fusion->P[1][1]);
+
+        fusionSetMagTrust(fusion, INITIALIZATION);
     }
 
     return 0;
@@ -576,10 +584,11 @@ int fusionHandleAcc(struct Fusion *fusion, const struct Vec3 *a, float dT) {
     return 0;
 }
 
-#define MAG_COS_CONV_FACTOR  0.02f
-#define MAG_COS_CONV_LIMIT    2.f
+#define MAG_COS_CONV_FACTOR   0.02f
+#define MAG_COS_CONV_LIMIT    3.5f
+#define MAG_STDEV_REDUCTION   0.005f // lower stdev means more trust
 
-int fusionHandleMag(struct Fusion *fusion, const struct Vec3 *m) {
+int fusionHandleMag(struct Fusion *fusion, const struct Vec3 *m, float dT) {
     if (!fusion_init_complete(fusion, MAG, m, 0.0f /* dT */)) {
         return -EINVAL;
     }
@@ -588,6 +597,8 @@ int fusionHandleMag(struct Fusion *fusion, const struct Vec3 *m) {
 
     if (magFieldSq > MAX_VALID_MAGNETIC_FIELD_SQ
             || magFieldSq < MIN_VALID_MAGNETIC_FIELD_SQ) {
+        fusionSetMagTrust(fusion, NORMAL);
+        fusion->lastMagInvalid = true;
         return -EINVAL;
     }
 
@@ -601,7 +612,14 @@ int fusionHandleMag(struct Fusion *fusion, const struct Vec3 *m) {
     vec3Cross(&east, m, &up);
 
     if (vec3NormSquared(&east) < MIN_VALID_CROSS_PRODUCT_MAG_SQ) {
+        fusionSetMagTrust(fusion, NORMAL);
+        fusion->lastMagInvalid = true;
         return -EINVAL;
+    }
+
+    if (fusion->lastMagInvalid) {
+        fusion->lastMagInvalid = false;
+        fusionSetMagTrust(fusion, BACK_TO_VALID);
     }
 
     struct Vec3 north;
@@ -616,17 +634,49 @@ int fusionHandleMag(struct Fusion *fusion, const struct Vec3 *m) {
         struct Vec3 mm;
         mat33Apply(&mm, &R, &fusion->Bm);
         float cos_err = vec3Dot(&mm, &north);
-        cos_err = cos_err < (1.f - MAG_COS_CONV_FACTOR) ?
-            (1.f - MAG_COS_CONV_FACTOR) : cos_err;
 
-        float fc;
-        fc = (1.f - cos_err) * (1.0f / MAG_COS_CONV_FACTOR * MAG_COS_CONV_LIMIT);
-        p *= expf(-fc);
+        if (fusion->trustedMagDuration > 0) {
+            // if the trust mag time period is not finished
+            if (cos_err < (1.f - MAG_COS_CONV_FACTOR/4)) {
+                // if the mag direction and the fusion north has not converged, lower the
+                // standard deviation of mag to speed up convergence.
+                p *= MAG_STDEV_REDUCTION;
+                fusion->trustedMagDuration -= dT;
+            } else {
+                // it has converged already, so no need to keep the trust period any longer
+                fusionSetMagTrust(fusion, NORMAL);
+            }
+        } else {
+            cos_err = cos_err < (1.f - MAG_COS_CONV_FACTOR) ?
+                (1.f - MAG_COS_CONV_FACTOR) : cos_err;
+
+            float fc;
+            fc = (1.f - cos_err) * (1.0f / MAG_COS_CONV_FACTOR * MAG_COS_CONV_LIMIT);
+            p *= expf(-fc);
+        }
     }
 
     fusionUpdate(fusion, &north, &fusion->Bm, p);
 
     return 0;
+}
+
+void fusionSetMagTrust(struct Fusion *fusion, int mode) {
+    switch(mode) {
+        case NORMAL:
+            fusion->trustedMagDuration = 0; // disable
+            break;
+        case INITIALIZATION:
+        case BACK_TO_VALID:
+            fusion->trustedMagDuration = 0; // no special treatment for these two
+            break;
+        case MANUAL_MAG_CAL:
+            fusion->trustedMagDuration = TRUST_DURATION_MANUAL_MAG_CAL;
+            break;
+        default:
+            fusion->trustedMagDuration = 0; // by default it is disable
+            break;
+    }
 }
 
 void fusionGetAttitude(const struct Fusion *fusion, struct Vec4 *attitude) {

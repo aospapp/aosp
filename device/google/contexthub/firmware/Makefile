@@ -116,7 +116,7 @@ links/v_$(VARIANT):
 	touch links/v_$(VARIANT)
 
 %.unchecked.elf: symlinks $(SRCS_$*) $(DEPS)
-	$(GCC) -o $@ $(SRCS_$*) $(OSFLAGS) $(OSFLAGS_$*) $(FLAGS) -lm -lc -lgcc
+	$(GCC) -o $@ $(SRCS_$*) $(OSFLAGS) $(OSFLAGS_$*) $(FLAGS) -lgcc -nostdlib
 
 %.checked.elf : %.unchecked.elf  symcheck.sh
 	./symcheck.sh $< $@ $(BADWORDS)

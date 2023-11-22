@@ -17,22 +17,15 @@
 package android.platform.test.helpers;
 
 import android.app.Instrumentation;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.os.SystemClock;
+import android.platform.test.helpers.exceptions.UnknownUiException;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
-import android.support.test.uiautomator.Until;
-import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.Until;
 import android.util.Log;
-import android.widget.Button;
-import android.widget.ImageButton;
-import android.widget.TextView;
 
 import java.util.regex.Pattern;
-
-import junit.framework.Assert;
 
 public class PlayMusicHelperImpl extends AbstractPlayMusicHelper {
     private static final String LOG_TAG = PlayMusicHelperImpl.class.getSimpleName();
@@ -90,21 +83,27 @@ public class PlayMusicHelperImpl extends AbstractPlayMusicHelper {
         if (isLibraryTabSelected(tabTitle)) {
             return;
         } else {
-            // Go to the "Library" page
-            goToMyLibrary();
+            navigateToDrawerItem("Music library");
 
             for (int retries = 3; retries > 0; retries--) {
                 UiObject2 title = getLibraryTab(tabTitle);
                 if (title != null) {
                     title.click();
-                    Assert.assertTrue(
-                            String.format("Tab %s was not found selected", tabTitle.toUpperCase()),
-                            mDevice.wait(
-                                    Until.hasObject(getLibraryTabSelector(tabTitle).selected(true)),
-                                    TAB_TRANSITION_WAIT));
+                    boolean titleIsSelected = mDevice.wait(
+                            Until.hasObject(getLibraryTabSelector(tabTitle).selected(true)),
+                            TAB_TRANSITION_WAIT);
+
+                    if (!titleIsSelected) {
+                        String message = String.format("Tab %s was not found selected",
+                                tabTitle.toUpperCase());
+                        throw new UnknownUiException(message);
+                    }
                 } else {
                     UiObject2 headerList = mDevice.findObject(By.res(UI_PACKAGE, UI_TAB_HEADER_ID));
-                    Assert.assertNotNull("Could not find library header to scroll.", headerList);
+                    if (headerList == null) {
+                        throw new UnknownUiException("Could not find library header to scroll.");
+                    }
+
                     headerList.scroll(Direction.RIGHT, 1.0f);
                 }
             }
@@ -115,10 +114,62 @@ public class PlayMusicHelperImpl extends AbstractPlayMusicHelper {
      * {@inheritDoc}
      */
     @Override
+    public void goToListenNow() {
+        navigateToDrawerItem("Listen Now");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void playAnyRadioStation() {
+        // Looks for a play button to click on. If not found scrolls down and looks again.
+        // Repeats 10 times.
+        for (int i = 0; i < 10; i++) {
+            UiObject2 playButton = mDevice.findObject(By.res(UI_PACKAGE, "li_play_button"));
+            if (playButton != null) {
+                playButton.click();
+                return;
+            }
+
+            Log.d(LOG_TAG, "No play button found. Scrolling down.");
+
+            //TODO: use Play Music's package name instead of 'android' when the UI is fixed.
+            UiObject2 scroller = mDevice.findObject(By.res("android", "list"));
+            scroller.setGestureMargin(500);
+            scroller.scroll(Direction.DOWN, 1.0f);
+        }
+
+        throw new UnknownUiException("Couldn't find play button after several tries.");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean dismissAd(){
+        Pattern skipAdPattern = Pattern.compile("Skip Ad", Pattern.CASE_INSENSITIVE);
+        UiObject2 skipAdButton = mDevice.findObject(By.desc(skipAdPattern));
+        if (skipAdButton != null){
+            skipAdButton.click();
+            return true;
+        }
+
+        return false;
+    }
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void selectSong(String album, String song) {
         UiObject2 albumItem = mDevice.wait(Until.findObject(By.res(UI_PACKAGE, "li_title")
                 .textStartsWith(album)), EXPAND_WAIT);
-        Assert.assertNotNull("Unable to find album item", albumItem);
+        if (albumItem == null) {
+            throw new IllegalStateException("Unable to find album item");
+        }
+
         albumItem.click();
 
         mDevice.wait(Until.findObject(By.res(UI_PACKAGE, "title").textStartsWith(album)),
@@ -198,7 +249,10 @@ public class PlayMusicHelperImpl extends AbstractPlayMusicHelper {
     @Override
     public void expandMediaControls() {
         UiObject2 header = mDevice.findObject(By.res(UI_PACKAGE, "trackname"));
-        Assert.assertNotNull("Unable to find header to expand media controls.", header);
+        if (header == null){
+            throw new IllegalStateException("Unable to find header to expand media controls.");
+        }
+
         header.click();
         mDevice.wait(Until.findObject(By.res(UI_PACKAGE, "lightsUpInterceptor")), EXPAND_WAIT);
     }
@@ -213,10 +267,15 @@ public class PlayMusicHelperImpl extends AbstractPlayMusicHelper {
         }
 
         UiObject2 shuffleAll = mDevice.findObject(By.text("SHUFFLE ALL"));
-        Assert.assertNotNull("Could not find a 'SHUFFLE ALL' button.", shuffleAll);
+        if (shuffleAll == null) {
+            throw new IllegalStateException("Could not find a 'SHUFFLE ALL' button.");
+        }
+
         shuffleAll.click();
-        Assert.assertTrue("Did not detect a song playing", mDevice.wait(Until.hasObject(
-            By.res(UI_PACKAGE, UI_PAUSE_PLAY_BUTTON_ID)), TOGGLE_PAUSE_PLAY_WAIT));
+        if(!mDevice.wait(Until.hasObject(
+                By.res(UI_PACKAGE, UI_PAUSE_PLAY_BUTTON_ID)), TOGGLE_PAUSE_PLAY_WAIT)){
+            throw new UnknownUiException("Did not detect a song playing");
+        }
     }
 
     /**
@@ -225,26 +284,41 @@ public class PlayMusicHelperImpl extends AbstractPlayMusicHelper {
     @Override
     public void pressRepeat() {
         UiObject2 repeatButton = mDevice.findObject(By.res(UI_PACKAGE, "repeat"));
-        Assert.assertNotNull("Unable to find repeat button to press.", repeatButton);
+        if (repeatButton == null){
+            throw new IllegalStateException("Unable to find repeat button to press.");
+        }
+
         repeatButton.click();
         mDevice.waitForIdle();
     }
 
-    private void goToMyLibrary() {
-        // Select for the title: "Library"
-        if (mDevice.findObject(getLibraryTextSelector().clickable(false)) != null) {
+    private void navigateToDrawerItem(String itemName) {
+        Pattern pattern = Pattern.compile(itemName, Pattern.CASE_INSENSITIVE);
+
+        // Select for title.
+        if (mDevice.findObject(By.text(pattern).clickable(false)) != null) {
             return;
         }
 
         openNavigationBar();
-        // Select for the button: "Library"
-        mDevice.findObject(getLibraryTextSelector().clickable(true)).click();
+
+        UiObject2 button = mDevice.findObject(By.text(pattern).clickable(true));
+        if (button == null){
+            String message = String.format("Couldn't find button with text: %s", itemName);
+            throw new UnknownUiException(message);
+        }
+
+        // Select for button.
+        button.click();
         mDevice.wait(Until.gone(By.res(UI_PACKAGE, "play_drawer_root")), NAV_BAR_WAIT);
     }
 
     private void openNavigationBar () {
         UiObject2 navBar = getNavigationBarButton();
-        Assert.assertNotNull("Did not find navigation drawer button.", navBar);
+        if (navBar == null) {
+            throw new IllegalStateException("Did not find navigation drawer button.");
+        }
+
         navBar.click();
         mDevice.wait(Until.findObject(By.res(UI_PACKAGE, "play_drawer_root")), NAV_BAR_WAIT);
     }
@@ -263,11 +337,5 @@ public class PlayMusicHelperImpl extends AbstractPlayMusicHelper {
 
     private BySelector getLibraryTabSelector(String tabTitle) {
         return By.res(UI_PACKAGE, "title").text(tabTitle.toUpperCase());
-    }
-
-    private BySelector getLibraryTextSelector() {
-        String libraryText = "Music library";
-        Pattern libraryTextPattern = Pattern.compile(libraryText, Pattern.CASE_INSENSITIVE);
-        return By.text(libraryTextPattern);
     }
 }

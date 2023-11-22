@@ -29,19 +29,21 @@ the off-charger behavior of applications and devices.</p>
 <p>Android includes the following battery life enhancements:</p>
 
 <ul>
-<li><b><a href="#app-standby">App Standby</b></a>. The platform can place
-unused applications in App Standby mode, temporarily restricting network access
-and deferring syncs and jobs for those applications.</li>
-<li><b><a href="#doze">Doze</b></a>. The platform can enter a state of deep
-sleep (periodically resuming normal operations) if users have not actively used
-their device (screen off and stationary) for extended periods of time. Android N
-also enables Doze to trigger a lighter set of optimizations when users turn
-off the device screen yet continue to move around.</li>
-<li><b><a href="#exempt-apps">Exemptions</b></a>. System apps and cloud
-messaging services preloaded on a device are typically exempted from App Standby
-and Doze by default (although app developers can intent their applications into
-this setting). Users can exempt applications via the Settings menu.</li>
+<li><strong><a href="#app-standby">App Standby</strong></a>. The platform can
+place unused applications in App Standby mode, temporarily restricting network
+access and deferring syncs and jobs for those applications.</li>
+<li><strong><a href="#doze">Doze</strong></a>. The platform can enter a state of
+deep sleep (periodically resuming normal operations) if users have not actively
+used their device (screen off and stationary) for extended periods of time.
+Android 7.0 also enables Doze to trigger a lighter set of optimizations when
+users turn off the device screen yet continue to move around.</li>
+<li><strong><a href="#exempt-apps">Exemptions</strong></a>. System apps and
+cloud messaging services preloaded on a device are typically exempted from App
+Standby and Doze by default (although app developers can intent their
+applications into this setting). Users can exempt applications via the Settings
+menu.</li>
 </ul>
+
 <p>The following sections describe these enhancements.</p>
 
 <h2 id="app-standby">App Standby</h2>
@@ -92,7 +94,7 @@ notification tray.</li>
 a period of time.
 </p>
 
-<h3>Testing App Standby</h3>
+<h3 id=testing_app_standby>Testing App Standby</h3>
 <p>You can manually test App Standby using the following ADB commands:</p>
 
 <pre>
@@ -115,14 +117,14 @@ idle each time, until a maximum of a few hours of sleep time is reached. At all
 times, a device in Doze remains aware of motion and immediately leaves Doze
 if motion is detected.</p>
 
-<p>Android N extends Doze to trigger a lighter set of optimizations every time
+<p>Android 7.0 extends Doze to trigger a lighter set of optimizations every time
 a user turns off the device screen, even when the user continues to move around,
 enabling longer lasting battery life.</p>
 
 <p>System services (such as telephony) may be preloaded and exempted from Doze
 by default. Users can also exempt specific applications from Doze in the
-Settings menu. By default, Doze is <b>disabled</b> in the Android Open Source
-Project (AOSP). For details on enabling Doze, see
+Settings menu. By default, Doze is <strong>disabled</strong> in the Android Open
+Source Project (AOSP). For details on enabling Doze, see
 <a href="#integrate-doze">Integrating Doze</a>.</p>
 
 <h3 id="doze-reqs">Doze requirements</h3>
@@ -132,7 +134,7 @@ Project (AOSP). For details on enabling Doze, see
 <p>Full Doze support also requires a
 <a href="{@docRoot}devices/sensors/sensor-types.html#significant_motion">Significant
 Motion Detector (SMD)</a> on the device; however, the lightweight Doze mode in
-Android N does not require an SMD. If Doze is enabled on a device that:</p>
+Android 7.0 does not require an SMD. If Doze is enabled on a device that:</p>
 <ul>
 <li>Has an SMD, full Doze optimizations occur (includes lightweight
 optimizations).</li>
@@ -192,7 +194,7 @@ they can complete their processing.</li>
 </tbody>
 </table>
 
-<p>Android N extends Doze by enabling a lightweight sleep mode during screen
+<p>Android 7.0 extends Doze by enabling a lightweight sleep mode during screen
 off, before the device is idle.</p>
 <p><img src="../images/doze_lightweight.png"></p>
 <p class="img-caption">Figure 1. Doze modes for non-stationary and stationary
@@ -255,7 +257,7 @@ configuration is necessary.</p>
 <li>Confirm the device has a cloud messaging service installed.</li>
 <li>In the device overlay config file
 <code>overlay/frameworks/base/core/res/res/values/config.xml</code>, set
-<code>config_enableAutoPowerModes</code> to <b>true</b>:
+<code>config_enableAutoPowerModes</code> to <strong>true</strong>:
 <pre>
 bool name="config_enableAutoPowerModes"&gt;true&lt;/bool&gt;
 </pre>
@@ -263,11 +265,11 @@ bool name="config_enableAutoPowerModes"&gt;true&lt;/bool&gt;
 </li>
 <li>Confirm that preloaded apps and services:
 <ul>
-<li>Use the new
-<a href="https://developer.android.com/preview/behavior-changes.html#behavior-power">power-saving
+<li>Use the
+<a href="https://developer.android.com/training/monitoring-device-state/doze-standby.html">power-saving
 optimization guidelines</a>. For details, see <a href="#test-apps">Testing and
 optimizing applications</a>.
-<p><b>OR</b></p>
+<p><strong>OR</strong></p>
 <li>Are exempted from Doze and App Standby. For details, see
 <a href="#exempt-apps">Exempting applications</a>.</li>
 </ul>
@@ -297,10 +299,10 @@ and
 <h4 id="test-apps">Testing and optimizing applications</h4>
 <p>Test all applications (especially preloaded applications) in Doze mode. For
 details, refer to
-<a href="https://developer.android.com/preview/testing/guide.html#doze-standby">Testing
+<a href="https://developer.android.com/training/monitoring-device-state/doze-standby.html#testing_doze_and_app_standby">Testing
 Doze and App Standby</a>.</p>
 
-<p class="note"><b>Note</b>: MMS/SMS/Telephony services function independently
+<p class="note"><strong>Note</strong>: MMS/SMS/Telephony services function independently
 of Doze and will always wake client apps even while the device remains in Doze
 mode.</p>
 
@@ -313,8 +315,8 @@ Exemptions may be needed in the following use cases:</p>
 <li>Third-party application using non-GCM Cloud Messaging platform</li>
 </ul>
 
-<p class="warning"><b>Warning</b>: Do not exempt apps to avoid testing and
-optimizing. Unnecessary exemptions undermine the benefits of Doze and App
+<p class="warning"><strong>Warning</strong>: Do not exempt apps to avoid testing
+and optimizing. Unnecessary exemptions undermine the benefits of Doze and App
 Standby and can compromise the user experience, so we strongly suggest
 minimizing such exemptions as they allow applications to defeat beneficial
 controls the platform has over power use. If users become unhappy about the
@@ -327,7 +329,7 @@ similar functions.</p>
 <p>Apps exempted by default are listed in a single view within the Settings >
 Battery menu. This list is used for exempting the app from both Doze and App
 Standby modes. To provide transparency to the user, the Settings menu
-<b>MUST</b> show all exempted applications.</p>
+<strong>MUST</strong> show all exempted applications.</p>
 
 <p>Users can manually exempt apps via Settings > Battery > Battery optimization
 > All apps and then selecting the app to turn off (or back on) optimization.

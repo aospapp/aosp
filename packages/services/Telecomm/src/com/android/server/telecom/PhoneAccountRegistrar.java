@@ -59,7 +59,6 @@ import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -76,8 +75,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Handles writing and reading PhoneAccountHandle registration entries. This is a simple verbatim
@@ -244,6 +247,46 @@ public class PhoneAccountRegistrar {
     }
 
     /**
+     * @return The {@link DefaultPhoneAccountHandle} containing the user-selected default calling
+     * account and group Id for the {@link UserHandle} specified.
+     */
+    private DefaultPhoneAccountHandle getUserSelectedDefaultPhoneAccount(UserHandle userHandle) {
+        if (userHandle == null) {
+            return null;
+        }
+        DefaultPhoneAccountHandle defaultPhoneAccountHandle = mState.defaultOutgoingAccountHandles
+                .get(userHandle);
+        if (defaultPhoneAccountHandle == null) {
+            return null;
+        }
+
+        return defaultPhoneAccountHandle;
+    }
+
+    /**
+     * @return The currently registered PhoneAccount in Telecom that has the same group Id.
+     */
+    private PhoneAccount getPhoneAccountByGroupId(String groupId, ComponentName groupComponentName,
+            UserHandle userHandle, PhoneAccountHandle excludePhoneAccountHandle) {
+        if (groupId == null || groupId.isEmpty() || userHandle == null) {
+            return null;
+        }
+        // Get the PhoneAccount with the same group Id (and same ComponentName) that is not the
+        // newAccount that was just added
+        List<PhoneAccount> accounts = getAllPhoneAccounts(userHandle).stream()
+                .filter(account -> groupId.equals(account.getGroupId()) &&
+                        !account.getAccountHandle().equals(excludePhoneAccountHandle) &&
+                        Objects.equals(account.getAccountHandle().getComponentName(),
+                                groupComponentName))
+                .collect(Collectors.toList());
+        // There should be one or no PhoneAccounts with the same group Id
+        if (accounts.size() > 1) {
+            Log.w(this, "Found multiple PhoneAccounts registered to the same Group Id!");
+        }
+        return accounts.isEmpty() ? null : accounts.get(0);
+    }
+
+    /**
      * Sets the phone account with which to place all calls by default. Set by the user
      * within phone settings.
      */
@@ -277,7 +320,8 @@ public class PhoneAccountRegistrar {
             }
 
             mState.defaultOutgoingAccountHandles
-                    .put(userHandle, new DefaultPhoneAccountHandle(userHandle, accountHandle));
+                    .put(userHandle, new DefaultPhoneAccountHandle(userHandle, accountHandle,
+                            account.getGroupId()));
         }
 
         write();
@@ -591,6 +635,8 @@ public class PhoneAccountRegistrar {
         }
 
         mState.accounts.add(account);
+        // Set defaults and replace based on the group Id.
+        maybeReplaceOldAccount(account);
         // Reset enabled state to whatever the value was if the account was already registered,
         // or _true_ if this is a SIM-based account.  All SIM-based accounts are always enabled.
         account.setIsEnabled(
@@ -694,6 +740,40 @@ public class PhoneAccountRegistrar {
                 .append(" -> ")
                 .append(obj2)
                 .append(")");
+        }
+    }
+
+    private void maybeReplaceOldAccount(PhoneAccount newAccount) {
+        UserHandle newAccountUserHandle = newAccount.getAccountHandle().getUserHandle();
+        DefaultPhoneAccountHandle defaultHandle =
+                getUserSelectedDefaultPhoneAccount(newAccountUserHandle);
+        if (defaultHandle == null || defaultHandle.groupId.isEmpty()) {
+            Log.v(this, "maybeReplaceOldAccount: Not replacing PhoneAccount, no group Id or " +
+                    "default.");
+            return;
+        }
+        if (!defaultHandle.groupId.equals(newAccount.getGroupId())) {
+            Log.v(this, "maybeReplaceOldAccount: group Ids are not equal.");
+            return;
+        }
+        if (Objects.equals(newAccount.getAccountHandle().getComponentName(),
+                defaultHandle.phoneAccountHandle.getComponentName())) {
+            // Move default calling account over to new user, since the ComponentNames and Group Ids
+            // are the same.
+            setUserSelectedOutgoingPhoneAccount(newAccount.getAccountHandle(),
+                    newAccountUserHandle);
+        } else {
+            Log.v(this, "maybeReplaceOldAccount: group Ids are equal, but ComponentName is not" +
+                    " the same as the default. Not replacing default PhoneAccount.");
+        }
+        PhoneAccount replacementAccount = getPhoneAccountByGroupId(newAccount.getGroupId(),
+                newAccount.getAccountHandle().getComponentName(), newAccountUserHandle,
+                newAccount.getAccountHandle());
+        if (replacementAccount != null) {
+            // Unregister the old PhoneAccount.
+            Log.v(this, "maybeReplaceOldAccount: Unregistering old PhoneAccount: " +
+                    replacementAccount.getAccountHandle());
+            unregisterPhoneAccount(replacementAccount.getAccountHandle());
         }
     }
 
@@ -904,10 +984,13 @@ public class PhoneAccountRegistrar {
 
         public final PhoneAccountHandle phoneAccountHandle;
 
+        public final String groupId;
+
         public DefaultPhoneAccountHandle(UserHandle userHandle,
-                PhoneAccountHandle phoneAccountHandle) {
+                PhoneAccountHandle phoneAccountHandle, String groupId) {
             this.userHandle = userHandle;
             this.phoneAccountHandle = phoneAccountHandle;
+            this.groupId = groupId;
         }
     }
 
@@ -1154,6 +1237,13 @@ public class PhoneAccountRegistrar {
             serializer.endTag(null, tagName);
         }
 
+        protected void writeNonNullString(String tagName, String value, XmlSerializer serializer)
+                throws IOException {
+            serializer.startTag(null, tagName);
+            serializer.text(value != null ? value : "");
+            serializer.endTag(null, tagName);
+        }
+
         /**
          * Reads a string array from the XML parser.
          *
@@ -1292,8 +1382,9 @@ public class PhoneAccountRegistrar {
                 while (XmlUtils.nextElementWithin(parser, outerDepth)) {
                     if (parser.getName().equals(DEFAULT_OUTGOING)) {
                         if (s.versionNumber < 9) {
-                            // Migration old default phone account handle here by assuming the
-                            // default phone account handle is belong to primary user.
+                            // Migrate old default phone account handle here by assuming the
+                            // default phone account handle belongs to the primary user. Also,
+                            // assume there are no groups.
                             parser.nextTag();
                             PhoneAccountHandle phoneAccountHandle = sPhoneAccountHandleXml
                                     .readFromXml(parser, s.versionNumber, context);
@@ -1303,7 +1394,7 @@ public class PhoneAccountRegistrar {
                                 UserHandle userHandle = primaryUser.getUserHandle();
                                 DefaultPhoneAccountHandle defaultPhoneAccountHandle
                                         = new DefaultPhoneAccountHandle(userHandle,
-                                        phoneAccountHandle);
+                                        phoneAccountHandle, "" /* groupId */);
                                 s.defaultOutgoingAccountHandles
                                         .put(userHandle, defaultPhoneAccountHandle);
                             }
@@ -1343,6 +1434,7 @@ public class PhoneAccountRegistrar {
                 private static final String CLASS_DEFAULT_OUTGOING_PHONE_ACCOUNT_HANDLE
                         = "default_outgoing_phone_account_handle";
                 private static final String USER_SERIAL_NUMBER = "user_serial_number";
+                private static final String GROUP_ID = "group_id";
                 private static final String ACCOUNT_HANDLE = "account_handle";
 
                 @Override
@@ -1354,6 +1446,7 @@ public class PhoneAccountRegistrar {
                         if (serialNumber != -1) {
                             serializer.startTag(null, CLASS_DEFAULT_OUTGOING_PHONE_ACCOUNT_HANDLE);
                             writeLong(USER_SERIAL_NUMBER, serialNumber, serializer);
+                            writeNonNullString(GROUP_ID, o.groupId, serializer);
                             serializer.startTag(null, ACCOUNT_HANDLE);
                             sPhoneAccountHandleXml.writeToXml(o.phoneAccountHandle, serializer,
                                     context);
@@ -1371,6 +1464,7 @@ public class PhoneAccountRegistrar {
                         int outerDepth = parser.getDepth();
                         PhoneAccountHandle accountHandle = null;
                         String userSerialNumberString = null;
+                        String groupId = "";
                         while (XmlUtils.nextElementWithin(parser, outerDepth)) {
                             if (parser.getName().equals(ACCOUNT_HANDLE)) {
                                 parser.nextTag();
@@ -1379,6 +1473,9 @@ public class PhoneAccountRegistrar {
                             } else if (parser.getName().equals(USER_SERIAL_NUMBER)) {
                                 parser.next();
                                 userSerialNumberString = parser.getText();
+                            } else if (parser.getName().equals(GROUP_ID)) {
+                                parser.next();
+                                groupId = parser.getText();
                             }
                         }
                         UserHandle userHandle = null;
@@ -1392,8 +1489,9 @@ public class PhoneAccountRegistrar {
                                         "Could not parse UserHandle " + userSerialNumberString);
                             }
                         }
-                        if (accountHandle != null && userHandle != null) {
-                            return new DefaultPhoneAccountHandle(userHandle, accountHandle);
+                        if (accountHandle != null && userHandle != null && groupId != null) {
+                            return new DefaultPhoneAccountHandle(userHandle, accountHandle,
+                                    groupId);
                         }
                     }
                     return null;

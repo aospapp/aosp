@@ -11,6 +11,7 @@ LOCAL_C_INCLUDES:= \
         $(call include-path-for, wilhelm)
 
 LOCAL_CFLAGS += -fvisibility=hidden -UNDEBUG
+LOCAL_CFLAGS += -Wall -Werror
 
 LOCAL_MODULE := libOpenSLESUT
 
@@ -26,6 +27,7 @@ LOCAL_CFLAGS += -Wno-initializer-overrides
 # optional, see comments in MPH_to.c: -DUSE_DESIGNATED_INITIALIZERS -S
 # and also see ../tools/mphgen/Makefile
 LOCAL_CFLAGS += -DUSE_DESIGNATED_INITIALIZERS -UNDEBUG
+LOCAL_CFLAGS += -Wall -Werror
 
 LOCAL_SRC_FILES:=                     \
         assert.c \
@@ -186,7 +188,6 @@ LOCAL_SHARED_LIBRARIES :=         \
         libcutils                 \
         libgui                    \
         libdl                     \
-        libeffects                \
         libandroid_runtime
 
 # For Brillo, we do not want this dependency as it significantly increases the
@@ -218,6 +219,7 @@ LOCAL_MODULE := libOpenSLES
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -x c++ -std=gnu++11 -DLI_API= -fvisibility=hidden -UNDEBUG \
                 -DSL_API='__attribute__((visibility("default")))'
+LOCAL_CFLAGS += -Wall -Werror
 LOCAL_SHARED_LIBRARIES := libwilhelm liblog
 include $(BUILD_SHARED_LIBRARY)
 
@@ -232,5 +234,6 @@ LOCAL_MODULE := libOpenMAXAL
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS += -x c++ -std=gnu++11 -DLI_API= -fvisibility=hidden -UNDEBUG \
                 -DXA_API='__attribute__((visibility("default")))'
+LOCAL_CFLAGS += -Wall -Werror
 LOCAL_SHARED_LIBRARIES := libwilhelm liblog
 include $(BUILD_SHARED_LIBRARY)

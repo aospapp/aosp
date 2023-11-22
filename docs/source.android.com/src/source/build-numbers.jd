@@ -41,6 +41,11 @@ API levels and NDK releases provided for convenience:</p>
 </thead>
 <tbody>
 <tr>
+<td>Nougat</td>
+<td>7.0</td>
+<td>API level 24</td>
+</tr>
+<tr>
 <td>Marshmallow</td>
 <td>6.0</td>
 <td>API level 23</td>

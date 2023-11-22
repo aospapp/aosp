@@ -27,3 +27,12 @@ LOCAL_MODULE := apf_disassembler
 LOCAL_MODULE_TAGS := debug
 
 include $(BUILD_HOST_EXECUTABLE)
+
+include $(CLEAR_VARS)
+
+LOCAL_CFLAGS += $(APF_CFLAGS)
+LOCAL_SRC_FILES += apf_run.c apf_interpreter.c
+LOCAL_MODULE := apf_run
+LOCAL_MODULE_TAGS := debug
+
+include $(BUILD_HOST_EXECUTABLE)

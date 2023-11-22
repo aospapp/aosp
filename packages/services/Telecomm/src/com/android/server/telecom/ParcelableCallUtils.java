@@ -28,11 +28,13 @@ import java.util.List;
  * Utilities dealing with {@link ParcelableCall}.
  */
 public class ParcelableCallUtils {
+    private static final int CALL_STATE_OVERRIDE_NONE = -1;
+
     public static class Converter {
         public ParcelableCall toParcelableCall(Call call, boolean includeVideoProvider,
                 PhoneAccountRegistrar phoneAccountRegistrar) {
             return ParcelableCallUtils.toParcelableCall(
-                    call, includeVideoProvider, phoneAccountRegistrar);
+                    call, includeVideoProvider, phoneAccountRegistrar, false);
         }
     }
 
@@ -45,13 +47,45 @@ public class ParcelableCallUtils {
      *      method creates a {@link VideoCallImpl} instance on access it is important for the
      *      recipient of the {@link ParcelableCall} to know if the video provider changed.
      * @param phoneAccountRegistrar The {@link PhoneAccountRegistrar}.
+     * @param supportsExternalCalls Indicates whether the call should be parcelled for an
+     *      {@link InCallService} which supports external calls or not.
+     */
+    public static ParcelableCall toParcelableCall(
+            Call call,
+            boolean includeVideoProvider,
+            PhoneAccountRegistrar phoneAccountRegistrar,
+            boolean supportsExternalCalls) {
+        return toParcelableCall(call, includeVideoProvider, phoneAccountRegistrar,
+                supportsExternalCalls, CALL_STATE_OVERRIDE_NONE /* overrideState */);
+    }
+
+    /**
+     * Parcels all information for a {@link Call} into a new {@link ParcelableCall} instance.
+     *
+     * @param call The {@link Call} to parcel.
+     * @param includeVideoProvider {@code true} if the video provider should be parcelled with the
+     *      {@link Call}, {@code false} otherwise.  Since the {@link ParcelableCall#getVideoCall()}
+     *      method creates a {@link VideoCallImpl} instance on access it is important for the
+     *      recipient of the {@link ParcelableCall} to know if the video provider changed.
+     * @param phoneAccountRegistrar The {@link PhoneAccountRegistrar}.
+     * @param supportsExternalCalls Indicates whether the call should be parcelled for an
+     *      {@link InCallService} which supports external calls or not.
+     * @param overrideState When not {@link #CALL_STATE_OVERRIDE_NONE}, use the provided state as an
+     *      override to whatever is defined in the call.
      * @return The {@link ParcelableCall} containing all call information from the {@link Call}.
      */
     public static ParcelableCall toParcelableCall(
             Call call,
             boolean includeVideoProvider,
-            PhoneAccountRegistrar phoneAccountRegistrar) {
-        int state = getParcelableState(call);
+            PhoneAccountRegistrar phoneAccountRegistrar,
+            boolean supportsExternalCalls,
+            int overrideState) {
+        int state;
+        if (overrideState == CALL_STATE_OVERRIDE_NONE) {
+            state = getParcelableState(call, supportsExternalCalls);
+        } else {
+            state = overrideState;
+        }
         int capabilities = convertConnectionToCallCapabilities(call.getConnectionCapabilities());
         int properties = convertConnectionToCallProperties(call.getConnectionProperties());
         if (call.isConference()) {
@@ -141,7 +175,7 @@ public class ParcelableCallUtils {
                 call.getExtras());
     }
 
-    private static int getParcelableState(Call call) {
+    private static int getParcelableState(Call call, boolean supportsExternalCalls) {
         int state = CallState.NEW;
         switch (call.getState()) {
             case CallState.ABORTED:
@@ -156,6 +190,19 @@ public class ParcelableCallUtils {
                 break;
             case CallState.DIALING:
                 state = android.telecom.Call.STATE_DIALING;
+                break;
+            case CallState.PULLING:
+                if (supportsExternalCalls) {
+                    // The InCallService supports external calls, so it must handle
+                    // STATE_PULLING_CALL.
+                    state = android.telecom.Call.STATE_PULLING_CALL;
+                } else {
+                    // The InCallService does NOT support external calls, so remap
+                    // STATE_PULLING_CALL to STATE_DIALING.  In essence, pulling a call can be seen
+                    // as a form of dialing, so it is appropriate for InCallServices which do not
+                    // handle external calls.
+                    state = android.telecom.Call.STATE_DIALING;
+                }
                 break;
             case CallState.DISCONNECTING:
                 state = android.telecom.Call.STATE_DISCONNECTING;
@@ -271,7 +318,10 @@ public class ParcelableCallUtils {
         android.telecom.Call.Details.PROPERTY_EMERGENCY_CALLBACK_MODE,
 
         Connection.PROPERTY_IS_EXTERNAL_CALL,
-        android.telecom.Call.Details.PROPERTY_IS_EXTERNAL_CALL
+        android.telecom.Call.Details.PROPERTY_IS_EXTERNAL_CALL,
+
+        Connection.PROPERTY_HAS_CDMA_VOICE_PRIVACY,
+        android.telecom.Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY
     };
 
     private static int convertConnectionToCallProperties(int connectionProperties) {

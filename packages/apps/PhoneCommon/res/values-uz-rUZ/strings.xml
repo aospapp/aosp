@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"Raqam noto‘g‘ri"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"Ovozli pochta raqami noma’lum."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY rejimi yoniqligi uchun video qo‘ng‘iroqlarni amalga oshirib bo‘lmadi."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"Qo‘ng‘iroq boshqa qurilmaga o‘tkazildi."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"Yo‘q"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Noma’lum rington"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Barcha liniyalar band. Qo‘ng‘iroq qilish uchun bu yoki boshqa qurilmadagi qo‘ng‘iroqlardan birini tugating."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

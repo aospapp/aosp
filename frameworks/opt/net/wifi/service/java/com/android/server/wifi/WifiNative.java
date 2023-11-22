@@ -16,6 +16,7 @@
 
 package com.android.server.wifi;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -104,7 +105,7 @@ public class WifiNative {
 
     private static final LocalLog sLocalLog = new LocalLog(8192);
 
-    public static LocalLog getLocalLog() {
+    public @NonNull LocalLog getLocalLog() {
         return sLocalLog;
     }
 

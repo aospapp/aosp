@@ -41,8 +41,7 @@ wifi_error wifi_set_iface_event_handler(wifi_request_id id,
                                         wifi_interface_handle iface,
                                         wifi_event_handler eh)
 {
-    int i, numAp, ret = 0;
-    interface_info *ifaceInfo = getIfaceInfo(iface);
+    int ret = 0;
     wifi_handle wifiHandle = getWifiHandle(iface);
 
     /* Check if a similar request to set iface event handler was made earlier.
@@ -73,7 +72,6 @@ wifi_error wifi_set_iface_event_handler(wifi_request_id id,
     }
     mwifiEventHandler->setCallbackHandler(eh);
 
-cleanup:
     return (wifi_error)ret;
 }
 
@@ -98,7 +96,6 @@ wifi_error wifi_reset_iface_event_handler(wifi_request_id id,
         ALOGV("Object mwifiEventHandler for id = %d already Deleted", id);
     }
 
-cleanup:
     return (wifi_error)ret;
 }
 
@@ -108,8 +105,6 @@ cleanup:
  */
 int IfaceEventHandlerCommand::handleEvent(WifiEvent &event)
 {
-    int ret = WIFI_SUCCESS;
-
     wifiEventHandler::handleEvent(event);
 
     switch(mSubcmd)
@@ -222,7 +217,6 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
 {
     ALOGV("Got a Wi-Fi HAL module message from Driver");
     int i = 0;
-    u32 status;
     WifiVendorCommand::handleResponse(reply);
 
     // Parse the vendordata and get the attribute

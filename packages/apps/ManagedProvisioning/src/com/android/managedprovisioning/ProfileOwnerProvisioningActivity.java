@@ -100,12 +100,8 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
             mPendingProvisioningResult = savedInstanceState.getParcelable(KEY_PENDING_INTENT);
         }
 
-        initializeLayoutParams(R.layout.progress, R.string.setup_work_profile, true);
-        configureNavigationButtons(NEXT_BUTTON_EMPTY_LABEL, View.INVISIBLE, View.VISIBLE);
+        initializeLayoutParams(R.layout.progress, R.string.setting_up_workspace, true);
         setTitle(R.string.setup_profile_progress);
-
-        TextView textView = (TextView) findViewById(R.id.prog_text);
-        if (textView != null) textView.setText(R.string.setting_up_workspace);
 
         if (mCancelStatus == STATUS_CANCEL_CONFIRMING) {
             showCancelProvisioningDialog();
@@ -269,8 +265,6 @@ public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
      * Finish activity and stop service.
      */
     private void onProvisioningSuccess() {
-        mBackButton.setVisibility(View.INVISIBLE);
-
         mCancelStatus = STATUS_FINALIZING;
         stopService(new Intent(this, ProfileOwnerProvisioningService.class));
         setResult(Activity.RESULT_OK);

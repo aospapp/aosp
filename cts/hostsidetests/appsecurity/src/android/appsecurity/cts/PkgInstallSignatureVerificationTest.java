@@ -355,6 +355,70 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         assertInstallSucceeds("v1-only-with-rsa-pkcs1-sha1-2048.apk");
     }
 
+    public void testV1SchemeSignatureCertNotReencoded() throws Exception {
+        // Regression test for b/30148997 and b/18228011. When PackageManager does not preserve the
+        // original encoded form of signing certificates, bad things happen, such as rejection of
+        // completely valid updates to apps. The issue in b/30148997 and b/18228011 was that
+        // PackageManager started re-encoding signing certs into DER. This normally produces exactly
+        // the original form because X.509 certificates are supposed to be DER-encoded. However, a
+        // small fraction of Android apps uses X.509 certificates which are not DER-encoded. For
+        // such apps, re-encoding into DER changes the serialized form of the certificate, creating
+        // a mismatch with the serialized form stored in the PackageManager database, leading to the
+        // rejection of updates for the app.
+        //
+        // The signing certs of the two APKs differ only in how the cert's signature is encoded.
+        // From Android's perspective, these two APKs are signed by different entities and thus
+        // cannot be used to update one another. If signature verification code re-encodes certs
+        // into DER, both certs will be exactly the same and Android will accept these APKs as
+        // updates of each other. This test is thus asserting that the two APKs are not accepted as
+        // updates of each other.
+        //
+        // * v1-only-with-rsa-1024.apk cert's signature is DER-encoded
+        // * v1-only-with-rsa-1024-cert-not-der.apk cert's signature is not DER-encoded. It is
+        //   BER-encoded, with length encoded as two bytes instead of just one.
+        //   v1-only-with-rsa-1024-cert-not-der.apk META-INF/CERT.RSA was obtained from
+        //   v1-only-with-rsa-1024.apk META-INF/CERT.RSA by manually modifying the ASN.1 structure.
+        assertInstallSucceeds("v1-only-with-rsa-1024.apk");
+        assertInstallFailsWithError(
+                "v1-only-with-rsa-1024-cert-not-der.apk", "signatures do not match");
+
+        uninstallPackage();
+        assertInstallSucceeds("v1-only-with-rsa-1024-cert-not-der.apk");
+        assertInstallFailsWithError("v1-only-with-rsa-1024.apk", "signatures do not match");
+    }
+
+    public void testV2SchemeSignatureCertNotReencoded() throws Exception {
+        // This test is here to catch something like b/30148997 and b/18228011 happening to the
+        // handling of APK Signature Scheme v2 signatures by PackageManager. When PackageManager
+        // does not preserve the original encoded form of signing certificates, bad things happen,
+        // such as rejection of completely valid updates to apps. The issue in b/30148997 and
+        // b/18228011 was that PackageManager started re-encoding signing certs into DER. This
+        // normally produces exactly the original form because X.509 certificates are supposed to be
+        // DER-encoded. However, a small fraction of Android apps uses X.509 certificates which are
+        // not DER-encoded. For such apps, re-encoding into DER changes the serialized form of the
+        // certificate, creating a mismatch with the serialized form stored in the PackageManager
+        // database, leading to the rejection of updates for the app.
+        //
+        // The signing certs of the two APKs differ only in how the cert's signature is encoded.
+        // From Android's perspective, these two APKs are signed by different entities and thus
+        // cannot be used to update one another. If signature verification code re-encodes certs
+        // into DER, both certs will be exactly the same and Android will accept these APKs as
+        // updates of each other. This test is thus asserting that the two APKs are not accepted as
+        // updates of each other.
+        //
+        // * v2-only-with-rsa-pkcs1-sha256-1024.apk cert's signature is DER-encoded
+        // * v2-only-with-rsa-pkcs1-sha256-1024-cert-not-der.apk cert's signature is not DER-encoded
+        //   It is BER-encoded, with length encoded as two bytes instead of just one.
+        assertInstallSucceeds("v2-only-with-rsa-pkcs1-sha256-1024.apk");
+        assertInstallFailsWithError(
+                "v2-only-with-rsa-pkcs1-sha256-1024-cert-not-der.apk", "signatures do not match");
+
+        uninstallPackage();
+        assertInstallSucceeds("v2-only-with-rsa-pkcs1-sha256-1024-cert-not-der.apk");
+        assertInstallFailsWithError(
+                "v2-only-with-rsa-pkcs1-sha256-1024.apk", "signatures do not match");
+    }
+
     private void assertInstallSucceeds(String apkFilenameInResources) throws Exception {
         String installResult = installPackageFromResource(apkFilenameInResources);
         if (installResult != null) {

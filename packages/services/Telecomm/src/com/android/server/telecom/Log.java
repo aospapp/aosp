@@ -22,6 +22,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.AsyncTask;
 import android.telecom.PhoneAccount;
+import android.telecom.TimedEvent;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -34,7 +35,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.IllegalFormatException;
@@ -52,16 +55,61 @@ import java.util.concurrent.LinkedBlockingQueue;
 @VisibleForTesting
 public class Log {
 
+    public static final class Sessions {
+        public static final String ICA_ANSWER_CALL = "ICA.aC";
+        public static final String ICA_REJECT_CALL = "ICA.rC";
+        public static final String ICA_DISCONNECT_CALL = "ICA.dC";
+        public static final String ICA_HOLD_CALL = "ICA.hC";
+        public static final String ICA_UNHOLD_CALL = "ICA.uC";
+        public static final String ICA_MUTE = "ICA.m";
+        public static final String ICA_SET_AUDIO_ROUTE = "ICA.sAR";
+        public static final String ICA_CONFERENCE = "ICA.c";
+        public static final String CSW_HANDLE_CREATE_CONNECTION_COMPLETE = "CSW.hCCC";
+        public static final String CSW_SET_ACTIVE = "CSW.sA";
+        public static final String CSW_SET_RINGING = "CSW.sR";
+        public static final String CSW_SET_DIALING = "CSW.sD";
+        public static final String CSW_SET_PULLING = "CSW.sP";
+        public static final String CSW_SET_DISCONNECTED = "CSW.sDc";
+        public static final String CSW_SET_ON_HOLD = "CSW.sOH";
+        public static final String CSW_REMOVE_CALL = "CSW.rC";
+        public static final String CSW_SET_IS_CONFERENCED = "CSW.sIC";
+        public static final String CSW_ADD_CONFERENCE_CALL = "CSW.aCC";
+    }
+
     /**
      * Stores the various events associated with {@link Call}s. Also stores all request-response
      * pairs amongst the events.
      */
     public final static class Events {
+        public static class TimedEventPair {
+            private static final long DEFAULT_TIMEOUT = 3000L;
+
+            String mRequest;
+            String mResponse;
+            String mName;
+            long mTimeoutMillis = DEFAULT_TIMEOUT;
+
+            public TimedEventPair(String request, String response,
+                    String name) {
+                this.mRequest = request;
+                this.mResponse = response;
+                this.mName = name;
+            }
+
+            public TimedEventPair(String request, String response,
+                    String name, long timeoutMillis) {
+                this.mRequest = request;
+                this.mResponse = response;
+                this.mName = name;
+                this.mTimeoutMillis = timeoutMillis;
+            }
+        }
+
         public static final String CREATED = "CREATED";
         public static final String DESTROYED = "DESTROYED";
-        public static final String SET_NEW = "SET_NEW";
         public static final String SET_CONNECTING = "SET_CONNECTING";
         public static final String SET_DIALING = "SET_DIALING";
+        public static final String SET_PULLING = "SET_PULLING";
         public static final String SET_ACTIVE = "SET_ACTIVE";
         public static final String SET_HOLD = "SET_HOLD";
         public static final String SET_RINGING = "SET_RINGING";
@@ -84,13 +132,18 @@ public class Log {
         public static final String BIND_CS = "BIND_CS";
         public static final String CS_BOUND = "CS_BOUND";
         public static final String CONFERENCE_WITH = "CONF_WITH";
-        public static final String SPLIT_CONFERENCE = "CONF_SPLIT";
+        public static final String SPLIT_FROM_CONFERENCE = "CONF_SPLIT";
         public static final String SWAP = "SWAP";
         public static final String ADD_CHILD = "ADD_CHILD";
         public static final String REMOVE_CHILD = "REMOVE_CHILD";
         public static final String SET_PARENT = "SET_PARENT";
         public static final String MUTE = "MUTE";
+        public static final String UNMUTE = "UNMUTE";
         public static final String AUDIO_ROUTE = "AUDIO_ROUTE";
+        public static final String AUDIO_ROUTE_EARPIECE = "AUDIO_ROUTE_EARPIECE";
+        public static final String AUDIO_ROUTE_HEADSET = "AUDIO_ROUTE_HEADSET";
+        public static final String AUDIO_ROUTE_BT = "AUDIO_ROUTE_BT";
+        public static final String AUDIO_ROUTE_SPEAKER = "AUDIO_ROUTE_SPEAKER";
         public static final String ERROR_LOG = "ERROR";
         public static final String USER_LOG_MARK = "USER_LOG_MARK";
         public static final String SILENCE = "SILENCE";
@@ -107,29 +160,70 @@ public class Log {
         public static final String FILTERING_TIMED_OUT = "FILTERING_TIMED_OUT";
         public static final String REMOTELY_HELD = "REMOTELY_HELD";
         public static final String REMOTELY_UNHELD = "REMOTELY_UNHELD";
-        public static final String PULL = "PULL";
+        public static final String REQUEST_PULL = "PULL";
         public static final String INFO = "INFO";
+        public static final String VIDEO_STATE_CHANGED = "VIDEO_STATE_CHANGED";
+        public static final String RECEIVE_VIDEO_REQUEST = "RECEIVE_VIDEO_REQUEST";
+        public static final String RECEIVE_VIDEO_RESPONSE = "RECEIVE_VIDEO_RESPONSE";
+        public static final String SEND_VIDEO_REQUEST = "SEND_VIDEO_REQUEST";
+        public static final String SEND_VIDEO_RESPONSE = "SEND_VIDEO_RESPONSE";
+        public static final String IS_EXTERNAL = "IS_EXTERNAL";
+        public static final String PROPERTY_CHANGE = "PROPERTY_CHANGE";
+        public static final String CAPABILITY_CHANGE = "CAPABILITY_CHANGE";
+
+        public static class Timings {
+            public static final String ACCEPT_TIMING = "accept";
+            public static final String REJECT_TIMING = "reject";
+            public static final String DISCONNECT_TIMING = "disconnect";
+            public static final String HOLD_TIMING = "hold";
+            public static final String UNHOLD_TIMING = "unhold";
+            public static final String OUTGOING_TIME_TO_DIALING_TIMING = "outgoing_time_to_dialing";
+            public static final String BIND_CS_TIMING = "bind_cs";
+            public static final String SCREENING_COMPLETED_TIMING = "screening_completed";
+            public static final String DIRECT_TO_VM_FINISHED_TIMING = "direct_to_vm_finished";
+            public static final String BLOCK_CHECK_FINISHED_TIMING = "block_check_finished";
+            public static final String FILTERING_COMPLETED_TIMING = "filtering_completed";
+            public static final String FILTERING_TIMED_OUT_TIMING = "filtering_timed_out";
+
+            private static final TimedEventPair[] sTimedEvents = {
+                    new TimedEventPair(REQUEST_ACCEPT, SET_ACTIVE, ACCEPT_TIMING),
+                    new TimedEventPair(REQUEST_REJECT, SET_DISCONNECTED, REJECT_TIMING),
+                    new TimedEventPair(REQUEST_DISCONNECT, SET_DISCONNECTED, DISCONNECT_TIMING),
+                    new TimedEventPair(REQUEST_HOLD, SET_HOLD, HOLD_TIMING),
+                    new TimedEventPair(REQUEST_UNHOLD, SET_ACTIVE, UNHOLD_TIMING),
+                    new TimedEventPair(START_CONNECTION, SET_DIALING,
+                            OUTGOING_TIME_TO_DIALING_TIMING),
+                    new TimedEventPair(BIND_CS, CS_BOUND, BIND_CS_TIMING),
+                    new TimedEventPair(SCREENING_SENT, SCREENING_COMPLETED,
+                            SCREENING_COMPLETED_TIMING),
+                    new TimedEventPair(DIRECT_TO_VM_INITIATED, DIRECT_TO_VM_FINISHED,
+                            DIRECT_TO_VM_FINISHED_TIMING),
+                    new TimedEventPair(BLOCK_CHECK_INITIATED, BLOCK_CHECK_FINISHED,
+                            BLOCK_CHECK_FINISHED_TIMING),
+                    new TimedEventPair(FILTERING_INITIATED, FILTERING_COMPLETED,
+                            FILTERING_COMPLETED_TIMING),
+                    new TimedEventPair(FILTERING_INITIATED, FILTERING_TIMED_OUT,
+                            FILTERING_TIMED_OUT_TIMING, 6000L),
+            };
+        }
 
         /**
-         * Maps from a request to a response.  The same event could be listed as the
-         * response for multiple requests (e.g. REQUEST_ACCEPT and REQUEST_UNHOLD both map to the
-         * SET_ACTIVE response). This map is used to print out the amount of time it takes between
-         * a request and a response.
+         * Maps from request events to a list of possible response events. Used to track
+         * end-to-end timing for critical user-facing operations in Telecom.
          */
-        public static final Map<String, String> requestResponsePairs =
-                new HashMap<String, String>() {{
-                    put(REQUEST_ACCEPT, SET_ACTIVE);
-                    put(REQUEST_REJECT, SET_DISCONNECTED);
-                    put(REQUEST_DISCONNECT, SET_DISCONNECTED);
-                    put(REQUEST_HOLD, SET_HOLD);
-                    put(REQUEST_UNHOLD, SET_ACTIVE);
-                    put(START_CONNECTION, SET_DIALING);
-                    put(BIND_CS, CS_BOUND);
-                    put(SCREENING_SENT, SCREENING_COMPLETED);
-                    put(BLOCK_CHECK_INITIATED, BLOCK_CHECK_FINISHED);
-                    put(DIRECT_TO_VM_INITIATED, DIRECT_TO_VM_FINISHED);
-                    put(FILTERING_INITIATED, FILTERING_COMPLETED);
-                }};
+        public static final Map<String, List<TimedEventPair>> requestResponsePairs;
+        static {
+            requestResponsePairs = new HashMap<>();
+            for (TimedEventPair p : Timings.sTimedEvents) {
+                if (requestResponsePairs.containsKey(p.mRequest)) {
+                    requestResponsePairs.get(p.mRequest).add(p);
+                } else {
+                    ArrayList<TimedEventPair> responses = new ArrayList<>();
+                    responses.add(p);
+                    requestResponsePairs.put(p.mRequest, responses);
+                }
+            }
+        }
     }
 
     public static class CallEvent {
@@ -147,10 +241,42 @@ public class Log {
     }
 
     public static class CallEventRecord {
+        public static class EventTiming extends TimedEvent<String> {
+            public String name;
+            public long time;
+
+            public EventTiming(String name, long time) {
+                this.name = name;
+                this.time = time;
+            }
+
+            public String getKey() {
+                return name;
+            }
+
+            public long getTime() {
+                return time;
+            }
+        }
+
+        private static class PendingResponse {
+            String requestEventId;
+            long requestEventTimeMillis;
+            long timeoutMillis;
+            String name;
+
+            public PendingResponse(String requestEventId, long requestEventTimeMillis,
+                    long timeoutMillis, String name) {
+                this.requestEventId = requestEventId;
+                this.requestEventTimeMillis = requestEventTimeMillis;
+                this.timeoutMillis = timeoutMillis;
+                this.name = name;
+            }
+        }
+
         private static final DateFormat sLongDateFormat = new SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss.SSS");
         private static final DateFormat sDateFormat = new SimpleDateFormat("HH:mm:ss.SSS");
-        private static int sNextId = 1;
         private final List<CallEvent> mEvents = new LinkedList<>();
         private final Call mCall;
 
@@ -167,9 +293,40 @@ public class Log {
             Log.i("Event", "Call %s: %s, %s", mCall.getId(), event, data);
         }
 
-        public void dump(IndentingPrintWriter pw) {
-            Map<String, CallEvent> pendingResponses = new HashMap<>();
+        public List<CallEvent> getEvents() {
+            return mEvents;
+        }
 
+        public List<EventTiming> extractEventTimings() {
+            if (mEvents == null) {
+                return Collections.emptyList();
+            }
+
+            LinkedList<EventTiming> result = new LinkedList<>();
+            Map<String, PendingResponse> pendingResponses = new HashMap<>();
+            for (CallEvent event : mEvents) {
+                if (Events.requestResponsePairs.containsKey(event.eventId)) {
+                    // This event expects a response, so add that expected response to the maps
+                    // of pending events.
+                    for (Events.TimedEventPair p : Events.requestResponsePairs.get(event.eventId)) {
+                        pendingResponses.put(p.mResponse, new PendingResponse(event.eventId,
+                                event.time, p.mTimeoutMillis, p.mName));
+                    }
+                }
+
+                PendingResponse pendingResponse = pendingResponses.remove(event.eventId);
+                if (pendingResponse != null) {
+                    long elapsedTime = event.time - pendingResponse.requestEventTimeMillis;
+                    if (elapsedTime < pendingResponse.timeoutMillis) {
+                        result.add(new EventTiming(pendingResponse.name, elapsedTime));
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        public void dump(IndentingPrintWriter pw) {
             pw.print("Call ");
             pw.print(mCall.getId());
             pw.print(" [");
@@ -181,20 +338,6 @@ public class Log {
             pw.println("To address: " + piiHandle(mCall.getHandle()));
 
             for (CallEvent event : mEvents) {
-
-                // We print out events in chronological order. During that process we look at each
-                // event and see if it maps to a request on the Request-Response pairs map. If it
-                // does, then we effectively start 'listening' for the response. We do that by
-                // storing the response event ID in {@code pendingResponses}. When we find the
-                // response in a later iteration of the loop, we grab the original request and
-                // calculate the time it took to get a response.
-                if (Events.requestResponsePairs.containsKey(event.eventId)) {
-                    // This event expects a response, so add that response to the maps
-                    // of pending events.
-                    String pendingResponse = Events.requestResponsePairs.get(event.eventId);
-                    pendingResponses.put(pendingResponse, event);
-                }
-
                 pw.print(sDateFormat.format(new Date(event.time)));
                 pw.print(" - ");
                 pw.print(event.eventId);
@@ -214,26 +357,25 @@ public class Log {
                     pw.print(data);
                     pw.print(")");
                 }
-
-                // If this event is a response event that we've been waiting for, calculate the time
-                // it took for the response to complete and print that out as well.
-                CallEvent requestEvent = pendingResponses.remove(event.eventId);
-                if (requestEvent != null) {
-                    pw.print(", time since ");
-                    pw.print(requestEvent.eventId);
-                    pw.print(": ");
-                    pw.print(event.time - requestEvent.time);
-                    pw.print(" ms");
-                }
                 pw.print(":");
                 pw.print(event.sessionId);
                 pw.println();
             }
+
+            pw.println("Timings (average for this call, milliseconds):");
+            pw.increaseIndent();
+            Map<String, Double> avgEventTimings = EventTiming.averageTimings(extractEventTimings());
+            List<String> eventNames = new ArrayList<>(avgEventTimings.keySet());
+            Collections.sort(eventNames);
+            for (String eventName : eventNames) {
+                pw.printf("%s: %.2f\n", eventName, avgEventTimings.get(eventName));
+            }
+            pw.decreaseIndent();
             pw.decreaseIndent();
         }
     }
 
-    public static final int MAX_CALLS_TO_CACHE = 5;  // Arbitrarily chosen.
+    public static final int MAX_CALLS_TO_CACHE = 10;  // Arbitrarily chosen.
     public static final int MAX_CALLS_TO_CACHE_DEBUG = 20;  // Arbitrarily chosen.
     private static final long EXTENDED_LOGGING_DURATION_MILLIS = 60000 * 30; // 30 minutes
 
@@ -548,6 +690,7 @@ public class Log {
             // running time of the session.
             long fullSessionTimeMs =
                     System.currentTimeMillis() - subsession.getExecutionStartTimeMilliseconds();
+            Analytics.addSessionTiming(subsession.getShortMethodName(), fullSessionTimeMs);
             Log.v(LOGGING_TAG, Session.END_SESSION + " (dur: " + fullSessionTimeMs + " ms): " +
                     subsession.toString());
         }
@@ -601,6 +744,20 @@ public class Log {
         }
     }
 
+    public static void event(Call call, String event, String format, Object... args) {
+        String msg;
+        try {
+            msg = (args == null || args.length == 0) ? format
+                    : String.format(Locale.US, format, args);
+        } catch (IllegalFormatException ife) {
+            e("Log", ife, "IllegalFormatException: formatString='%s' numArgs=%d", format,
+                    args.length);
+            msg = format + " (An error occurred while formatting the message.)";
+        }
+
+        event(call, event, msg);
+    }
+
     @VisibleForTesting
     public static synchronized void cleanupStaleSessions(long timeoutMs) {
         String logMessage = "Stale Sessions Cleaned:\n";
@@ -641,6 +798,13 @@ public class Log {
         // Now add a new entry
         mCallEventRecords.add(newRecord);
         mCallEventRecordMap.put(call, newRecord);
+
+        // Register the events with Analytics
+        if (call.getAnalytics() != null) {
+            call.getAnalytics().setCallEvents(newRecord);
+        } else {
+            Log.w(LOGGING_TAG, "Call analytics is null");
+        }
     }
 
     /**

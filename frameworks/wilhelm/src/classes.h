@@ -113,6 +113,7 @@
     float mAmplFromDirectLevel;
     /** FIXME whether to call AudioTrack::start() at the next safe opportunity */
     bool mDeferredStart;
+    SLuint32 mPerformanceMode;
 #endif
 } /*CAudioPlayer*/;
 
@@ -156,6 +157,7 @@
     android::sp<android::AudioRecord> mAudioRecord;
     android::sp<android::CallbackProtector> mCallbackProtector;
     audio_source_t mRecordSource;
+    SLuint32 mPerformanceMode;
 #endif
 } /*CAudioRecorder*/;
 

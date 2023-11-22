@@ -23,7 +23,6 @@
 #include <eventnums.h>
 
 #include <plat/inc/taggedPtr.h>
-#include <plat/inc/rtc.h>
 #include <plat/inc/bl.h>
 #include <plat/inc/plat.h>
 
@@ -857,10 +856,11 @@ static uint32_t readEvent(void *rx, uint8_t rx_len, void *tx, uint64_t timestamp
         return totLength;
     }
 
+    wakeup = atomicRead32bits(&mTxWakeCnt[0]);
+    nonwakeup = atomicRead32bits(&mTxWakeCnt[1]);
+
     if (mTxNextLength > 0) {
         length = mTxNextLength;
-        wakeup = atomicRead32bits(&mTxWakeCnt[0]);
-        nonwakeup = atomicRead32bits(&mTxWakeCnt[1]);
         memcpy(buf, &mTxNext, length);
         totLength = length;
         mTxNextLength = 0;
@@ -1199,4 +1199,14 @@ const struct NanohubHalCommand *nanohubHalFindCommand(uint8_t msg)
             return cmd;
     }
     return NULL;
+}
+
+uint64_t hostGetTime(void)
+{
+    uint64_t delta = getAvgDelta(&mTimeSync);
+
+    if (!delta)
+        return 0ULL;
+    else
+        return sensorGetTime() + delta;
 }

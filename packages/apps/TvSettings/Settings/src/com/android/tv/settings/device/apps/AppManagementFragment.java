@@ -18,6 +18,7 @@ package com.android.tv.settings.device.apps;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.IPackageDataObserver;
@@ -31,6 +32,7 @@ import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
@@ -148,6 +150,23 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
         // need to post this to avoid recursing in the fragment manager.
         mHandler.removeCallbacks(mBailoutRunnable);
         mHandler.post(mBailoutRunnable);
+    }
+
+    @Override
+    public boolean onPreferenceTreeClick(Preference preference) {
+        if (preference.getIntent() != null) {
+            try {
+                startActivity(preference.getIntent());
+            } catch (ActivityNotFoundException e) {
+                Log.e(TAG, "Could not find activity to launch", e);
+                // TODO(b/30507703): don't reuse this string
+                Toast.makeText(getContext(), R.string.status_unavailable,
+                        Toast.LENGTH_SHORT).show();
+            }
+            return true;
+        } else {
+            return super.onPreferenceTreeClick(preference);
+        }
     }
 
     @Override

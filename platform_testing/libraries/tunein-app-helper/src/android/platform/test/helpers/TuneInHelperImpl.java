@@ -161,10 +161,6 @@ public class TuneInHelperImpl extends AbstractTuneInHelper {
      */
     @Override
     public void stopChannel() {
-        if (isOnFeedbackScreen()) {
-            dismissFeedbackScreen();
-        }
-
         UiObject2 stop = mDevice
             .findObject(By.res(UI_PACKAGE_NAME, UI_MINI_PLAYER_STOP_ID));
 
@@ -174,13 +170,14 @@ public class TuneInHelperImpl extends AbstractTuneInHelper {
 
         stop.click();
 
-        if (!stop.wait(Until.enabled(!stop.isEnabled()), UI_ACTION_TIMEOUT)) {
-            throw new UnknownUiException("Fail to stop playing the fm");
+        if (isOnFeedbackScreen()) {
+            dismissFeedbackScreen();
         }
     }
 
     private boolean isOnFeedbackScreen() {
-        return mDevice.hasObject(By.text("Do you love TuneIn Radio?"));
+        return mDevice.wait(
+                Until.hasObject(By.text("Do you love TuneIn Radio?")), UI_ACTION_TIMEOUT);
     }
 
     private void dismissFeedbackScreen() {

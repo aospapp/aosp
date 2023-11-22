@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"നമ്പർ അസാധുവാണ്"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"വോയ്‌സ് മെയിൽ നമ്പർ അജ്ഞാതമാണ്."</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY പ്രവർത്തനക്ഷമമാക്കിയിരിക്കുമ്പോൾ വീഡിയോ കോളുകൾ ചെയ്യാൻ കഴിയില്ല."</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"കോൾ മറ്റൊരു ഉപകരണത്തിലേക്ക് കൈമാറി."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"ഒന്നും വേണ്ട"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"അറിഞ്ഞുകൂടാത്ത റിംഗ്‌ടോൺ"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"ലഭ്യമായ ലൈനുകളെല്ലാം ഉപയോഗത്തിലാണ്. കോൾ ചെയ്യാൻ, ഈ ഉപകരണത്തിലെ കോളുകളിലൊന്ന് വിച്ഛേദിക്കുകയോ നിങ്ങളുടെ മറ്റൊരു ഉപകരണം ഓണാക്കുകയോ ചെയ്യുക."</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

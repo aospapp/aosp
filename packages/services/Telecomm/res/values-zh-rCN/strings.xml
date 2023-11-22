@@ -25,7 +25,7 @@
     <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> 个未接电话"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"来自<xliff:g id="MISSED_CALL_FROM">%s</xliff:g>的未接电话"</string>
     <string name="notification_missedCall_call_back" msgid="2684890353590890187">"回拨"</string>
-    <string name="notification_missedCall_message" msgid="3049928912736917988">"短信"</string>
+    <string name="notification_missedCall_message" msgid="3049928912736917988">"发短信"</string>
     <string name="accessibility_call_muted" msgid="2776111226185342220">"通话已静音。"</string>
     <string name="accessibility_speakerphone_enabled" msgid="1988512040421036359">"扬声器已启用。"</string>
     <string name="respond_via_sms_canned_response_1" msgid="2461606462788380215">"现在无法接听。有什么事吗？"</string>
@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"缺少语音信箱号码"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM卡上未存储语音信箱号码。"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"添加号码"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"要更改默认拨号器应用吗？"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"要使用<xliff:g id="NEW_APP">%1$s</xliff:g>（而非<xliff:g id="CURRENT_APP">%2$s</xliff:g>）作为您的默认拨号器应用吗？"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"要使用<xliff:g id="NEW_APP">%s</xliff:g>作为您的默认拨号器应用吗？"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"要将 <xliff:g id="NEW_APP">%s</xliff:g> 设为默认电话应用吗？"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"设为默认电话应用"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"取消"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> 将可用于拨打电话和全面管理通话。请务必仅将您信任的应用设为默认电话应用。"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"已屏蔽的号码"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"您不会收到来自已屏蔽的号码的来电或短信。"</string>
     <string name="block_number" msgid="1101252256321306179">"添加电话号码"</string>

@@ -129,12 +129,13 @@ static NFCSTATUS phNxpNciHal_stop_polling_loop()
     discover_type = STOP_POLLING;
 
     pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    if(pthread_create(&pthread, &attr, tmp_thread, (void*) &discover_type) != 0)
+    pthread_attr_init (&attr);
+    pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
+    if (pthread_create (&pthread, &attr, tmp_thread, (void*) &discover_type) != 0)
     {
-        NXPLOG_NCIHAL_E("phNxpNciHal_resume_polling_loop");
+        NXPLOG_NCIHAL_E("fail to create pthread");
     }
+    pthread_attr_destroy (&attr);
     return status;
 }
 
@@ -155,12 +156,13 @@ static NFCSTATUS phNxpNciHal_resume_polling_loop()
     discover_type = RESUME_POLLING;
 
     pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    if(pthread_create(&pthread, &attr, tmp_thread, (void*) &discover_type) != 0)
+    pthread_attr_init (&attr);
+    pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
+    if (pthread_create (&pthread, &attr, tmp_thread, (void*) &discover_type) != 0)
     {
-        NXPLOG_NCIHAL_E("phNxpNciHal_resume_polling_loop");
+        NXPLOG_NCIHAL_E("fail to create pthread");
     }
+    pthread_attr_destroy (&attr);
     return status;
 }
 
@@ -181,12 +183,13 @@ NFCSTATUS phNxpNciHal_start_polling_loop()
     discover_type = START_POLLING;
 
     pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    if(pthread_create(&pthread, &attr, tmp_thread, (void*) &discover_type) != 0)
+    pthread_attr_init (&attr);
+    pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
+    if (pthread_create (&pthread, &attr, tmp_thread, (void*) &discover_type) != 0)
     {
-        NXPLOG_NCIHAL_E("phNxpNciHal_resume_polling_loop");
+        NXPLOG_NCIHAL_E("fail to create pthread");
     }
+    pthread_attr_destroy (&attr);
     return status;
 }
 
@@ -578,13 +581,13 @@ NFCSTATUS phNxpNciHal_select_RF_Discovery(unsigned int RfID,unsigned int RfProto
     cmd_select_rf_discovery[4]=RfProtocolType;
 
     pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    if(pthread_create(&pthread, &attr, tmp_thread, (void*) &discover_type) != 0)
+    pthread_attr_init (&attr);
+    pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED);
+    if (pthread_create (&pthread, &attr, tmp_thread, (void*) &discover_type) != 0)
     {
-        NXPLOG_NCIHAL_E("phNxpNciHal_resume_polling_loop");
+        NXPLOG_NCIHAL_E("fail to create pthread");
     }
-
+    pthread_attr_destroy (&attr);
     return status;
 }
 /*******************************************************************************

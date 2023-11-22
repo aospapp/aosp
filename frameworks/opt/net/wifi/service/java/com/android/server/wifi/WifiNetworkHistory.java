@@ -37,6 +37,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.util.BitSet;
@@ -543,12 +544,14 @@ public class WifiNetworkHistory {
                     }
                 }
             }
-        } catch (NumberFormatException e) {
-            Log.e(TAG, "readNetworkHistory: failed to read, revert to default, " + e, e);
         } catch (EOFException e) {
             // do nothing
+        } catch (FileNotFoundException e) {
+            Log.i(TAG, "readNetworkHistory: no config file, " + e);
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "readNetworkHistory: failed to parse, " + e, e);
         } catch (IOException e) {
-            Log.e(TAG, "readNetworkHistory: No config file, revert to default, " + e, e);
+            Log.e(TAG, "readNetworkHistory: failed to read, " + e, e);
         }
     }
 

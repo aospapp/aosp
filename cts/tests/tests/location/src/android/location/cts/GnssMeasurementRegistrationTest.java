@@ -54,7 +54,6 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
     private static final int GPS_EVENTS_COUNT = 1;
     private TestLocationListener mLocationListener;
     private TestGnssMeasurementListener mMeasurementListener;
-    private TestGpsStatusListener mGpsStatusListener;
 
     @Override
     protected void setUp() throws Exception {
@@ -71,9 +70,6 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
         }
         if (mMeasurementListener != null) {
             mTestLocationManager.unregisterGnssMeasurementCallback(mMeasurementListener);
-        }
-        if (mGpsStatusListener != null) {
-            mTestLocationManager.removeGpsStatusListener(mGpsStatusListener);
         }
         super.tearDown();
     }
@@ -94,8 +90,8 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
         mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener);
 
         mMeasurementListener.await();
-        if (!mMeasurementListener.verifyState(isMeasurementTestStrict())) {
-            // If test is strict verifyState will assert conditions are good for further testing.
+        if (!mMeasurementListener.verifyStatus(isMeasurementTestStrict())) {
+            // If test is strict verifyStatus will assert conditions are good for further testing.
             // Else this returns false and, we arrive here, and then return from here (pass.)
             return;
         }
@@ -111,7 +107,7 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
 
         SoftAssert.failAsWarning(
                 TAG,
-                "GPS measurements were not received without registering for location updates."
+                "GPS measurements were not received without registering for location updates. "
                 + "Trying again with Location request.");
 
         // Register for location updates.

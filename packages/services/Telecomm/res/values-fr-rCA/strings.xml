@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Numéro de messagerie vocale manquant"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Aucun numéro de messagerie vocale n\'est enregistré sur la carte SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Ajouter un numéro"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Changer l\'application de composition par défaut?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Utiliser <xliff:g id="NEW_APP">%1$s</xliff:g> au lieu de <xliff:g id="CURRENT_APP">%2$s</xliff:g> comme application de composition par défaut?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Utiliser <xliff:g id="NEW_APP">%s</xliff:g> comme application de composition par défaut?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Définir <xliff:g id="NEW_APP">%s</xliff:g> comme votre application de téléphonie par défaut?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Définir comme application de téléphonie par défaut"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Annuler"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> sera en mesure de passer des appels et de contrôler tous les aspects des appels. Seules les applications auxquelles vous avez confiance doivent être définies comme l\'application de téléphonie par défaut."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Numéros bloqués"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Vous ne recevrez pas d\'appels ni de messages texte provenant des numéros bloqués."</string>
     <string name="block_number" msgid="1101252256321306179">"Ajouter un numéro"</string>

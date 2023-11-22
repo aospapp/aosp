@@ -34,7 +34,7 @@ import android.util.Log;
 public class CommonLauncherHelper {
 
     private static final String LOG_TAG = CommonLauncherHelper.class.getSimpleName();
-    private static final int MAX_SCROLL_ATTEMPTS = 20;
+    private static final int MAX_SCROLL_ATTEMPTS = 40;
     private static final int MIN_INTERACT_SIZE = 100;
     private static final int APP_LAUNCH_TIMEOUT = 10000;
     private static CommonLauncherHelper sInstance;
@@ -73,7 +73,7 @@ public class CommonLauncherHelper {
      */
     public void scrollBackToBeginning(UiObject2 container, Direction backDirection, int maxAttempts) {
         int attempts = 0;
-        while (container.fling(backDirection)) {
+        while (container.scroll(backDirection, 0.25f)) {
             attempts++;
             if (attempts > maxAttempts) {
                 throw new RuntimeException(

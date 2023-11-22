@@ -48,6 +48,7 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
+#include <string.h>
 #include <stdbool.h>
 
 #include "bt_hci_bdroid.h"
@@ -56,10 +57,20 @@ extern "C" {
 #include "hw_rome.h"
 
 #define BT_VERSION_FILEPATH "/data/misc/bluedroid/bt_fw_version.txt"
+#define BOARD_ID_LEN 0x5
+#define MSB_NIBBLE_MASK 0xF0
+#define LSB_NIBBLE_MASK 0x0F
 
 #ifdef __cplusplus
 }
 #endif
+
+#define RESERVED(p)  if(p) ALOGI( "%s: reserved param", __FUNCTION__);
+
+int read_vs_hci_event(int fd, unsigned char* buf, int size);
+int get_boardid_req(int fd);
+unsigned char convert2ascii(unsigned char temp);
+
 
 /******************************************************************************
 **  Variables
@@ -79,6 +90,9 @@ char *fw_su_info = NULL;
 unsigned short fw_su_offset =0;
 extern char enable_extldo;
 unsigned char wait_vsc_evt = TRUE;
+bool patch_dnld_pending = FALSE;
+int dnld_fd = -1;
+unsigned char board_id[BOARD_ID_LEN];
 
 /******************************************************************************
 **  Extern variables
@@ -232,6 +246,20 @@ int get_vs_hci_event(unsigned char *rsp)
                     ALOGI("Failed to dump  FW SU build info. Errno:%d", errno);
                 }
             break;
+            case EDL_BOARD_ID_RESPONSE:
+                ALOGI("%s: board id %x %x!!", __FUNCTION__, rsp[6], rsp[7]);
+                if (rsp[6] <= 0x00) {
+                    board_id[0] = convert2ascii ((rsp[7] & MSB_NIBBLE_MASK) >> 4);
+                    board_id[1] = convert2ascii (rsp[7] & LSB_NIBBLE_MASK);
+                    board_id[2] = '\0';
+                } else {
+                    board_id[0] = convert2ascii ((rsp[6] & MSB_NIBBLE_MASK) >> 4);
+                    board_id[1] = convert2ascii (rsp[6] & LSB_NIBBLE_MASK);
+                    board_id[2] = convert2ascii ((rsp[7] & MSB_NIBBLE_MASK) >> 4);
+                    board_id[3] = convert2ascii (rsp[7] & LSB_NIBBLE_MASK);
+                    board_id[4] = '\0';
+                }
+            break;
         }
         break;
 
@@ -249,9 +277,14 @@ int get_vs_hci_event(unsigned char *rsp)
             }
             break;
        case EDL_WIP_QUERY_CHARGING_STATUS_EVT:
-            /*TODO: rsp code 00 mean no charging
-            this is going to change in FW soon*/
-            if (rsp[4] != EMBEDDED_MODE_CHECK)
+            /* Query charging command has below return values
+            0 - in embedded mode not charging
+            1 - in embedded mode and charging
+            2 - hadofff completed and in normal mode
+            3 - no wipower supported on mtp. so irrepective of charging
+            handoff command has to be sent if return values are 0 or 1.
+            These change include logic to enable generic BT turn on sequence.*/
+            if (rsp[4] < EMBEDDED_MODE_CHECK)
             {
                ALOGI("%s: WiPower Charging in Embedded Mode!!!", __FUNCTION__);
                wipower_handoff_ready = rsp[4];
@@ -271,6 +304,21 @@ int get_vs_hci_event(unsigned char *rsp)
             {
                ALOGD("%s: WiPower feature supported!!", __FUNCTION__);
                property_set("persist.bluetooth.a4wp", "true");
+            }
+            break;
+        case HCI_VS_STRAY_EVT:
+            /* WAR to handle stray Power Apply EVT during patch download */
+            ALOGD("%s: Stray HCI VS EVENT", __FUNCTION__);
+            if (patch_dnld_pending && dnld_fd != -1)
+            {
+                unsigned char rsp[HCI_MAX_EVENT_SIZE];
+                memset(rsp, 0x00, HCI_MAX_EVENT_SIZE);
+                read_vs_hci_event(dnld_fd, rsp, HCI_MAX_EVENT_SIZE);
+            }
+            else
+            {
+                ALOGE("%s: Not a valid status!!!", __FUNCTION__);
+                err = -1;
             }
             break;
         default:
@@ -953,7 +1001,7 @@ int rome_tlv_dnld_segment(int fd, int index, int seg_size, unsigned char wait_cc
 int rome_tlv_dnld_req(int fd, int tlv_size)
 {
     int  total_segment, remain_size, i, err = -1;
-    unsigned char wait_cc_evt;
+    unsigned char wait_cc_evt = TRUE;
 
     total_segment = tlv_size/MAX_SIZE_PER_TLV_SEGMENT;
     remain_size = (tlv_size < MAX_SIZE_PER_TLV_SEGMENT)?\
@@ -1014,8 +1062,10 @@ int rome_tlv_dnld_req(int fd, int tlv_size)
              }
         }
 
+        patch_dnld_pending = TRUE;
         if((err = rome_tlv_dnld_segment(fd, i, MAX_SIZE_PER_TLV_SEGMENT, wait_cc_evt )) < 0)
             goto error;
+        patch_dnld_pending = FALSE;
     }
 
     if ((rome_ver >= ROME_VER_1_1) && (rome_ver < ROME_VER_3_2) && (gTlv_type == TLV_TYPE_PATCH)) {
@@ -1038,15 +1088,20 @@ int rome_tlv_dnld_req(int fd, int tlv_size)
         }
     }
 
+    patch_dnld_pending = TRUE;
     if(remain_size) err =rome_tlv_dnld_segment(fd, i, remain_size, wait_cc_evt);
-
+    patch_dnld_pending = FALSE;
 error:
+    if(patch_dnld_pending) patch_dnld_pending = FALSE;
     return err;
 }
 
 int rome_download_tlv_file(int fd)
 {
     int tlv_size, err = -1;
+    char nvm_file_path_bid[32] = { 0,};
+
+    memcpy(nvm_file_path_bid, nvm_file_path, strlen(nvm_file_path) - 2);
 
     /* Rampatch TLV file Downloading */
     pdata_buffer = NULL;
@@ -1060,9 +1115,20 @@ int rome_download_tlv_file(int fd)
         free (pdata_buffer);
         pdata_buffer = NULL;
     }
-    /* NVM TLV file Downloading */
-    if((tlv_size = rome_get_tlv_file(nvm_file_path)) < 0)
-        goto error;
+    if (get_boardid_req(fd) < 0) {
+        ALOGE("%s: failed to get board id(0x%x)", __FUNCTION__, err);
+        goto default_download;
+    }
+
+    strlcat(nvm_file_path_bid, board_id, sizeof(nvm_file_path_bid));
+
+    if((tlv_size = rome_get_tlv_file(nvm_file_path_bid)) < 0) {
+        ALOGI("%s: %s: file doesn't exist, falling back to default file", __FUNCTION__, nvm_file_path_bid);
+default_download:
+        /* NVM TLV file Downloading */
+        if((tlv_size = rome_get_tlv_file(nvm_file_path)) < 0)
+            goto error;
+    }
 
     if((err =rome_tlv_dnld_req(fd, tlv_size)) <0 )
         goto error;
@@ -1614,6 +1680,36 @@ error:
     return err;
 }
 
+int get_boardid_req(int fd)
+{
+    int size, err = 0;
+    unsigned char cmd[HCI_MAX_CMD_SIZE];
+    unsigned char rsp[HCI_MAX_EVENT_SIZE];
+    bool cmd_supported = TRUE;
+
+    /* Frame the HCI CMD to be sent to the Controller */
+    frame_hci_cmd_pkt(cmd, EDL_GET_BOARD_ID, 0,
+    -1, EDL_PATCH_CMD_LEN);
+    /* Total length of the packet to be sent to the Controller */
+    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + EDL_PATCH_CMD_LEN);
+
+    ALOGI("%s: Sending EDL_GET_BOARD_ID", __FUNCTION__);
+    err = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, size);
+    if ( err != size) {
+        ALOGE("Failed to send EDL_GET_BOARD_ID command!");
+        cmd_supported = FALSE;
+    }
+
+    err = read_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE);
+    if (err < 0) {
+        ALOGE("%s: Failed to get feature request", __FUNCTION__);
+        goto error;
+    }
+error:
+    return (cmd_supported == TRUE? err: -1);
+}
+
+
 int addon_feature_req(int fd)
 {
     int size, err = 0;
@@ -1716,7 +1812,7 @@ error:
 }
 
 
-void enable_controller_log (int fd)
+void enable_controller_log (int fd, unsigned char wait_for_evt)
 {
    int ret = 0;
    /* VS command to enable controller logging to the HOST. By default it is disabled */
@@ -1729,11 +1825,23 @@ void enable_controller_log (int fd)
    // value at cmd[5]: 1 - to enable, 0 - to disable
    ret = (strcmp(value, "true") == 0) ? cmd[5] = 0x01: 0;
    ALOGI("%s: %d", __func__, ret);
+   /* Ignore vsc evt if wait_for_evt is true */
+   if (wait_for_evt) wait_vsc_evt = FALSE;
 
    ret = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, 6);
    if (ret != 6) {
-     ALOGE("%s: command failed", __func__);
+       ALOGE("%s: command failed", __func__);
    }
+   /*Ignore hci_event if wait_for_evt is true*/
+   if (wait_for_evt)
+       goto end;
+   ret = read_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE);
+   if (ret < 0) {
+       ALOGE("%s: Failed to get CC for enable SoC log", __FUNCTION__);
+   }
+end:
+   wait_vsc_evt = TRUE;
+   return;
 }
 
 
@@ -1763,8 +1871,9 @@ static int disable_internal_ldo(int fd)
 int rome_soc_init(int fd, char *bdaddr)
 {
     int err = -1, size = 0;
-
+    dnld_fd = fd;
     ALOGI(" %s ", __FUNCTION__);
+    RESERVED(bdaddr);
 
     /* If wipower charging is going on in embedded mode then start hand off req */
     if (wipower_flag == WIPOWER_IN_EMBEDDED_MODE && wipower_handoff_ready != NON_WIPOWER_MODE)
@@ -1900,5 +2009,16 @@ download:
     }
 
 error:
+    dnld_fd = -1;
     return err;
+}
+
+unsigned char convert2ascii(unsigned char temp)
+{
+  unsigned char n = temp;
+  if ( n  >= 0 && n <= 9)
+     n = n + 0x30;
+  else
+     n = n + 0x57;
+  return n;
 }

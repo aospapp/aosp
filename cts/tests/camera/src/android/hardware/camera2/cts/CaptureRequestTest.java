@@ -829,23 +829,23 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         CaptureRequest.Builder requestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
         int[] availableModes = mStaticInfo.getAvailableNoiseReductionModesChecked();
-        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
-        startPreview(requestBuilder, maxPrevSize, resultListener);
 
         for (int mode : availableModes) {
             requestBuilder.set(CaptureRequest.NOISE_REDUCTION_MODE, mode);
-            resultListener = new SimpleCaptureCallback();
-            mSession.setRepeatingRequest(requestBuilder.build(), resultListener, mHandler);
-            waitForSettingsApplied(resultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
-
-            verifyCaptureResultForKey(CaptureResult.NOISE_REDUCTION_MODE, mode,
-                    resultListener, NUM_FRAMES_VERIFIED);
 
             // Test that OFF and FAST mode should not slow down the frame rate.
             if (mode == CaptureRequest.NOISE_REDUCTION_MODE_OFF ||
                     mode == CaptureRequest.NOISE_REDUCTION_MODE_FAST) {
                 verifyFpsNotSlowDown(requestBuilder, NUM_FRAMES_VERIFIED);
             }
+
+            SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+            startPreview(requestBuilder, maxPrevSize, resultListener);
+            mSession.setRepeatingRequest(requestBuilder.build(), resultListener, mHandler);
+            waitForSettingsApplied(resultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+
+            verifyCaptureResultForKey(CaptureResult.NOISE_REDUCTION_MODE, mode,
+                    resultListener, NUM_FRAMES_VERIFIED);
         }
 
         stopPreview();
@@ -1086,24 +1086,24 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         int[] edgeModes = mStaticInfo.getAvailableEdgeModesChecked();
         CaptureRequest.Builder requestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
-        startPreview(requestBuilder, maxPrevSize, resultListener);
 
         for (int mode : edgeModes) {
             requestBuilder.set(CaptureRequest.EDGE_MODE, mode);
-            resultListener = new SimpleCaptureCallback();
-            mSession.setRepeatingRequest(requestBuilder.build(), resultListener, mHandler);
-            waitForSettingsApplied(resultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
-
-            verifyCaptureResultForKey(CaptureResult.EDGE_MODE, mode, resultListener,
-                    NUM_FRAMES_VERIFIED);
 
             // Test that OFF and FAST mode should not slow down the frame rate.
             if (mode == CaptureRequest.EDGE_MODE_OFF ||
                     mode == CaptureRequest.EDGE_MODE_FAST) {
                 verifyFpsNotSlowDown(requestBuilder, NUM_FRAMES_VERIFIED);
             }
-        }
+
+            SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+            startPreview(requestBuilder, maxPrevSize, resultListener);
+            mSession.setRepeatingRequest(requestBuilder.build(), resultListener, mHandler);
+            waitForSettingsApplied(resultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+
+            verifyCaptureResultForKey(CaptureResult.EDGE_MODE, mode, resultListener,
+                    NUM_FRAMES_VERIFIED);
+       }
 
         stopPreview();
     }
@@ -2552,7 +2552,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             frameDurationErrorMargin = 0.015f;
         }
 
-        Range<Integer>[] fpsRanges = mStaticInfo.getAeAvailableTargetFpsRangesChecked();
+        Range<Integer>[] fpsRanges = getDescendingTargetFpsRanges(mStaticInfo);
         boolean antiBandingOffIsSupported = mStaticInfo.isAntiBandingOffModeSupported();
         Range<Integer> fpsRange;
         SimpleCaptureCallback resultListener;

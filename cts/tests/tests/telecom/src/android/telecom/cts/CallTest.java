@@ -32,6 +32,8 @@ public class CallTest extends AndroidTestCase {
                 | CAPABILITY_DISCONNECT_FROM_CONFERENCE | CAPABILITY_MUTE,
                 CAPABILITY_MUTE));
         assertTrue(Call.Details.can(CAPABILITY_CAN_PAUSE_VIDEO, CAPABILITY_CAN_PAUSE_VIDEO));
+        assertTrue(Call.Details.can(CAPABILITY_CAN_PULL_CALL, CAPABILITY_CAN_PULL_CALL));
+
         assertFalse(Call.Details.can(CAPABILITY_MUTE, CAPABILITY_HOLD));
         assertFalse(Call.Details.can(CAPABILITY_MERGE_CONFERENCE
                 | CAPABILITY_DISCONNECT_FROM_CONFERENCE | CAPABILITY_MUTE,
@@ -78,6 +80,8 @@ public class CallTest extends AndroidTestCase {
         assertTrue(Call.Details.hasProperty(PROPERTY_HIGH_DEF_AUDIO, PROPERTY_HIGH_DEF_AUDIO));
         assertTrue(Call.Details.hasProperty(PROPERTY_HIGH_DEF_AUDIO | PROPERTY_CONFERENCE
                 | PROPERTY_WIFI, PROPERTY_CONFERENCE));
+        assertTrue(Call.Details.hasProperty(PROPERTY_IS_EXTERNAL_CALL, PROPERTY_IS_EXTERNAL_CALL));
+
         assertFalse(Call.Details.hasProperty(PROPERTY_WIFI, PROPERTY_CONFERENCE));
         assertFalse(Call.Details.hasProperty(PROPERTY_HIGH_DEF_AUDIO | PROPERTY_CONFERENCE
                 | PROPERTY_WIFI, PROPERTY_GENERIC_CONFERENCE));

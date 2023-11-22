@@ -29,10 +29,13 @@ import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
 import android.support.annotation.StringRes;
 import android.support.design.R;
+import android.support.v4.view.OnApplyWindowInsetsListener;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.view.ViewPropertyAnimatorListenerAdapter;
+import android.support.v4.view.WindowInsetsCompat;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -444,6 +447,7 @@ public final class Snackbar {
 
             if (lp instanceof CoordinatorLayout.LayoutParams) {
                 // If our LayoutParams are from a CoordinatorLayout, we'll setup our Behavior
+                final CoordinatorLayout.LayoutParams clp = (CoordinatorLayout.LayoutParams) lp;
 
                 final Behavior behavior = new Behavior();
                 behavior.setStartAlphaSwipeDistance(0.1f);
@@ -471,7 +475,9 @@ public final class Snackbar {
                         }
                     }
                 });
-                ((CoordinatorLayout.LayoutParams) lp).setBehavior(behavior);
+                clp.setBehavior(behavior);
+                // Also set the inset edge so that views can dodge the snackbar correctly
+                clp.insetEdge = Gravity.BOTTOM;
             }
 
             mTargetParent.addView(mView);
@@ -626,7 +632,15 @@ public final class Snackbar {
         if (mCallback != null) {
             mCallback.onDismissed(this, event);
         }
-        // Lastly, remove the view from the parent (if attached)
+        if (Build.VERSION.SDK_INT < 11) {
+            // We need to hide the Snackbar on pre-v11 since it uses an old style Animation.
+            // ViewGroup has special handling in removeView() when getAnimation() != null in
+            // that it waits. This then means that the calculated insets are wrong and the
+            // any dodging views do not return. We workaround it by setting the view to gone while
+            // ViewGroup actually gets around to removing it.
+            mView.setVisibility(View.GONE);
+        }
+        // Lastly, hide and remove the view from the parent (if attached)
         final ViewParent parent = mView.getParent();
         if (parent instanceof ViewGroup) {
             ((ViewGroup) parent).removeView(mView);
@@ -689,6 +703,20 @@ public final class Snackbar {
                     ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE);
             ViewCompat.setImportantForAccessibility(this,
                     ViewCompat.IMPORTANT_FOR_ACCESSIBILITY_YES);
+
+            // Make sure that we fit system windows and have a listener to apply any insets
+            ViewCompat.setFitsSystemWindows(this, true);
+            ViewCompat.setOnApplyWindowInsetsListener(this,
+                    new android.support.v4.view.OnApplyWindowInsetsListener() {
+                @Override
+                public WindowInsetsCompat onApplyWindowInsets(View v, WindowInsetsCompat insets) {
+                    // Copy over the bottom inset as padding so that we're displayed above the
+                    // navigation bar
+                    v.setPadding(v.getPaddingLeft(), v.getPaddingTop(),
+                            v.getPaddingRight(), insets.getSystemWindowInsetBottom());
+                    return insets;
+                }
+            });
         }
 
         @Override
@@ -778,6 +806,8 @@ public final class Snackbar {
             if (mOnAttachStateChangeListener != null) {
                 mOnAttachStateChangeListener.onViewAttachedToWindow(this);
             }
+
+            ViewCompat.requestApplyInsets(this);
         }
 
         @Override

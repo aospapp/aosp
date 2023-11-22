@@ -25,8 +25,16 @@ import static com.android.cts.net.hostside.app2.Common.ACTION_RECEIVER_READY;
 import static com.android.cts.net.hostside.app2.Common.ACTION_SEND_NOTIFICATION;
 import static com.android.cts.net.hostside.app2.Common.EXTRA_ACTION;
 import static com.android.cts.net.hostside.app2.Common.EXTRA_NOTIFICATION_ID;
+import static com.android.cts.net.hostside.app2.Common.EXTRA_NOTIFICATION_TYPE;
 import static com.android.cts.net.hostside.app2.Common.EXTRA_RECEIVER_NAME;
 import static com.android.cts.net.hostside.app2.Common.MANIFEST_RECEIVER;
+import static com.android.cts.net.hostside.app2.Common.NOTIFICATION_TYPE_ACTION;
+import static com.android.cts.net.hostside.app2.Common.NOTIFICATION_TYPE_ACTION_BUNDLE;
+import static com.android.cts.net.hostside.app2.Common.NOTIFICATION_TYPE_ACTION_REMOTE_INPUT;
+import static com.android.cts.net.hostside.app2.Common.NOTIFICATION_TYPE_BUNDLE;
+import static com.android.cts.net.hostside.app2.Common.NOTIFICATION_TYPE_CONTENT;
+import static com.android.cts.net.hostside.app2.Common.NOTIFICATION_TYPE_DELETE;
+import static com.android.cts.net.hostside.app2.Common.NOTIFICATION_TYPE_FULL_SCREEN;
 import static com.android.cts.net.hostside.app2.Common.TAG;
 import static com.android.cts.net.hostside.app2.Common.getUid;
 
@@ -34,6 +42,7 @@ import android.app.Notification;
 import android.app.Notification.Action;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.RemoteInput;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -57,7 +66,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class MyBroadcastReceiver extends BroadcastReceiver {
 
-    private static final int NETWORK_TIMEOUT_MS = 15 * 1000;
+    private static final int NETWORK_TIMEOUT_MS = 5 * 1000;
 
     private final String mName;
 
@@ -230,21 +239,66 @@ public class MyBroadcastReceiver extends BroadcastReceiver {
      */
     private void sendNotification(Context context, Intent intent) {
         final int notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1);
+        final String notificationType = intent.getStringExtra(EXTRA_NOTIFICATION_TYPE);
+        Log.d(TAG, "sendNotification: id=" + notificationId + ", type=" + notificationType
+                + ", intent=" + intent);
         final Intent serviceIntent = new Intent(context, MyService.class);
-        final PendingIntent pendingIntent = PendingIntent.getService(context, 0, serviceIntent, 0);
-        final Bundle badBundle = new Bundle();
-        badBundle.putCharSequence("parcelable", "I am not");
-        final Action action = new Action.Builder(
-                R.drawable.ic_notification, "ACTION", pendingIntent)
-                .addExtras(badBundle)
-                .build();
+        final PendingIntent pendingIntent = PendingIntent.getService(context, 0, serviceIntent,
+                notificationId);
+        final Bundle bundle = new Bundle();
+        bundle.putCharSequence("parcelable", "I am not");
 
-        final Notification notification = new Notification.Builder(context)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Light, Cameras...")
-                .setContentIntent(pendingIntent)
-                .addAction(action)
-                .build();
+        final Notification.Builder builder = new Notification.Builder(context)
+                .setSmallIcon(R.drawable.ic_notification);
+
+        Action action = null;
+        switch (notificationType) {
+            case NOTIFICATION_TYPE_CONTENT:
+                builder
+                    .setContentTitle("Light, Cameras...")
+                    .setContentIntent(pendingIntent);
+                break;
+            case NOTIFICATION_TYPE_DELETE:
+                builder.setDeleteIntent(pendingIntent);
+                break;
+            case NOTIFICATION_TYPE_FULL_SCREEN:
+                builder.setFullScreenIntent(pendingIntent, true);
+                break;
+            case NOTIFICATION_TYPE_BUNDLE:
+                bundle.putParcelable("Magnum P.I. (Pending Intent)", pendingIntent);
+                builder.setExtras(bundle);
+                break;
+            case NOTIFICATION_TYPE_ACTION:
+                action = new Action.Builder(
+                        R.drawable.ic_notification, "ACTION", pendingIntent)
+                        .build();
+                builder.addAction(action);
+                break;
+            case NOTIFICATION_TYPE_ACTION_BUNDLE:
+                bundle.putParcelable("Magnum A.P.I. (Action Pending Intent)", pendingIntent);
+                action = new Action.Builder(
+                        R.drawable.ic_notification, "ACTION WITH BUNDLE", null)
+                        .addExtras(bundle)
+                        .build();
+                builder.addAction(action);
+                break;
+            case NOTIFICATION_TYPE_ACTION_REMOTE_INPUT:
+                bundle.putParcelable("Magnum R.I. (Remote Input)", null);
+                final RemoteInput remoteInput = new RemoteInput.Builder("RI")
+                    .addExtras(bundle)
+                    .build();
+                action = new Action.Builder(
+                        R.drawable.ic_notification, "ACTION WITH REMOTE INPUT", pendingIntent)
+                        .addRemoteInput(remoteInput)
+                        .build();
+                builder.addAction(action);
+                break;
+            default:
+                Log.e(TAG, "Unknown notification type: " + notificationType);
+                return;
+        }
+
+        final Notification notification = builder.build();
         ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE))
             .notify(notificationId, notification);
     }

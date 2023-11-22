@@ -46,9 +46,6 @@ class ConcurrentBleAdvertisingTest(BluetoothBaseTest):
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
         self.max_advertisements = self.droid_list[1]['max_advertisements']
-        if self.max_advertisements == 0:
-            self.tests = ()
-            return
 
     def on_fail(self, test_name, begin_time):
         self.log.debug(
@@ -84,11 +81,11 @@ class ConcurrentBleAdvertisingTest(BluetoothBaseTest):
             except Empty as error:
                 self.log.info("Advertisement {} failed to start.".format(i +
                                                                          1))
-                self.log.debug("Test failed with Empty error: {}".format(
+                self.log.error("Test failed with Empty error: {}".format(
                     error))
                 return False
             except concurrent.futures._base.TimeoutError as error:
-                self.log.debug(
+                self.log.error(
                     "Test failed, filtering callback onSuccess never occurred: "
                     "{}".format(error))
                 return False
@@ -504,7 +501,7 @@ class ConcurrentBleAdvertisingTest(BluetoothBaseTest):
             self.adv_ad.ed.pop_event(
                 adv_succ.format(advertise_callback), self.default_timeout)
         except Empty as error:
-            self.log.debug("Test failed with Empty error: {}".format(error))
+            self.log.error("Test failed with Empty error: {}".format(error))
             return False
         except concurrent.futures._base.TimeoutError as error:
             self.log.debug(
@@ -559,10 +556,10 @@ class ConcurrentBleAdvertisingTest(BluetoothBaseTest):
             self.adv_ad.ed.pop_event(
                 adv_succ.format(advertise_callback), self.default_timeout)
         except Empty as error:
-            self.log.debug("Test failed with Empty error: {}".format(error))
+            self.log.error("Test failed with Empty error: {}".format(error))
             return False
         except concurrent.futures._base.TimeoutError as error:
-            self.log.debug(
+            self.log.error(
                 "Test failed, filtering callback onSuccess never occurred: {}".format(
                     error))
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
@@ -573,10 +570,10 @@ class ConcurrentBleAdvertisingTest(BluetoothBaseTest):
             self.scn_ad.ed.pop_event(
                 scan_result.format(scan_callback), self.default_timeout)
         except Empty as error:
-            self.log.debug("Test failed with: {}".format(error))
+            self.log.error("Test failed with: {}".format(error))
             return False
         except concurrent.futures._base.TimeoutError as error:
-            self.log.debug("Test failed with: {}".format(error))
+            self.log.error("Test failed with: {}".format(error))
             return False
         self.scn_ad.droid.bleStopBleScan(scan_callback)
         test_result = reset_bluetooth([self.android_devices[1]])
@@ -585,8 +582,9 @@ class ConcurrentBleAdvertisingTest(BluetoothBaseTest):
         if not test_result:
             return test_result
         try:
-            self.scn_ad.ed.pop_event(
-                scan_result.format(scan_callback), self.default_timeout)
+            expected_event = scan_result.format(scan_callback)
+            self.scn_ad.ed.pop_event(expected_event, self.default_timeout)
+            self.log.error("Event {} not expected.".format(expected_event))
             return False
         except Empty as error:
             self.log.debug("Test passed with: {}".format(error))
@@ -630,7 +628,7 @@ class ConcurrentBleAdvertisingTest(BluetoothBaseTest):
             self.adv_ad.ed.pop_event(
                 adv_succ.format(advertise_callback), self.default_timeout)
         except Empty as error:
-            self.log.debug("Test failed with Empty error: {}".format(error))
+            self.log.error("Test failed with Empty error: {}".format(error))
             test_result = False
         except concurrent.futures._base.TimeoutError as error:
             self.log.debug(
@@ -645,7 +643,7 @@ class ConcurrentBleAdvertisingTest(BluetoothBaseTest):
             self.adv_ad.ed.pop_event(
                 adv_succ.format(advertise_callback), self.default_timeout)
         except Empty as error:
-            self.log.debug("Test failed with Empty error: {}".format(error))
+            self.log.error("Test failed with Empty error: {}".format(error))
             test_result = False
         except concurrent.futures._base.TimeoutError as error:
             self.log.debug(

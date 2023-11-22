@@ -344,7 +344,7 @@ static int handleSign(uint8_t **pbuf, uint32_t bufUsed, FILE *out, struct RsaDat
         } else {
             int sigSz = bufUsed - sizeof(*image) - sizeof(*secHdr) - secHdr->appDataLen;
             int numSigs = sigSz / SIGNATURE_BLOCK_SIZE;
-            if ((numSigs * SIGNATURE_BLOCK_SIZE) != sigSz) {
+            if ((numSigs * (int)SIGNATURE_BLOCK_SIZE) != sigSz) {
                 fprintf(stderr, "Invalid signature block(s) detected\n");
                 return 2;
             } else {

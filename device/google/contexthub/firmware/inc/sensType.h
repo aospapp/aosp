@@ -55,6 +55,20 @@ extern "C" {
 #define SENS_TYPE_VSYNC           31
 #define SENS_TYPE_ACCEL_RAW       32
 // Values 33-37 are reserved
+#define SENS_TYPE_WRIST_TILT      39
+
+// Activity recognition sensor types.
+#define SENS_TYPE_ACTIVITY_IN_VEHICLE_START   40
+#define SENS_TYPE_ACTIVITY_IN_VEHICLE_STOP    41
+#define SENS_TYPE_ACTIVITY_ON_BICYCLE_START   42
+#define SENS_TYPE_ACTIVITY_ON_BICYCLE_STOP    43
+#define SENS_TYPE_ACTIVITY_WALKING_START      44
+#define SENS_TYPE_ACTIVITY_WALKING_STOP       45
+#define SENS_TYPE_ACTIVITY_RUNNING_START      46
+#define SENS_TYPE_ACTIVITY_RUNNING_STOP       47
+#define SENS_TYPE_ACTIVITY_STILL_START        48
+#define SENS_TYPE_ACTIVITY_STILL_STOP         49
+#define SENS_TYPE_ACTIVITY_TILTING            50
 
 #define SENS_TYPE_FIRST_USER      64 // event type necessarily begins with UserSensorEventHdr
 #define SENS_TYPE_LAST_USER       128

@@ -87,6 +87,7 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
     private static final String SHARD_OPTION = "shards";
     public static final String SKIP_DEVICE_INFO_OPTION = "skip-device-info";
     public static final String SKIP_PRECONDITIONS_OPTION = "skip-preconditions";
+    public static final String PRIMARY_ABI_RUN = "primary-abi-only";
     public static final String DEVICE_TOKEN_OPTION = "device-token";
     private static final String URL = "dynamic-config-url";
 
@@ -164,9 +165,14 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
             description = "Whether preconditions should be skipped")
     private boolean mSkipPreconditions = false;
 
+    @Option(name = PRIMARY_ABI_RUN,
+            description = "Whether to run tests with only the device primary abi. "
+                    + "This override the --abi option.")
+    private boolean mPrimaryAbiRun = false;
+
     @Option(name = DEVICE_TOKEN_OPTION,
             description = "Holds the devices' tokens, used when scheduling tests that have"
-                    + "prerequisits such as requiring a SIM card. Format is <serial>:<token>",
+                    + "prerequisites such as requiring a SIM card. Format is <serial>:<token>",
             importance = Importance.ALWAYS)
     private List<String> mDeviceTokens = new ArrayList<>();
 
@@ -360,7 +366,9 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
                 }
 
                 // execute pre module execution checker
-                runPreModuleCheck(module.getName(), checkers, mDevice, listener);
+                if (checkers != null && !checkers.isEmpty()) {
+                    runPreModuleCheck(module.getName(), checkers, mDevice, listener);
+                }
                 try {
                     module.run(listener);
                 } catch (DeviceUnresponsiveException due) {
@@ -390,7 +398,9 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
                             TimeUtil.formatElapsedTime(expected),
                             TimeUtil.formatElapsedTime(duration));
                 }
-                runPostModuleCheck(module.getName(), checkers, mDevice, listener);
+                if (checkers != null && !checkers.isEmpty()) {
+                    runPostModuleCheck(module.getName(), checkers, mDevice, listener);
+                }
             }
         } catch (FileNotFoundException fnfe) {
             throw new RuntimeException("Failed to initialize modules", fnfe);
@@ -406,6 +416,15 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
     Set<IAbi> getAbis() throws DeviceNotAvailableException {
         Set<IAbi> abis = new HashSet<>();
         Set<String> archAbis = AbiUtils.getAbisForArch(SuiteInfo.TARGET_ARCH);
+        if (mPrimaryAbiRun) {
+            if (mAbiName == null) {
+                // Get the primary from the device and make it the --abi to run.
+                mAbiName = mDevice.getProperty("ro.product.cpu.abi").trim();
+            } else {
+                CLog.d("Option --%s supersedes the option --%s, using abi: %s", ABI_OPTION,
+                        PRIMARY_ABI_RUN, mAbiName);
+            }
+        }
         for (String abi : AbiFormatter.getSupportedAbis(mDevice, "")) {
             // Only test against ABIs supported by Compatibility, and if the
             // --abi option was given, it must match.
@@ -414,7 +433,7 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
                 abis.add(new Abi(abi, AbiUtils.getBitness(abi)));
             }
         }
-        if (abis == null || abis.isEmpty()) {
+        if (abis.isEmpty()) {
             if (mAbiName == null) {
                 throw new IllegalArgumentException("Could not get device's ABIs");
             } else {
@@ -556,12 +575,18 @@ public class CompatibilityTest implements IDeviceTest, IShardableTest, IBuildRec
             }
             // Append each test that failed or was not executed to the filters
             for (IModuleResult module : result.getModules()) {
-                for (ICaseResult testResultList : module.getResults()) {
-                    for (ITestResult testResult : testResultList.getResults(TestStatus.PASS)) {
-                        // Create the filter for the test to be run.
-                        TestFilter filter = new TestFilter(
-                                module.getAbi(), module.getName(), testResult.getFullName());
-                        mExcludeFilters.add(filter.toString());
+                if (module.isPassed()) {
+                    // Whole module passed, exclude entire module
+                    TestFilter filter = new TestFilter(module.getAbi(), module.getName(), null);
+                    mExcludeFilters.add(filter.toString());
+                } else {
+                    for (ICaseResult testResultList : module.getResults()) {
+                        for (ITestResult testResult : testResultList.getResults(TestStatus.PASS)) {
+                            // Test passed, exclude it for retry
+                            TestFilter filter = new TestFilter(
+                                    module.getAbi(), module.getName(), testResult.getFullName());
+                            mExcludeFilters.add(filter.toString());
+                        }
                     }
                 }
             }

@@ -22,6 +22,7 @@ import android.text.Annotation;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.method.LinkMovementMethod;
+import android.text.style.ClickableSpan;
 import android.text.style.TextAppearanceSpan;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -99,13 +100,40 @@ public class RichTextView extends TextView {
     private void init() {
         mAccessibilityHelper = new LinkAccessibilityHelper(this);
         ViewCompat.setAccessibilityDelegate(this, mAccessibilityHelper);
-        setMovementMethod(LinkMovementMethod.getInstance());
     }
 
     @Override
     public void setText(CharSequence text, BufferType type) {
         text = getRichText(getContext(), text);
+        // Set text first before doing anything else because setMovementMethod internally calls
+        // setText. This in turn ends up calling this method with mText as the first parameter
         super.setText(text, type);
+        boolean hasLinks = hasLinks(text);
+
+        if (hasLinks) {
+            // When a TextView has a movement method, it will set the view to clickable. This makes
+            // View.onTouchEvent always return true and consumes the touch event, essentially
+            // nullifying any return values of MovementMethod.onTouchEvent.
+            // To still allow propagating touch events to the parent when this view doesn't have
+            // links, we only set the movement method here if the text contains links.
+            setMovementMethod(LinkMovementMethod.getInstance());
+        } else {
+            setMovementMethod(null);
+        }
+        // ExploreByTouchHelper automatically enables focus for RichTextView
+        // even though it may not have any links. Causes problems during talkback
+        // as individual TextViews consume touch events and thereby reducing the focus window
+        // shown by Talkback. Disable focus if there are no links
+        setFocusable(hasLinks);
+    }
+
+    private boolean hasLinks(CharSequence text) {
+        if (text instanceof Spanned) {
+            final ClickableSpan[] spans =
+                    ((Spanned) text).getSpans(0, text.length(), ClickableSpan.class);
+            return spans.length > 0;
+        }
+        return false;
     }
 
     @Override

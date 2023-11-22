@@ -41,6 +41,7 @@ SRCS_os += src/platform/$(PLATFORM)/platform.c \
 	src/platform/$(PLATFORM)/usart.c \
 	src/platform/$(PLATFORM)/gpio.c \
 	src/platform/$(PLATFORM)/pwr.c \
+	src/platform/$(PLATFORM)/wdt.c \
 	src/platform/$(PLATFORM)/i2c.c \
 	src/platform/$(PLATFORM)/exti.c \
 	src/platform/$(PLATFORM)/syscfg.c \

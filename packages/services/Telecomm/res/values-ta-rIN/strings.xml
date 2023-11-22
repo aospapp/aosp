@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"குரலஞ்சல் எண் இல்லை"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"சிம் கார்டில் குரலஞ்சலுக்கான எண் எதுவும் சேமிக்கப்படவில்லை."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"எண்ணைச் சேர்"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"இயல்புநிலை டயலர் பயன்பாட்டை மாற்றவா?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="NEW_APP">%1$s</xliff:g>ஐ <xliff:g id="CURRENT_APP">%2$s</xliff:g>க்குப் பதிலாக, இயல்புநிலை டயலர் பயன்பாடாகப் பயன்படுத்தவா?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g>ஐ இயல்புநிலை டயலர் பயன்பாடாகப் பயன்படுத்தவா?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g>ஐ இயல்புநிலை ஃபோன் பயன்பாடாக அமைக்கவா?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"இயல்புநிலையாக அமை"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"ரத்துசெய்"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"அழைப்புகளின் எல்லா அம்சங்களையும் <xliff:g id="NEW_APP">%s</xliff:g> ஆல் செயல்படுத்தவும் கட்டுப்படுத்தவும் முடியும். நீங்கள் நம்பகமானது என கருதும் பயன்பாடுகளை மட்டுமே இயல்புநிலை ஃபோன் பயன்பாடாக அமைக்க வேண்டும்."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"தடுக்கப்பட்ட எண்கள்"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"தடுக்கப்பட்ட எண்களிலிருந்து அழைப்புகள் அல்லது உரைச் செய்திகளைப் பெறமாட்டீர்கள்."</string>
     <string name="block_number" msgid="1101252256321306179">"எண்ணைச் சேர்"</string>

@@ -53,8 +53,8 @@ public class MediaPreparerTest extends TestCase {
                 "/sdcard").once();
         EasyMock.replay(mMockDevice);
         mMediaPreparer.setMountPoint(mMockDevice);
-        assertEquals(mMediaPreparer.baseDeviceShortDir, "/sdcard/test/bbb_short/");
-        assertEquals(mMediaPreparer.baseDeviceFullDir, "/sdcard/test/bbb_full/");
+        assertEquals(mMediaPreparer.mBaseDeviceShortDir, "/sdcard/test/bbb_short/");
+        assertEquals(mMediaPreparer.mBaseDeviceFullDir, "/sdcard/test/bbb_full/");
     }
 
     public void testCopyMediaFiles() throws Exception {

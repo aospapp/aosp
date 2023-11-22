@@ -24,6 +24,8 @@
 
 #define ARRAY_SIZE(a)   (sizeof((a)) / sizeof((a)[0]))
 
+#define UNUSED_PARAM(param) (void) (param)
+
 #ifndef alignof
 #define alignof(type) offsetof(struct { char x; type field; }, field)
 #endif

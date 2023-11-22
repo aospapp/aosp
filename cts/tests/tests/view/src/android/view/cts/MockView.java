@@ -71,10 +71,6 @@ public class MockView extends View {
     private boolean mCalledOnKeyPreIme = false;
     private boolean mCalledOnResolvePointerIcon = false;
     private boolean mCalledOnVisibilityAggregated = false;
-    private boolean mCalledDispatchStartTemporaryDetach = false;
-    private boolean mCalledDispatchFinishTemporaryDetach = false;
-    private boolean mCalledOnStartTemporaryDetach = false;
-    private boolean mCalledOnFinishTemporaryDetach = false;
 
     private int mOldWidth = -1;
     private int mOldHeight = -1;
@@ -638,46 +634,6 @@ public class MockView extends View {
         return mLastAggregatedVisibility;
     }
 
-    @Override
-    public void dispatchStartTemporaryDetach() {
-        super.dispatchStartTemporaryDetach();
-        mCalledDispatchStartTemporaryDetach = true;
-    }
-
-    @Override
-    public void dispatchFinishTemporaryDetach() {
-        super.dispatchFinishTemporaryDetach();
-        mCalledDispatchFinishTemporaryDetach = true;
-    }
-
-    @Override
-    public void onStartTemporaryDetach() {
-        super.onStartTemporaryDetach();
-        mCalledOnStartTemporaryDetach = true;
-    }
-
-    @Override
-    public void onFinishTemporaryDetach() {
-        super.onFinishTemporaryDetach();
-        mCalledOnFinishTemporaryDetach = true;
-    }
-
-    public boolean hasCalledDispatchStartTemporaryDetach() {
-        return mCalledDispatchStartTemporaryDetach;
-    }
-
-    public boolean hasCalledDispatchFinishTemporaryDetach() {
-        return mCalledDispatchFinishTemporaryDetach;
-    }
-
-    public boolean hasCalledOnStartTemporaryDetach() {
-        return mCalledOnStartTemporaryDetach;
-    }
-
-    public boolean hasCalledOnFinishTemporaryDetach() {
-        return mCalledOnFinishTemporaryDetach;
-    }
-
     public void reset() {
         mCalledOnCreateContextMenu = false;
 
@@ -719,10 +675,6 @@ public class MockView extends View {
         mCalledOnResolvePointerIcon = false;
         mCalledOnVisibilityAggregated = false;
         mCalledOnVisibilityAggregated = false;
-        mCalledDispatchStartTemporaryDetach = false;
-        mCalledDispatchFinishTemporaryDetach = false;
-        mCalledOnStartTemporaryDetach = false;
-        mCalledOnFinishTemporaryDetach = false;
 
         mOldWidth = -1;
         mOldHeight = -1;

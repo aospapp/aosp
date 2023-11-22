@@ -26,6 +26,7 @@
 #include <nanohubPacket.h>
 #include <sensors.h>
 #include <seos.h>
+#include <slab.h>
 #include <timer.h>
 #include <plat/inc/gpio.h>
 #include <plat/inc/exti.h>
@@ -33,7 +34,11 @@
 #include <variant/inc/variant.h>
 
 #define VSYNC_APP_ID      APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 7)
-#define VSYNC_APP_VERSION 1
+#define VSYNC_APP_VERSION 2
+
+// This defines how many vsync events we could handle being backed up in the
+// queue. Use this to size our slab
+#define MAX_VSYNC_EVENTS  4
 
 #ifndef VSYNC_PIN
 #error "VSYNC_PIN is not defined; please define in variant.h"
@@ -47,6 +52,8 @@
         osLog(LOG_INFO, "%s " fmt, "[VSYNC]", ##__VA_ARGS__); \
     } while (0);
 
+#define ERROR_PRINT(fmt, ...) INFO_PRINT("%s" fmt, "ERROR: ", ##__VA_ARGS__); \
+
 #define DEBUG_PRINT(fmt, ...) do { \
         if (enable_debug) {  \
             INFO_PRINT(fmt, ##__VA_ARGS__); \
@@ -59,6 +66,8 @@ static struct SensorTask
 {
     struct Gpio *pin;
     struct ChainedIsr isr;
+    struct SlabAllocator *evtSlab;
+
 
     uint32_t id;
     uint32_t sensorHandle;
@@ -66,18 +75,46 @@ static struct SensorTask
     bool on;
 } mTask;
 
+static bool vsyncAllocateEvt(struct SingleAxisDataEvent **evPtr, uint64_t time)
+{
+    struct SingleAxisDataEvent *ev;
+
+    *evPtr = slabAllocatorAlloc(mTask.evtSlab);
+
+    ev = *evPtr;
+    if (!ev) {
+        ERROR_PRINT("slabAllocatorAlloc() failed\n");
+        return false;
+    }
+
+    memset(&ev->samples[0].firstSample, 0x00, sizeof(struct SensorFirstSample));
+    ev->referenceTime = time;
+    ev->samples[0].firstSample.numSamples = 1;
+    ev->samples[0].idata = 1;
+
+    return true;
+}
+
+static void vsyncFreeEvt(void *ptr)
+{
+    slabAllocatorFree(mTask.evtSlab, ptr);
+}
+
 static bool vsyncIsr(struct ChainedIsr *localIsr)
 {
     struct SensorTask *data = container_of(localIsr, struct SensorTask, isr);
-    union EmbeddedDataPoint sample;
+    struct SingleAxisDataEvent *ev;
 
     if (!extiIsPendingGpio(data->pin)) {
         return false;
     }
 
     if (data->on) {
-        sample.idata = 1;
-        osEnqueueEvt(sensorGetMyEventType(SENS_TYPE_VSYNC), sample.vptr, NULL);
+        if (vsyncAllocateEvt(&ev, sensorGetTime())) {
+            if (!osEnqueueEvtOrFree(EVENT_TYPE_BIT_DISCARDABLE | sensorGetMyEventType(SENS_TYPE_VSYNC), ev, vsyncFreeEvt)) {
+                ERROR_PRINT("osEnqueueEvtOrFree() failed\n");
+            }
+        }
     }
 
     extiClearPendingGpio(data->pin);
@@ -104,7 +141,7 @@ static const struct SensorInfo mSensorInfo =
 {
     .sensorName = "Camera Vsync",
     .sensorType = SENS_TYPE_VSYNC,
-    .numAxis = NUM_AXIS_EMBEDDED,
+    .numAxis = NUM_AXIS_ONE,
     .interrupt = NANOHUB_INT_NONWAKEUP,
     .minSamples = 20,
 };
@@ -157,12 +194,16 @@ static void handleEvent(uint32_t evtType, const void* evtData)
 
 static bool startTask(uint32_t taskId)
 {
-    INFO_PRINT("task starting\n");
-
     mTask.id = taskId;
     mTask.sensorHandle = sensorRegister(&mSensorInfo, &mSensorOps, NULL, true);
     mTask.pin = gpioRequest(VSYNC_PIN);
     mTask.isr.func = vsyncIsr;
+
+    mTask.evtSlab = slabAllocatorNew(sizeof(struct SingleAxisDataEvent) + sizeof(struct SingleAxisDataPoint), 4, MAX_VSYNC_EVENTS);
+    if (!mTask.evtSlab) {
+        ERROR_PRINT("slabAllocatorNew() failed\n");
+        return false;
+    }
 
     return true;
 }

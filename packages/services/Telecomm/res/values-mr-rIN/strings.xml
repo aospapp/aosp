@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"व्हॉइसमेल नंबर गहाळ"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"सिम कार्डवर कोणताही व्हॉइसमेल नंबर संचयित केला नाही."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"नंबर जोडा"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"डीफॉल्ट डायलर अॅप बदलायचा?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"आपला डीफॉल्ट डायलर अॅप म्हणून <xliff:g id="CURRENT_APP">%2$s</xliff:g> ऐवजी <xliff:g id="NEW_APP">%1$s</xliff:g> वापरायचा?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"आपला डीफॉल्ट डायलर अॅप म्हणून <xliff:g id="NEW_APP">%s</xliff:g> वापरायचा?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g> ला आपला डीफॉल्ट अॅप बनवायचा?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"डीफॉल्ट म्हणून सेट करा"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"रद्द करा"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> कॉल करण्यात आणि त्याचे सर्व पैलू नियंत्रित करण्‍यात सक्षम असेल. ज्या अॅप्सवर आपला विश्वास आहे फक्त त्यांंनाच आपला डीफॉल्ट फोन अॅप म्हणून सेट करावे."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"अवरोधित केलेले नंबर"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"आपल्याला अवरोधित नंबरवरून कॉल किंवा मजकूर प्राप्त होणार नाहीत."</string>
     <string name="block_number" msgid="1101252256321306179">"एक नंबर जोडा"</string>

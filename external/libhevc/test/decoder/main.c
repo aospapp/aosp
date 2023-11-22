@@ -2870,6 +2870,33 @@ int main(WORD32 argc, CHAR *argv[])
 
                 }
             }
+            /*************************************************************************/
+            /* Get SEI mastering display color volume parameters                     */
+            /*************************************************************************/
+            if(1 == s_video_decode_op.u4_output_present)
+            {
+
+                ihevcd_cxa_ctl_get_sei_mastering_params_ip_t s_ctl_get_sei_mastering_params_ip;
+                ihevcd_cxa_ctl_get_sei_mastering_params_op_t s_ctl_get_sei_mastering_params_op;
+
+                s_ctl_get_sei_mastering_params_ip.e_cmd = IVD_CMD_VIDEO_CTL;
+                s_ctl_get_sei_mastering_params_ip.e_sub_cmd =
+                                (IVD_CONTROL_API_COMMAND_TYPE_T)IHEVCD_CXA_CMD_CTL_GET_SEI_MASTERING_PARAMS;
+                s_ctl_get_sei_mastering_params_ip.u4_size =
+                                sizeof(ihevcd_cxa_ctl_get_sei_mastering_params_ip_t);
+                s_ctl_get_sei_mastering_params_op.u4_size =
+                                sizeof(ihevcd_cxa_ctl_get_sei_mastering_params_op_t);
+
+                ret = ivd_cxa_api_function((iv_obj_t *)codec_obj,
+                                     (void *)&s_ctl_get_sei_mastering_params_ip,
+                                     (void *)&s_ctl_get_sei_mastering_params_op);
+                if(IV_SUCCESS != ret)
+                {
+                    sprintf(ac_error_str, "Error in Get SEI mastering params");
+                    //codec_exit(ac_error_str);
+                }
+
+            }
 
 
             if((1 == s_app_ctx.display) &&

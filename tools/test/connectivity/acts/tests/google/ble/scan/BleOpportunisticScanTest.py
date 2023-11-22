@@ -30,7 +30,6 @@ from acts.test_utils.bt.bt_test_utils import batch_scan_result
 from acts.test_utils.bt.bt_test_utils import cleanup_scanners_and_advertisers
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
-from acts.test_utils.bt.bt_test_utils import get_advanced_droid_list
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.bt_test_utils import scan_result
 
@@ -46,12 +45,8 @@ class BleOpportunisticScanTest(BluetoothBaseTest):
 
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
-        self.droid_list = get_advanced_droid_list(self.android_devices)
         self.scn_ad = self.android_devices[0]
         self.adv_ad = self.android_devices[1]
-        if self.droid_list[1]['max_advertisements'] == 0:
-            self.tests = ()
-            return
         self.tests = (
             "test_scan_result_no_advertisement",
             "test_scan_result_no_advertisement",
@@ -62,11 +57,9 @@ class BleOpportunisticScanTest(BluetoothBaseTest):
             "test_discover_opportunistic_scan_result_off_secondary_scan_filter",
             "test_negative_opportunistic_scan_filter_result_off_secondary_scan_result",
             "test_opportunistic_scan_filter_result_off_secondary_scan_result",
+            "test_batch_scan_result",
+            "test_max_opportunistic_batch_scan_instances",
         )
-        if self.droid_list[0]['batch_scan_supported']:
-            self.tests = self.tests + (
-                "test_batch_scan_result",
-                "test_max_opportunistic_batch_scan_instances", )
 
     def teardown_test(self):
         cleanup_scanners_and_advertisers(

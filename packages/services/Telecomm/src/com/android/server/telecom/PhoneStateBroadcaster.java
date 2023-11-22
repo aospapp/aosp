@@ -43,6 +43,9 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
 
     @Override
     public void onCallStateChanged(Call call, int oldState, int newState) {
+        if (call.isExternalCall()) {
+            return;
+        }
         updateStates(call);
     }
 
@@ -83,8 +86,8 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
         int callState = TelephonyManager.CALL_STATE_IDLE;
         if (mCallsManager.hasRingingCall()) {
             callState = TelephonyManager.CALL_STATE_RINGING;
-        } else if (mCallsManager.getFirstCallWithState(CallState.DIALING, CallState.ACTIVE,
-                    CallState.ON_HOLD) != null) {
+        } else if (mCallsManager.getFirstCallWithState(CallState.DIALING, CallState.PULLING,
+                CallState.ACTIVE, CallState.ON_HOLD) != null) {
             callState = TelephonyManager.CALL_STATE_OFFHOOK;
         }
         sendPhoneStateChangedBroadcast(call, callState);

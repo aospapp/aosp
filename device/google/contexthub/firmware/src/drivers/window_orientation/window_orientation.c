@@ -30,6 +30,26 @@
 #include <sensors.h>
 #include <limits.h>
 
+#define WINDOW_ORIENTATION_APP_VERSION  2
+
+#define LOG_TAG "[WO]"
+
+#define LOGW(fmt, ...) do { \
+        osLog(LOG_WARN, LOG_TAG " " fmt,  ##__VA_ARGS__);  \
+    } while (0);
+
+#define LOGI(fmt, ...) do { \
+        osLog(LOG_INFO, LOG_TAG " " fmt,  ##__VA_ARGS__);  \
+    } while (0);
+
+#define LOGD(fmt, ...) do { \
+        if (DBG_ENABLE) {  \
+            osLog(LOG_DEBUG, LOG_TAG " " fmt,  ##__VA_ARGS__);  \
+        } \
+    } while (0);
+
+#define DBG_ENABLE  0
+
 #define ACCEL_MIN_RATE_HZ                  SENSOR_HZ(15) // 15 HZ
 #define ACCEL_MAX_LATENCY_NS               40000000ull   // 40 ms in nsec
 
@@ -38,7 +58,11 @@
 
 #define NS2US(x) (x >> 10)   // convert nsec to approx usec
 
-#define PROPOSAL_SETTLE_TIME                            NS2US(40000000ull)       // 40 ms
+#define PROPOSAL_MIN_SETTLE_TIME                        NS2US(40000000ull)       // 40 ms
+#define PROPOSAL_MAX_SETTLE_TIME                        NS2US(400000000ull)      // 400 ms
+#define PROPOSAL_TILT_ANGLE_KNEE                        20                       // 20 deg
+#define PROPOSAL_SETTLE_TIME_SLOPE                      NS2US(12000000ull)       // 12 ms/deg
+
 #define PROPOSAL_MIN_TIME_SINCE_FLAT_ENDED              NS2US(500000000ull)      // 500 ms
 #define PROPOSAL_MIN_TIME_SINCE_SWING_ENDED             NS2US(300000000ull)      // 300 ms
 #define PROPOSAL_MIN_TIME_SINCE_ACCELERATION_ENDED      NS2US(500000000ull)      // 500 ms
@@ -64,11 +88,16 @@
 
 #define ADJACENT_ORIENTATION_ANGLE_GAP  45
 
-#define TILT_HISTORY_SIZE               200
+// TILT_HISTORY_SIZE has to be greater than the time constant
+// max(FLAT_TIME, SWING_TIME) multiplied by the highest accel sample rate after
+// interpolation (1.0 / MIN_ACCEL_INTERVAL).
+#define TILT_HISTORY_SIZE               64
 #define TILT_REFERENCE_PERIOD           NS2US(1800000000000ull)  // 30 min
 #define TILT_REFERENCE_BACKOFF          NS2US(300000000000ull)   // 5 min
 
-#define MIN_ACCEL_INTERVAL              NS2US(33333333ull)       // 33.3 ms for 30 Hz
+// Allow up to 2.5x of the desired rate (ACCEL_MIN_RATE_HZ)
+// The concerns are complexity and (not so much) the size of tilt_history.
+#define MIN_ACCEL_INTERVAL              NS2US(26666667ull)       // 26.7 ms for 37.5 Hz
 
 #define EVT_SENSOR_ACC_DATA_RDY sensorGetMyEventType(SENS_TYPE_ACCEL)
 #define EVT_SENSOR_WIN_ORIENTATION_DATA_RDY sensorGetMyEventType(SENS_TYPE_WIN_ORIENTATION)
@@ -134,6 +163,9 @@ static bool isOrientationAngleAcceptable(int current_rotation, int rotation,
     // changes to avoid flapping.
     int lower_bound, upper_bound;
 
+    LOGD("current %d, new %d, orientation %d",
+         (int)current_rotation, (int)rotation, (int)orientation_angle);
+
     if (current_rotation >= 0) {
         // If the specified rotation is the same or is counter-clockwise
         // adjacent to the current rotation, then we set a lower bound on the
@@ -179,28 +211,49 @@ static bool isOrientationAngleAcceptable(int current_rotation, int rotation,
     return true;
 }
 
-static bool isPredictedRotationAcceptable(uint64_t now)
+static bool isPredictedRotationAcceptable(uint64_t now, int8_t tilt_angle)
 {
+    // piecewise linear settle_time qualification:
+    // settle_time_needed =
+    // 1) PROPOSAL_MIN_SETTLE_TIME, for |tilt_angle| < PROPOSAL_TILT_ANGLE_KNEE.
+    // 2) linearly increasing with |tilt_angle| at slope PROPOSAL_SETTLE_TIME_SLOPE
+    // until it reaches PROPOSAL_MAX_SETTLE_TIME.
+    int abs_tilt = (tilt_angle >= 0) ? tilt_angle : -tilt_angle;
+    uint64_t settle_time_needed = PROPOSAL_MIN_SETTLE_TIME;
+    if (abs_tilt > PROPOSAL_TILT_ANGLE_KNEE) {
+        settle_time_needed += PROPOSAL_SETTLE_TIME_SLOPE
+            * (abs_tilt - PROPOSAL_TILT_ANGLE_KNEE);
+    }
+    if (settle_time_needed > PROPOSAL_MAX_SETTLE_TIME) {
+        settle_time_needed = PROPOSAL_MAX_SETTLE_TIME;
+    }
+    LOGD("settle_time_needed ~%llu (msec), settle_time ~%llu (msec)",
+         settle_time_needed >> 10, (now - mTask.predicted_rotation_time) >> 10);
+
     // The predicted rotation must have settled long enough.
-    if (now < mTask.predicted_rotation_time + PROPOSAL_SETTLE_TIME) {
+    if (now < mTask.predicted_rotation_time + settle_time_needed) {
+        LOGD("...rejected by settle_time");
         return false;
     }
 
     // The last flat state (time since picked up) must have been sufficiently
     // long ago.
     if (now < mTask.flat_time + PROPOSAL_MIN_TIME_SINCE_FLAT_ENDED) {
+        LOGD("...rejected by flat_time");
         return false;
     }
 
     // The last swing state (time since last movement to put down) must have
     // been sufficiently long ago.
     if (now < mTask.swinging_time + PROPOSAL_MIN_TIME_SINCE_SWING_ENDED) {
+        LOGD("...rejected by swing_time");
         return false;
     }
 
     // The last acceleration state must have been sufficiently long ago.
     if (now < mTask.accelerating_time
             + PROPOSAL_MIN_TIME_SINCE_ACCELERATION_ENDED) {
+        LOGD("...rejected by acceleration_time");
         return false;
     }
 
@@ -268,7 +321,7 @@ static void addTiltHistoryEntry(uint64_t now, int8_t tilt)
     } else if (mTask.tilt_reference_time + TILT_REFERENCE_PERIOD < now) {
         // uint32_t tilt_history_time[] is good up to 71 min (2^32 * 1e-6 sec).
         // proactively shift reference_time every 30 min,
-        // all history entries are within 5 min interval (15Hz x 200 samples)
+        // all history entries are within 4.3sec interval (15Hz x 64 samples)
 
         old_reference_time = mTask.tilt_reference_time;
         mTask.tilt_reference_time = now - TILT_REFERENCE_BACKOFF;
@@ -320,6 +373,8 @@ static bool isSwinging(uint64_t now, int8_t tilt)
         }
         if (mTask.tilt_history[i] + SWING_AWAY_ANGLE_DELTA <= tilt) {
             // Tilted away by SWING_AWAY_ANGLE_DELTA within SWING_TIME.
+            // This is one-sided protection. No latency will be added when
+            // picking up the device and rotating.
             return true;
         }
     }
@@ -370,7 +425,8 @@ static bool add_samples(struct TripleAxisDataEvent *ev)
             skip_sample = false;
         }
 
-        // drop samples when input sampling rate is 2x higher than requested
+        // poor man's interpolator for reduced complexity:
+        // drop samples when input sampling rate is 2.5x higher than requested
         if (!skip_sample && (time_delta < MIN_ACCEL_INTERVAL)) {
             skip_sample = true;
         } else {
@@ -389,6 +445,7 @@ static bool add_samples(struct TripleAxisDataEvent *ev)
             magnitude = sqrtf(x * x + y * y + z * z);
 
             if (magnitude < NEAR_ZERO_MAGNITUDE) {
+                LOGD("Ignoring sensor data, magnitude too close to zero.");
                 clearPredictedRotation();
             } else {
                 // Determine whether the device appears to be undergoing
@@ -429,8 +486,10 @@ static bool add_samples(struct TripleAxisDataEvent *ev)
                 }
 
                 if (mTask.overhead) {
+                    LOGD("Ignoring sensor data, device is overhead: %d", (int)tilt_angle);
                     clearPredictedRotation();
                 } else if (fabsf(tilt_angle) > MAX_TILT) {
+                    LOGD("Ignoring sensor data, tilt angle too high: %d", (int)tilt_angle);
                     clearPredictedRotation();
                 } else {
                     // Calculate the orientation angle.
@@ -453,36 +512,41 @@ static bool add_samples(struct TripleAxisDataEvent *ev)
                         && isOrientationAngleAcceptable(mTask.current_rotation,
                                                            nearest_rotation,
                                                            orientation_angle)) {
+                        LOGD("Predicted: tilt %d, orientation %d, predicted %d",
+                             (int)tilt_angle, (int)orientation_angle, (int)mTask.predicted_rotation);
                         updatePredictedRotation(now, nearest_rotation);
                     } else {
+                        LOGD("Ignoring sensor data, no predicted rotation: "
+                             "tilt %d, orientation %d",
+                             (int)tilt_angle, (int)orientation_angle);
                         clearPredictedRotation();
                     }
                 }
             }
-        }
 
-        mTask.flat = flat;
-        mTask.swinging = swinging;
-        mTask.accelerating = accelerating;
+            mTask.flat = flat;
+            mTask.swinging = swinging;
+            mTask.accelerating = accelerating;
 
-        // Determine new proposed rotation.
-        old_proposed_rotation = mTask.proposed_rotation;
-        if ((mTask.predicted_rotation < 0)
-                || isPredictedRotationAcceptable(now)) {
+            // Determine new proposed rotation.
+            old_proposed_rotation = mTask.proposed_rotation;
+            if ((mTask.predicted_rotation < 0)
+                    || isPredictedRotationAcceptable(now, tilt_angle)) {
 
-            mTask.proposed_rotation = mTask.predicted_rotation;
-        }
-        proposed_rotation = mTask.proposed_rotation;
+                mTask.proposed_rotation = mTask.predicted_rotation;
+            }
+            proposed_rotation = mTask.proposed_rotation;
 
-        if ((proposed_rotation != old_proposed_rotation)
-                && (proposed_rotation >= 0)) {
-            mTask.current_rotation = proposed_rotation;
+            if ((proposed_rotation != old_proposed_rotation)
+                    && (proposed_rotation >= 0)) {
+                mTask.current_rotation = proposed_rotation;
 
-            change_detected = (proposed_rotation != mTask.prev_valid_rotation);
-            mTask.prev_valid_rotation = proposed_rotation;
+                change_detected = (proposed_rotation != mTask.prev_valid_rotation);
+                mTask.prev_valid_rotation = proposed_rotation;
 
-            if (change_detected) {
-                return true;
+                if (change_detected) {
+                    return true;
+                }
             }
         }
     }
@@ -554,11 +618,14 @@ static void windowOrientationHandleEvent(uint32_t evtType, const void* evtData)
         rotation_changed = add_samples(ev);
 
         if (rotation_changed) {
-            //osLog(LOG_INFO, "WO:     ********** rotation changed to ********: %d\n", (int)mTask.proposed_rotation);
+            LOGI("rotation changed to: ******* %d *******\n",
+                 (int)mTask.proposed_rotation);
 
             // send a single int32 here so no memory alloc/free needed.
             sample.idata = mTask.proposed_rotation;
-            osEnqueueEvt(EVT_SENSOR_WIN_ORIENTATION_DATA_RDY, sample.vptr, NULL);
+            if (!osEnqueueEvt(EVT_SENSOR_WIN_ORIENTATION_DATA_RDY, sample.vptr, NULL)) {
+                LOGW("osEnqueueEvt failure");
+            }
         }
         break;
     }
@@ -574,8 +641,6 @@ static const struct SensorOps mSops =
 
 static bool window_orientation_start(uint32_t tid)
 {
-    osLog(LOG_INFO, "        WINDOW ORIENTATION:  %ld\n", tid);
-
     mTask.tid = tid;
 
     mTask.current_rotation = -1;
@@ -593,8 +658,7 @@ static void windowOrientationEnd()
 
 INTERNAL_APP_INIT(
         APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 3),
-        0,
+        WINDOW_ORIENTATION_APP_VERSION,
         window_orientation_start,
         windowOrientationEnd,
         windowOrientationHandleEvent);
-

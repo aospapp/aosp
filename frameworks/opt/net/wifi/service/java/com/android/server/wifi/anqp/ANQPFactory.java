@@ -194,83 +194,99 @@ public class ANQPFactory {
 
     public static ANQPElement buildElement(ByteBuffer payload, Constants.ANQPElementType infoID,
                                             int length) throws ProtocolException {
-        ByteBuffer elementPayload = payload.duplicate().order(ByteOrder.LITTLE_ENDIAN);
-        payload.position(payload.position() + length);
-        elementPayload.limit(elementPayload.position() + length);
+        try {
+            ByteBuffer elementPayload = payload.duplicate().order(ByteOrder.LITTLE_ENDIAN);
+            payload.position(payload.position() + length);
+            elementPayload.limit(elementPayload.position() + length);
 
-        switch (infoID) {
-            case ANQPCapabilityList:
-                return new CapabilityListElement(infoID, elementPayload);
-            case ANQPVenueName:
-                return new VenueNameElement(infoID, elementPayload);
-            case ANQPEmergencyNumber:
-                return new EmergencyNumberElement(infoID, elementPayload);
-            case ANQPNwkAuthType:
-                return new NetworkAuthenticationTypeElement(infoID, elementPayload);
-            case ANQPRoamingConsortium:
-                return new RoamingConsortiumElement(infoID, elementPayload);
-            case ANQPIPAddrAvailability:
-                return new IPAddressTypeAvailabilityElement(infoID, elementPayload);
-            case ANQPNAIRealm:
-                return new NAIRealmElement(infoID, elementPayload);
-            case ANQP3GPPNetwork:
-                return new ThreeGPPNetworkElement(infoID, elementPayload);
-            case ANQPGeoLoc:
-                return new GEOLocationElement(infoID, elementPayload);
-            case ANQPCivicLoc:
-                return new CivicLocationElement(infoID, elementPayload);
-            case ANQPLocURI:
-                return new GenericStringElement(infoID, elementPayload);
-            case ANQPDomName:
-                return new DomainNameElement(infoID, elementPayload);
-            case ANQPEmergencyAlert:
-                return new GenericStringElement(infoID, elementPayload);
-            case ANQPTDLSCap:
-                return new GenericBlobElement(infoID, elementPayload);
-            case ANQPEmergencyNAI:
-                return new GenericStringElement(infoID, elementPayload);
-            case ANQPNeighborReport:
-                return new GenericBlobElement(infoID, elementPayload);
-            case ANQPVendorSpec:
-                if (elementPayload.remaining() > 5) {
-                    int oi = elementPayload.getInt();
-                    if (oi != Constants.HS20_PREFIX) {
-                        return null;
-                    }
-                    int subType = elementPayload.get() & Constants.BYTE_MASK;
-                    Constants.ANQPElementType hs20ID = Constants.mapHS20Element(subType);
-                    if (hs20ID == null) {
-                        throw new ProtocolException("Bad HS20 info ID: " + subType);
-                    }
-                    elementPayload.get();   // Skip the reserved octet
-                    return buildHS20Element(hs20ID, elementPayload);
-                } else {
+            switch (infoID) {
+                case ANQPCapabilityList:
+                    return new CapabilityListElement(infoID, elementPayload);
+                case ANQPVenueName:
+                    return new VenueNameElement(infoID, elementPayload);
+                case ANQPEmergencyNumber:
+                    return new EmergencyNumberElement(infoID, elementPayload);
+                case ANQPNwkAuthType:
+                    return new NetworkAuthenticationTypeElement(infoID, elementPayload);
+                case ANQPRoamingConsortium:
+                    return new RoamingConsortiumElement(infoID, elementPayload);
+                case ANQPIPAddrAvailability:
+                    return new IPAddressTypeAvailabilityElement(infoID, elementPayload);
+                case ANQPNAIRealm:
+                    return new NAIRealmElement(infoID, elementPayload);
+                case ANQP3GPPNetwork:
+                    return new ThreeGPPNetworkElement(infoID, elementPayload);
+                case ANQPGeoLoc:
+                    return new GEOLocationElement(infoID, elementPayload);
+                case ANQPCivicLoc:
+                    return new CivicLocationElement(infoID, elementPayload);
+                case ANQPLocURI:
+                    return new GenericStringElement(infoID, elementPayload);
+                case ANQPDomName:
+                    return new DomainNameElement(infoID, elementPayload);
+                case ANQPEmergencyAlert:
+                    return new GenericStringElement(infoID, elementPayload);
+                case ANQPTDLSCap:
                     return new GenericBlobElement(infoID, elementPayload);
-                }
-            default:
-                throw new ProtocolException("Unknown element ID: " + infoID);
+                case ANQPEmergencyNAI:
+                    return new GenericStringElement(infoID, elementPayload);
+                case ANQPNeighborReport:
+                    return new GenericBlobElement(infoID, elementPayload);
+                case ANQPVendorSpec:
+                    if (elementPayload.remaining() > 5) {
+                        int oi = elementPayload.getInt();
+                        if (oi != Constants.HS20_PREFIX) {
+                            return null;
+                        }
+                        int subType = elementPayload.get() & Constants.BYTE_MASK;
+                        Constants.ANQPElementType hs20ID = Constants.mapHS20Element(subType);
+                        if (hs20ID == null) {
+                            throw new ProtocolException("Bad HS20 info ID: " + subType);
+                        }
+                        elementPayload.get();   // Skip the reserved octet
+                        return buildHS20Element(hs20ID, elementPayload);
+                    } else {
+                        return new GenericBlobElement(infoID, elementPayload);
+                    }
+                default:
+                    throw new ProtocolException("Unknown element ID: " + infoID);
+            }
+        } catch (ProtocolException e) {
+            throw e;
+        } catch (Exception e) {
+            // TODO: remove this catch-all for exceptions, once the element parsing code
+            // has been thoroughly unit tested. b/30562650
+            throw new ProtocolException("Unknown parsing error", e);
         }
     }
 
     public static ANQPElement buildHS20Element(Constants.ANQPElementType infoID,
                                                 ByteBuffer payload) throws ProtocolException {
-        switch (infoID) {
-            case HSCapabilityList:
-                return new HSCapabilityListElement(infoID, payload);
-            case HSFriendlyName:
-                return new HSFriendlyNameElement(infoID, payload);
-            case HSWANMetrics:
-                return new HSWanMetricsElement(infoID, payload);
-            case HSConnCapability:
-                return new HSConnectionCapabilityElement(infoID, payload);
-            case HSOperatingclass:
-                return new GenericBlobElement(infoID, payload);
-            case HSOSUProviders:
-                return new RawByteElement(infoID, payload);
-            case HSIconFile:
-                return new HSIconFileElement(infoID, payload);
-            default:
-                return null;
+        try {
+            switch (infoID) {
+                case HSCapabilityList:
+                    return new HSCapabilityListElement(infoID, payload);
+                case HSFriendlyName:
+                    return new HSFriendlyNameElement(infoID, payload);
+                case HSWANMetrics:
+                    return new HSWanMetricsElement(infoID, payload);
+                case HSConnCapability:
+                    return new HSConnectionCapabilityElement(infoID, payload);
+                case HSOperatingclass:
+                    return new GenericBlobElement(infoID, payload);
+                case HSOSUProviders:
+                    return new RawByteElement(infoID, payload);
+                case HSIconFile:
+                    return new HSIconFileElement(infoID, payload);
+                default:
+                    return null;
+            }
+        } catch (ProtocolException e) {
+            throw e;
+        } catch (Exception e) {
+            // TODO: remove this catch-all for exceptions, once the element parsing code
+            // has been thoroughly unit tested. b/30562650
+            throw new ProtocolException("Unknown parsing error", e);
         }
     }
 }

@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Numéro de messagerie vocale manquant"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Aucun numéro de messagerie vocale n\'est enregistré sur la carte SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Ajouter un numéro"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Modifier l\'application de clavier par défaut ?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Utiliser <xliff:g id="NEW_APP">%1$s</xliff:g> et non plus <xliff:g id="CURRENT_APP">%2$s</xliff:g> comme application de clavier par défaut ?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Utiliser <xliff:g id="NEW_APP">%s</xliff:g> comme application de clavier par défaut ?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Définir <xliff:g id="NEW_APP">%s</xliff:g> comme application de téléphone par défaut ?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Définir l\'application par défaut"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Annuler"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> sera en mesure de passer des appels et d\'en contrôler tous les détails. Ne définissez qu\'une application de confiance comme application de téléphone par défaut."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Numéros bloqués"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Vous ne recevrez plus les appels ni les SMS émis depuis les numéros bloqués."</string>
     <string name="block_number" msgid="1101252256321306179">"Ajouter un numéro"</string>

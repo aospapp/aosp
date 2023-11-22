@@ -21,11 +21,18 @@ import android.content.DialogInterface;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.telecom.DefaultDialerManager;
 import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.util.Log;
 
 import com.android.internal.app.AlertActivity;
@@ -57,7 +64,7 @@ public class ChangeDefaultDialerDialog extends AlertActivity implements
         }
 
         // Show dialog to require user confirmation.
-         buildDialog(oldPackage, mNewPackage);
+         buildDialog(mNewPackage);
     }
 
     @Override
@@ -81,36 +88,26 @@ public class ChangeDefaultDialerDialog extends AlertActivity implements
         }
 
         if (!DefaultDialerManager.getInstalledDialerApplications(this).contains(newPackage)) {
-            Log.w(TAG, "Provided package name does not correspond to an installed Dialer "
+            Log.w(TAG, "Provided package name does not correspond to an installed Phone "
                     + "application.");
             return false;
         }
 
         if (!TextUtils.isEmpty(oldPackage) && TextUtils.equals(oldPackage, newPackage)) {
-            Log.w(TAG, "Provided package name is already the current default Dialer application.");
+            Log.w(TAG, "Provided package name is already the current default Phone application.");
             return false;
         }
         return true;
     }
 
-    private boolean buildDialog(String oldPackage, String newPackage) {
+    private boolean buildDialog(String newPackage) {
         final PackageManager pm = getPackageManager();
-        final String newPackageLabel =
-                getApplicationLabelForPackageName(pm, newPackage);
+        final String newPackageLabel = getApplicationLabelForPackageName(pm, newPackage);
         final AlertController.AlertParams p = mAlertParams;
-        p.mTitle = getString(R.string.change_default_dialer_dialog_title);
-        if (!TextUtils.isEmpty(oldPackage)) {
-            String oldPackageLabel =
-                    getApplicationLabelForPackageName(pm, oldPackage);
-            p.mMessage = getString(R.string.change_default_dialer_with_previous_app_set_text,
-                    newPackageLabel,
-                    oldPackageLabel);
-        } else {
-            p.mMessage = getString(R.string.change_default_dialer_no_previous_app_set_text,
-                    newPackageLabel);
-        }
-        p.mPositiveButtonText = getString(android.R.string.yes);
-        p.mNegativeButtonText = getString(android.R.string.no);
+        p.mTitle = getString(R.string.change_default_dialer_dialog_title, newPackageLabel);
+        p.mMessage = getString(R.string.change_default_dialer_warning_message, newPackageLabel);
+        p.mPositiveButtonText = getString(R.string.change_default_dialer_dialog_affirmative);
+        p.mNegativeButtonText = getString(R.string.change_default_dialer_dialog_negative);
         p.mPositiveButtonListener = this;
         p.mNegativeButtonListener = this;
         setupAlert();

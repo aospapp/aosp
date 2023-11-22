@@ -65,7 +65,6 @@ from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
 from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
 from acts.test_utils.tel.tel_voice_utils import set_audio_route
 from acts.test_utils.tel.tel_voice_utils import get_cep_conference_call_id
-from acts.utils import load_config
 
 
 class TelLiveVideoTest(TelephonyBaseTest):
@@ -118,7 +117,6 @@ class TelLiveVideoTest(TelephonyBaseTest):
             # Disable Data, VT not available
             "test_disable_data_vt_unavailable", )
 
-        self.simconf = load_config(self.user_params["sim_conf_file"])
         self.stress_test_number = int(self.user_params["stress_test_number"])
         self.wifi_network_ssid = self.user_params["wifi_network_ssid"]
 

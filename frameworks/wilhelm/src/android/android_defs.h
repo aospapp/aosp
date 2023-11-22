@@ -207,4 +207,17 @@ union DataLocator2 {
     FdInfo fdi;
 };
 
+
+#define ANDROID_PERFORMANCE_MODE_NONE            ((SLuint32) 0x1 << 0)
+#define ANDROID_PERFORMANCE_MODE_LATENCY         ((SLuint32) 0x1 << 1)
+#define ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS ((SLuint32) 0x1 << 2)
+#define ANDROID_PERFORMANCE_MODE_POWER_SAVING    ((SLuint32) 0x1 << 3)
+
+#define ANDROID_PERFORMANCE_MODE_DEFAULT ANDROID_PERFORMANCE_MODE_LATENCY
+#define ANDROID_PERFORMANCE_MODE_ALL (ANDROID_PERFORMANCE_MODE_LATENCY | \
+                                      ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS | \
+                                      ANDROID_PERFORMANCE_MODE_NONE | \
+                                      ANDROID_PERFORMANCE_MODE_POWER_SAVING)
+
+
 } // namespace android

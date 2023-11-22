@@ -137,6 +137,17 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
                 result);
     }
 
+    protected void forceStopPackageForUser(String packageName, int userId) throws Exception {
+        // TODO Move this logic to ITestDevice
+        executeShellCommand("am force-stop --user " + userId + " " + packageName);
+    }
+
+    private void executeShellCommand(final String command) throws Exception {
+        CLog.d("Starting command " + command);
+        String commandOutput = getDevice().executeShellCommand(command);
+        CLog.d("Output for command " + command + ": " + commandOutput);
+    }
+
     /** Initializes the user with the given id. This is required so that apps can run on it. */
     protected void startUser(int userId) throws Exception {
         getDevice().startUser(userId);
@@ -144,10 +155,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
 
     protected void switchUser(int userId) throws Exception {
         // TODO Move this logic to ITestDevice
-        String command = "am switch-user " + userId;
-        CLog.d("Starting command " + command);
-        String commandOutput = getDevice().executeShellCommand(command);
-        CLog.d("Output for command " + command + ": " + commandOutput);
+        executeShellCommand("am switch-user " + userId);
     }
 
     protected int getMaxNumberOfUsersSupported() throws DeviceNotAvailableException {

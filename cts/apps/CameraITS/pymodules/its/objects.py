@@ -71,7 +71,7 @@ def rational_to_float(r):
         return float(r["numerator"]) / float(r["denominator"])
 
 def manual_capture_request(
-        sensitivity, exp_time, linear_tonemap=False, props=None):
+        sensitivity, exp_time, f_distance = 0.0, linear_tonemap=False, props=None):
     """Return a capture request with everything set to manual.
 
     Uses identity/unit color correction, and the default tonemap curve.
@@ -81,6 +81,7 @@ def manual_capture_request(
         sensitivity: The sensitivity value to populate the request with.
         exp_time: The exposure time, in nanoseconds, to populate the request
             with.
+        f_distance: The focus distance to populate the request with.
         linear_tonemap: [Optional] whether a linear tonemap should be used
             in this request.
         props: [Optional] the object returned from
@@ -105,6 +106,7 @@ def manual_capture_request(
         "android.colorCorrection.transform":
                 int_to_rational([1,0,0, 0,1,0, 0,0,1]),
         "android.colorCorrection.gains": [1,1,1,1],
+        "android.lens.focusDistance" : f_distance,
         "android.tonemap.mode": 1,
         "android.shading.mode": 1
         }

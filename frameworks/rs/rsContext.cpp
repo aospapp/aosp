@@ -45,7 +45,7 @@
 #include "rsCompatibilityLib.h"
 #endif
 
-int gDebuggerPresent = 0;
+int *gInternalDebuggerPresent = nullptr;
 
 #ifdef RS_SERVER
 // Android exposes gettid(), standard Linux does not
@@ -484,7 +484,9 @@ void Context::setCacheDir(const char * cacheDir_arg, uint32_t length) {
 }
 
 void Context::waitForDebugger() {
-    while (!gDebuggerPresent) {
+    // Wait until this symbol has been properly set up, and the flag itself is
+    // set to a non-zero value.
+    while (!gInternalDebuggerPresent || !*gInternalDebuggerPresent) {
         sleep(0);
     }
 }

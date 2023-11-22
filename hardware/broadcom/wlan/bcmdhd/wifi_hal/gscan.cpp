@@ -937,7 +937,7 @@ public:
                             ALOGW("Stored %d scans, ignoring excess results", mRetrieved);
                             break;
                         }
-                        num = min(num, (int)(it2.get_len()/sizeof(wifi_scan_result)));
+                        num = min(num, (int)(it2.get_len()/sizeof(wifi_gscan_result)));
                         num = min(num, (int)MAX_AP_CACHE_PER_SCAN);
                         ALOGV("Copying %d scan results", num);
                         wifi_gscan_result_t *results = (wifi_gscan_result_t *)it2.get_data();

@@ -42,7 +42,9 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2 \
 
 LOCAL_PACKAGE_NAME := CtsVerifier
 
-LOCAL_JNI_SHARED_LIBRARIES := libctsverifier_jni libaudioloopback_jni
+LOCAL_JNI_SHARED_LIBRARIES := libctsverifier_jni \
+		libaudioloopback_jni \
+		libnativehelper_compat_libc++
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 

@@ -18,7 +18,10 @@ package android.uirendering.cts.testinfrastructure;
 import android.graphics.Canvas;
 
 /**
- * A class that the tester will implement and create a set of drawing calls the tests would use
+ * An interface for specifying canvas commands.
+ *
+ * Implementations of the interface are not required to save/restore canvas state -
+ * callers of draw() will handle saving/restoring as necessary.
  */
 public interface CanvasClient {
     void draw(Canvas canvas, int width, int height);

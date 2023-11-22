@@ -44,6 +44,11 @@ compilation and a Jack compilation server.
 Using a separate package such as ProGuard is no longer necessary.
 </ul>
 
+<p class="note">Note that beginning in Android 7.0 (N), Jack supports code coverage with JaCoCo.
+See <a href="https://android.googlesource.com/platform/prebuilts/sdk/+/master/tools/README-jack-code-coverage.md">
+Code Coverage with JaCoCo</a> and <a href="https://developer.android.com/preview/j8-jack.html">
+Java 8 Language Features</a> for details.</p>
+
 <img src="{@docRoot}images/jack-overview.png" height="75%" width="75%" alt="Jack overview" />
 <p class="img-caption"><strong>Figure 1. </strong>Jack (Java Android Compiler Kit)</p>
 
@@ -65,9 +70,13 @@ format, as shown below.</p>
 
 <h2 id=using_jack_in_your_android_build>Using Jack in your Android build</h2>
 
-<p>You don’t have to do anything differently to use Jack — just use your standard
-makefile commands to compile the tree or your project.  Jack is the default
-Android build toolchain for M.</p>
+<div class="note">For instructions on using Jack in Android 7.0 (N) and later, see the <a
+href="https://android.googlesource.com/platform/prebuilts/sdk/+/master/tools/README-jack-server.md">Jack
+server documentation</a>. For Android 6.0 (M), use the instructions in this section.</div>
+
+<p>You don’t have to do anything differently to use Jack — just use your
+standard makefile commands to compile the tree or your project.  Jack is the
+default Android build toolchain for M.</p>
 
 <p>The first time Jack is used, it launches a local Jack compilation server on
 your computer:</p>

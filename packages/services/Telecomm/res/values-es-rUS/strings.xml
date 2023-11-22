@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Falta el número de correo de voz"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"No hay un número de correo de voz almacenado en la tarjeta SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Agregar número"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"¿Quieres cambiar la aplicación Marcador predeterminada?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"¿Quieres usar <xliff:g id="NEW_APP">%1$s</xliff:g> en lugar de <xliff:g id="CURRENT_APP">%2$s</xliff:g> como la aplicación de marcado predeterminada?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"¿Quieres usar <xliff:g id="NEW_APP">%s</xliff:g> como la aplicación de marcado predeterminada?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"¿Establecer <xliff:g id="NEW_APP">%s</xliff:g> como la app de teléfono predeterminada?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Establecer como predeterminada"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Cancelar"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> podrá realizar llamadas y controlar todos los aspectos relacionados con ellas. Establece solamente una app de confianza como la app de teléfono predeterminada."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Números bloqueados"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"No recibirás llamadas ni mensajes de texto de los números bloqueados."</string>
     <string name="block_number" msgid="1101252256321306179">"Agregar un número"</string>

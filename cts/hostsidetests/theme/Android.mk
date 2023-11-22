@@ -18,7 +18,7 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_RESOURCE_DIRS := assets/$(PLATFORM_SDK_VERSION)/
+LOCAL_JAVA_RESOURCE_DIRS := assets/
 
 LOCAL_MODULE_TAGS := optional
 

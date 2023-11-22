@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"गुम वॉयस मेल नंबर"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"सिम कार्ड पर कोई वॉयस मेल नंबर संग्रहीत नहीं है."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"नंबर जोड़ें"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"डिफ़ॉल्‍ट डायलर ऐप को बदलें?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"अपने डिफ़ॉल्‍ट डायलर ऐप के रूप में <xliff:g id="CURRENT_APP">%2$s</xliff:g> के बजाय <xliff:g id="NEW_APP">%1$s</xliff:g> का उपयोग करें?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"अपने डिफ़ॉल्‍ट डायलर ऐप के रूप में <xliff:g id="NEW_APP">%s</xliff:g> का उपयोग करें?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g> को अपना डिफ़ॉल्ट ऐप्लिकेशन बनाएं?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"डिफ़ॉल्ट सेट करें"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"अभी नहीं"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> कॉल करने और कॉल से संबंधित सभी पहलुओं को नियंत्रित कर पाएगा. केवल उन्हीं ऐप्लिकेशन को डिफ़ॉल्ट फ़ोन ऐप्लिकेशन के रूप में सेट करना चाहिए जिन पर आप विश्वास करते हैं."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"अवरोधित नंबर"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"आपको अवरुद्ध किए गए नंबर से कॉल या लेख संदेश प्राप्त नहीं होंगे."</string>
     <string name="block_number" msgid="1101252256321306179">"एक नंबर जोड़ें"</string>

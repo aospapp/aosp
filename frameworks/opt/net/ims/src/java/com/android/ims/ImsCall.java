@@ -31,6 +31,9 @@ import android.os.Message;
 import android.telecom.ConferenceParticipant;
 import android.telecom.Connection;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import android.telephony.ServiceState;
 import android.util.Log;
 
 import com.android.ims.internal.ICall;
@@ -535,6 +538,39 @@ public class ImsCall implements ICall {
     private boolean mIsConferenceHost = false;
 
     /**
+     * Tracks whether this {@link ImsCall} has been a video call at any point in its lifetime.
+     * Some examples of calls which are/were video calls:
+     * 1. A call which has been a video call for its duration.
+     * 2. An audio call upgraded to video (and potentially downgraded to audio later).
+     * 3. A call answered as video which was downgraded to audio.
+     */
+    private boolean mWasVideoCall = false;
+
+    /**
+     * Unique id generator used to generate call id.
+     */
+    private static final AtomicInteger sUniqueIdGenerator = new AtomicInteger();
+
+    /**
+     * Unique identifier.
+     */
+    public final int uniqueId;
+
+    /**
+     * The current ImsCallSessionListenerProxy.
+     */
+    private ImsCallSessionListenerProxy mImsCallSessionListenerProxy;
+
+    /**
+     * When calling {@link #terminate(int, int)}, an override for the termination reason which the
+     * modem returns.
+     *
+     * Necessary because passing in an unexpected {@link ImsReasonInfo} reason code to
+     * {@link #terminate(int)} will cause the modem to ignore the terminate request.
+     */
+    private int mOverrideReason = ImsReasonInfo.CODE_UNSPECIFIED;
+
+    /**
      * Create an IMS call object.
      *
      * @param context the context for accessing system services
@@ -542,7 +578,8 @@ public class ImsCall implements ICall {
      */
     public ImsCall(Context context, ImsCallProfile profile) {
         mContext = context;
-        mCallProfile = profile;
+        setCallProfile(profile);
+        uniqueId = sUniqueIdGenerator.getAndIncrement();
     }
 
     /**
@@ -611,6 +648,19 @@ public class ImsCall implements ICall {
     public ImsCallProfile getCallProfile() {
         synchronized(mLockObj) {
             return mCallProfile;
+        }
+    }
+
+    /**
+     * Replaces the current call profile with a new one, tracking whethere this was previously a
+     * video call or not.
+     *
+     * @param profile The new call profile.
+     */
+    private void setCallProfile(ImsCallProfile profile) {
+        synchronized(mLockObj) {
+            mCallProfile = profile;
+            trackVideoStateHistory(mCallProfile);
         }
     }
 
@@ -981,7 +1031,7 @@ public class ImsCall implements ICall {
      */
     public void start(ImsCallSession session, String callee)
             throws ImsException {
-        logi("start(1) :: session=" + session + ", callee=" + callee);
+        logi("start(1) :: session=" + session);
 
         synchronized(mLockObj) {
             mSession = session;
@@ -1006,7 +1056,7 @@ public class ImsCall implements ICall {
      */
     public void start(ImsCallSession session, String[] participants)
             throws ImsException {
-        logi("start(n) :: session=" + session + ", callee=" + participants);
+        logi("start(n) :: session=" + session);
 
         synchronized(mLockObj) {
             mSession = session;
@@ -1063,6 +1113,7 @@ public class ImsCall implements ICall {
                 }
 
                 mCallProfile = mProposedCallProfile;
+                trackVideoStateHistory(mCallProfile);
                 mProposedCallProfile = null;
             }
 
@@ -1101,6 +1152,12 @@ public class ImsCall implements ICall {
                 mUpdateRequest = UPDATE_NONE;
             }
         }
+    }
+
+    public void terminate(int reason, int overrideReason) throws ImsException {
+        logi("terminate :: reason=" + reason + " ; overrideReadon=" + overrideReason);
+        mOverrideReason = overrideReason;
+        terminate(reason);
     }
 
     /**
@@ -1496,7 +1553,16 @@ public class ImsCall implements ICall {
      * Creates an IMS call session listener.
      */
     private ImsCallSession.Listener createCallSessionListener() {
-        return new ImsCallSessionListenerProxy();
+        mImsCallSessionListenerProxy = new ImsCallSessionListenerProxy();
+        return mImsCallSessionListenerProxy;
+    }
+
+    /**
+     * @return the current ImsCallSessionListenerProxy.  NOTE: ONLY FOR USE WITH TESTING.
+     */
+    @VisibleForTesting
+    public ImsCallSessionListenerProxy getImsCallSessionListenerProxy() {
+        return mImsCallSessionListenerProxy;
     }
 
     private ImsCall createNewCall(ImsCallSession session, ImsCallProfile profile) {
@@ -1951,7 +2017,7 @@ public class ImsCall implements ICall {
     private void updateCallProfile() {
         synchronized (mLockObj) {
             if (mSession != null) {
-                mCallProfile = mSession.getCallProfile();
+                setCallProfile(mSession.getCallProfile());
             }
         }
     }
@@ -2052,7 +2118,8 @@ public class ImsCall implements ICall {
         return;
     }
 
-    private class ImsCallSessionListenerProxy extends ImsCallSession.Listener {
+    @VisibleForTesting
+    public class ImsCallSessionListenerProxy extends ImsCallSession.Listener {
         @Override
         public void callSessionProgressing(ImsCallSession session, ImsStreamMediaProfile profile) {
             logi("callSessionProgressing :: session=" + session + " profile=" + profile);
@@ -2103,7 +2170,7 @@ public class ImsCall implements ICall {
 
             synchronized(ImsCall.this) {
                 listener = mListener;
-                mCallProfile = profile;
+                setCallProfile(profile);
             }
 
             if (listener != null) {
@@ -2155,6 +2222,12 @@ public class ImsCall implements ICall {
                 return;
             }
 
+            if (mOverrideReason != ImsReasonInfo.CODE_UNSPECIFIED) {
+                logi("callSessionTerminated :: overrideReasonInfo=" + mOverrideReason);
+                reasonInfo = new ImsReasonInfo(mOverrideReason, reasonInfo.getExtraCode(),
+                        reasonInfo.getExtraMessage());
+            }
+
             // Process the termination first.  If we are in the midst of establishing a conference
             // call, we may bury this callback until we are done.  If there so no conference
             // call, the code after this function will be a NOOP.
@@ -2175,7 +2248,7 @@ public class ImsCall implements ICall {
                 // not be merged into the conference and was held instead.
                 setCallSessionMergePending(false);
 
-                mCallProfile = profile;
+                setCallProfile(profile);
 
                 if (mUpdateRequest == UPDATE_HOLD_MERGE) {
                     // This hold request was made to set the stage for a merge.
@@ -2250,7 +2323,7 @@ public class ImsCall implements ICall {
 
             synchronized(ImsCall.this) {
                 listener = mListener;
-                mCallProfile = profile;
+                setCallProfile(profile);
             }
 
             if (listener != null) {
@@ -2286,7 +2359,7 @@ public class ImsCall implements ICall {
             ImsCall.Listener listener;
             synchronized(ImsCall.this) {
                 listener = mListener;
-                mCallProfile = profile;
+                setCallProfile(profile);
                 mUpdateRequest = UPDATE_NONE;
                 mHold = false;
             }
@@ -2344,7 +2417,7 @@ public class ImsCall implements ICall {
 
             synchronized(ImsCall.this) {
                 listener = mListener;
-                mCallProfile = profile;
+                setCallProfile(profile);
             }
 
             if (listener != null) {
@@ -2452,7 +2525,7 @@ public class ImsCall implements ICall {
 
             synchronized(ImsCall.this) {
                 listener = mListener;
-                mCallProfile = profile;
+                setCallProfile(profile);
             }
 
             if (listener != null) {
@@ -3143,6 +3216,8 @@ public class ImsCall implements ICall {
         sb.append(isConferenceHost() ? "Y" : "N");
         sb.append(" buried term:");
         sb.append(mSessionEndDuringMerge ? "Y" : "N");
+        sb.append(" wasVideo: ");
+        sb.append(mWasVideoCall ? "Y" : "N");
         sb.append(" session:");
         sb.append(mSession);
         sb.append(" transientSession:");
@@ -3170,6 +3245,65 @@ public class ImsCall implements ICall {
         sb.append(" ImsCall=");
         sb.append(ImsCall.this);
         return sb.toString();
+    }
+
+    /**
+     * Updates {@link #mWasVideoCall} based on the current {@link ImsCallProfile} for the call.
+     *
+     * @param profile The current {@link ImsCallProfile} for the call.
+     */
+    private void trackVideoStateHistory(ImsCallProfile profile) {
+        mWasVideoCall = mWasVideoCall || profile.isVideoCall();
+    }
+
+    /**
+     * @return {@code true} if this call was a video call at some point in its life span,
+     *      {@code false} otherwise.
+     */
+    public boolean wasVideoCall() {
+        return mWasVideoCall;
+    }
+
+    /**
+     * @return {@code true} if this call is a video call, {@code false} otherwise.
+     */
+    public boolean isVideoCall() {
+        synchronized(mLockObj) {
+            return mCallProfile != null && mCallProfile.isVideoCall();
+        }
+    }
+
+    /**
+     * Determines if the current call radio access technology is over WIFI.
+     * Note: This depends on the RIL exposing the {@link ImsCallProfile#EXTRA_CALL_RAT_TYPE} extra.
+     * This method is primarily intended to be used when checking if answering an incoming audio
+     * call should cause a wifi video call to drop (e.g.
+     * {@link android.telephony.CarrierConfigManager#
+     * KEY_DROP_VIDEO_CALL_WHEN_ANSWERING_AUDIO_CALL_BOOL} is set).
+     *
+     * @return {@code true} if the call is over WIFI, {@code false} otherwise.
+     */
+    public boolean isWifiCall() {
+        synchronized(mLockObj) {
+            if (mCallProfile == null) {
+                return false;
+            }
+            String callType = mCallProfile.getCallExtra(ImsCallProfile.EXTRA_CALL_RAT_TYPE);
+            if (callType == null || callType.isEmpty()) {
+                callType = mCallProfile.getCallExtra(ImsCallProfile.EXTRA_CALL_RAT_TYPE_ALT);
+            }
+
+            // The RIL (sadly) sends us the EXTRA_CALL_RAT_TYPE as a string extra, rather than an
+            // integer extra, so we need to parse it.
+            int radioTechnology = ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN;
+            try {
+                radioTechnology = Integer.parseInt(callType);
+            } catch (NumberFormatException nfe) {
+                radioTechnology = ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN;
+            }
+
+            return radioTechnology == ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN;
+        }
     }
 
     /**
@@ -3212,5 +3346,4 @@ public class ImsCall implements ICall {
     private void loge(String s, Throwable t) {
         Log.e(TAG, appendImsCallInfoToString(s), t);
     }
-
 }

@@ -103,11 +103,15 @@ public final class OptionHelper {
         // get option/value substrings from the command-line string
         // N.B. tradefed rewrites some expressions from option="value a b" to "option=value a b"
         String quoteMatching = "(\"[^\"]+\")";
+        String nonSpacedHypen = "((?<!\\s)-(?!\\s))";
         Pattern cliPattern = Pattern.compile(
-            "((-[-\\w]+([ =]"                       // match -option=value or --option=value
-            + "(" + quoteMatching + "|[^-\"]+))?"   // allow -option "..." and -option x y z
+            // match -option=value or --option=value
+            "((-[-\\w]+([ =]"
+            // allow -option "...", -option x y z, and -option x:y:z
+            + "(" + quoteMatching + "|([\\w\\s:.]|"+ nonSpacedHypen + ")+))?"
             + "))|"
-            + quoteMatching                         // allow anything in direct quotes
+            // allow anything in direct quotes
+            + quoteMatching
         );
         Matcher matcher = cliPattern.matcher(commandString);
 

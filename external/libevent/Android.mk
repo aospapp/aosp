@@ -69,6 +69,15 @@ LOCAL_SRC_FILES := $(libevent_all_src) $(libevent_linux_src)
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := libevent
+LOCAL_ARM_MODE := arm
+LOCAL_CFLAGS := $(libevent_cflags)
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
+LOCAL_SRC_FILES := $(libevent_all_src) $(libevent_linux_src)
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
 LOCAL_MODULE := libevent-host
 LOCAL_CFLAGS := $(libevent_cflags)
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include

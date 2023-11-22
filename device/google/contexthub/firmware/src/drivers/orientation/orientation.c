@@ -29,21 +29,30 @@
 #include <nanohub_math.h>
 #include <algos/fusion.h>
 #include <sensors.h>
+#include <variant/inc/sensType.h>
 #include <limits.h>
 #include <slab.h>
 
+#define ORIENTATION_APP_VERSION 1
+
 #define MAX_NUM_COMMS_EVENT_SAMPLES 15 // at most 15 samples can fit in one comms_event
-#define NUM_COMMS_EVENTS_IN_FIFO    2  // This controls how often the hub needs to wake up in batching
-#define FIFO_DEPTH                  (NUM_COMMS_EVENTS_IN_FIFO * MAX_NUM_COMMS_EVENT_SAMPLES)  // needs to be greater than max raw sensor rate ratio
+#define NUM_COMMS_EVENTS_IN_FIFO    2  // This controls how often the hub needs to wake up
+                                       // in batching
+
+// needs to be greater than max raw sensor rate ratio
+#define FIFO_DEPTH                  (NUM_COMMS_EVENTS_IN_FIFO * MAX_NUM_COMMS_EVENT_SAMPLES)
+
 /*
  * FIFO_MARGIN: max raw sensor rate ratio is 8:1.
- * If 2 batchs of high rate data comes before 1 low rate data, there can be at max 15 samples left in the FIFO
+ * If 2 batchs of high rate data comes before 1 low rate data, there can be at max 15 samples left
+ * in the FIFO
  */
 #define FIFO_MARGIN                 15
 #define MAX_NUM_SAMPLES             (FIFO_MARGIN + FIFO_DEPTH) // actual input sample fifo depth
 #define EVT_SENSOR_ACC_DATA_RDY     sensorGetMyEventType(SENS_TYPE_ACCEL)
 #define EVT_SENSOR_GYR_DATA_RDY     sensorGetMyEventType(SENS_TYPE_GYRO)
 #define EVT_SENSOR_MAG_DATA_RDY     sensorGetMyEventType(SENS_TYPE_MAG)
+#define EVT_SENSOR_MAG_BIAS         sensorGetMyEventType(SENS_TYPE_MAG_BIAS)
 
 #define kGravityEarth               9.80665f
 #define kRad2deg                    (180.0f / M_PI)
@@ -132,8 +141,8 @@ static uint32_t FusionRates[] = {
     0,
 };
 
-static const uint64_t rateTimerVals[] = //should match "supported rates in length" and be the timer length for that rate in nanosecs
-{
+//should match "supported rates in length" and be the timer length for that rate in nanosecs
+static const uint64_t rateTimerVals[] = {
     1000000000ULL / 12.5f,
     1000000000ULL / 25,
     1000000000ULL / 50,
@@ -153,12 +162,18 @@ static struct FusionTask mTask;
 
 static const struct SensorInfo mSi[NUM_OF_FUSION_SENSOR] =
 {
-    { DEC_INFO_RATE("Orientation", FusionRates, SENS_TYPE_ORIENTATION, NUM_AXIS_THREE, NANOHUB_INT_NONWAKEUP, 20) },
-    { DEC_INFO_RATE("Gravity", FusionRates, SENS_TYPE_GRAVITY, NUM_AXIS_THREE, NANOHUB_INT_NONWAKEUP, 20) },
-    { DEC_INFO_RATE("Geomagnetic Rotation Vector", FusionRates, SENS_TYPE_GEO_MAG_ROT_VEC, NUM_AXIS_THREE, NANOHUB_INT_NONWAKEUP, 20) },
-    { DEC_INFO_RATE("Linear Acceleration", FusionRates, SENS_TYPE_LINEAR_ACCEL, NUM_AXIS_THREE, NANOHUB_INT_NONWAKEUP, 20) },
-    { DEC_INFO_RATE("Game Rotation Vector", FusionRates, SENS_TYPE_GAME_ROT_VECTOR, NUM_AXIS_THREE, NANOHUB_INT_NONWAKEUP, 300) },
-    { DEC_INFO_RATE("Rotation Vector", FusionRates, SENS_TYPE_ROTATION_VECTOR, NUM_AXIS_THREE, NANOHUB_INT_NONWAKEUP, 20) },
+    { DEC_INFO_RATE("Orientation", FusionRates, SENS_TYPE_ORIENTATION, NUM_AXIS_THREE,
+            NANOHUB_INT_NONWAKEUP, 20) },
+    { DEC_INFO_RATE("Gravity", FusionRates, SENS_TYPE_GRAVITY, NUM_AXIS_THREE,
+            NANOHUB_INT_NONWAKEUP, 20) },
+    { DEC_INFO_RATE("Geomagnetic Rotation Vector", FusionRates, SENS_TYPE_GEO_MAG_ROT_VEC,
+            NUM_AXIS_THREE, NANOHUB_INT_NONWAKEUP, 20) },
+    { DEC_INFO_RATE("Linear Acceleration", FusionRates, SENS_TYPE_LINEAR_ACCEL, NUM_AXIS_THREE,
+            NANOHUB_INT_NONWAKEUP, 20) },
+    { DEC_INFO_RATE("Game Rotation Vector", FusionRates, SENS_TYPE_GAME_ROT_VECTOR, NUM_AXIS_THREE,
+            NANOHUB_INT_NONWAKEUP, 300) },
+    { DEC_INFO_RATE("Rotation Vector", FusionRates, SENS_TYPE_ROTATION_VECTOR, NUM_AXIS_THREE,
+            NANOHUB_INT_NONWAKEUP, 20) },
 };
 
 static struct SlabAllocator *mDataSlab;
@@ -306,8 +321,9 @@ static void addSample(struct FusionSensor *mSensor, uint64_t time, float x, floa
     sample->z = z;
 
     if (mSensor->ev->samples[0].firstSample.numSamples == MAX_NUM_COMMS_EVENT_SAMPLES) {
-        osEnqueueEvtOrFree(EVENT_TYPE_BIT_DISCARDABLE | sensorGetMyEventType(mSi[mSensor->idx].sensorType),
-                           mSensor->ev, dataEvtFree);
+        osEnqueueEvtOrFree(
+                EVENT_TYPE_BIT_DISCARDABLE | sensorGetMyEventType(mSi[mSensor->idx].sensorType),
+                mSensor->ev, dataEvtFree);
         mSensor->ev = NULL;
     }
 }
@@ -316,9 +332,11 @@ static void updateOutput(ssize_t last_accel_sample_index, uint64_t last_sensor_t
 {
     struct Vec4 attitude;
     struct Vec3 g, a;
-    struct Mat33 R;
+    struct Mat33 R;  // direction-cosine/rotation matrix, inertial -> device
+    bool   rInited;  // indicates if matrix R has been initialzed. for avoiding repeated computation
 
     if (fusionHasEstimate(&mTask.game)) {
+        rInited = false;
         if (mTask.sensors[GAME].active) {
             fusionGetAttitude(&mTask.game, &attitude);
             addSample(&mTask.sensors[GAME],
@@ -330,19 +348,39 @@ static void updateOutput(ssize_t last_accel_sample_index, uint64_t last_sensor_t
 
         if (mTask.sensors[GRAVITY].active) {
             fusionGetRotationMatrix(&mTask.game, &R);
+            rInited = true;
             initVec3(&g, R.elem[0][2], R.elem[1][2], R.elem[2][2]);
             vec3ScalarMul(&g, kGravityEarth);
             addSample(&mTask.sensors[GRAVITY],
                     last_sensor_time,
                     g.x, g.y, g.z);
         }
+
+        if (last_accel_sample_index >= 0
+                && mTask.sensors[LINEAR].active) {
+            if (!rInited) {
+                fusionGetRotationMatrix(&mTask.game, &R);
+            }
+            initVec3(&g, R.elem[0][2], R.elem[1][2], R.elem[2][2]);
+            vec3ScalarMul(&g, kGravityEarth);
+            initVec3(&a,
+                    mTask.samples[0][last_accel_sample_index].x,
+                    mTask.samples[0][last_accel_sample_index].y,
+                    mTask.samples[0][last_accel_sample_index].z);
+
+            addSample(&mTask.sensors[LINEAR],
+                    mTask.samples[0][last_accel_sample_index].time,
+                    a.x - g.x,
+                    a.y - g.y,
+                    a.z - g.z);
+        }
     }
 
     if (fusionHasEstimate(&mTask.fusion)) {
-        fusionGetRotationMatrix(&mTask.fusion, &R);
         fusionGetAttitude(&mTask.fusion, &attitude);
 
         if (mTask.sensors[ORIENT].active) {
+            fusionGetRotationMatrix(&mTask.fusion, &R);
             // x, y, z = yaw, pitch, roll
             float x = atan2f(-R.elem[0][1], R.elem[0][0]) * kRad2deg;
             float y = atan2f(-R.elem[1][2], R.elem[2][2]) * kRad2deg;
@@ -372,21 +410,6 @@ static void updateOutput(ssize_t last_accel_sample_index, uint64_t last_sensor_t
                     attitude.z);
         }
 
-        if (last_accel_sample_index >= 0
-                && mTask.sensors[LINEAR].active) {
-            initVec3(&g, R.elem[0][2], R.elem[1][2], R.elem[2][2]);
-            vec3ScalarMul(&g, kGravityEarth);
-            initVec3(&a,
-                    mTask.samples[0][last_accel_sample_index].x,
-                    mTask.samples[0][last_accel_sample_index].y,
-                    mTask.samples[0][last_accel_sample_index].z);
-
-            addSample(&mTask.sensors[LINEAR],
-                    mTask.samples[0][last_accel_sample_index].time,
-                    a.x - g.x,
-                    a.y - g.y,
-                    a.z - g.z);
-        }
     }
 }
 
@@ -457,7 +480,7 @@ static void drainSamples()
         case MAG:
             initVec3(&m, mTask.samples[MAG][k].x, mTask.samples[MAG][k].y, mTask.samples[MAG][k].z);
 
-            fusionHandleMag(&mTask.fusion, &m);
+            fusionHandleMag(&mTask.fusion, &m, dT);
 
             --mTask.sample_counts[MAG];
             if (++k == MAX_NUM_SAMPLES)
@@ -487,7 +510,6 @@ static void configureFusion()
 {
     if (mTask.sensors[ORIENT].active
             || mTask.sensors[ROTAT].active
-            || mTask.sensors[LINEAR].active
             || mTask.sensors[GEOMAG].active) {
         mTask.flags |= FUSION_FLAG_ENABLED;
         initFusion(&mTask.fusion,
@@ -503,10 +525,11 @@ static void configureFusion()
 
 static void configureGame()
 {
-    if (mTask.sensors[GAME].active || mTask.sensors[GRAVITY].active) {
+    if (mTask.sensors[GAME].active || mTask.sensors[GRAVITY].active ||
+            mTask.sensors[LINEAR].active) {
         mTask.flags |= FUSION_FLAG_GAME_ENABLED;
-        initFusion(&mTask.game,
-                FUSION_USE_GYRO | ((mTask.flags & FUSION_FLAG_INITIALIZED) ? 0 : FUSION_REINITIALIZE));
+        initFusion(&mTask.game, FUSION_USE_GYRO |
+                ((mTask.flags & FUSION_FLAG_INITIALIZED) ? 0 : FUSION_REINITIALIZE));
         mTask.flags |= FUSION_FLAG_GAME_INITIALIZED;
     } else {
         mTask.flags &= ~FUSION_FLAG_GAME_ENABLED;
@@ -523,13 +546,15 @@ static void fusionSetRateAcc(void)
         mTask.counters[ACC] = 0;
         mTask.last_time[ACC] = ULONG_LONG_MAX;
         for (i = 0; sensorFind(SENS_TYPE_ACCEL, i, &mTask.accelHandle) != NULL; i++) {
-            if (sensorRequest(mTask.tid, mTask.accelHandle, mTask.raw_sensor_rate[ACC], mTask.raw_sensor_latency)) {
+            if (sensorRequest(mTask.tid, mTask.accelHandle, mTask.raw_sensor_rate[ACC],
+                        mTask.raw_sensor_latency)) {
                 osEventSubscribe(mTask.tid, EVT_SENSOR_ACC_DATA_RDY);
                 break;
             }
         }
     } else {
-        sensorRequestRateChange(mTask.tid, mTask.accelHandle, mTask.raw_sensor_rate[ACC], mTask.raw_sensor_latency);
+        sensorRequestRateChange(mTask.tid, mTask.accelHandle, mTask.raw_sensor_rate[ACC],
+                mTask.raw_sensor_latency);
     }
 }
 
@@ -542,13 +567,15 @@ static void fusionSetRateGyr(void)
         mTask.counters[GYR] = 0;
         mTask.last_time[GYR] = ULONG_LONG_MAX;
         for (i = 0; sensorFind(SENS_TYPE_GYRO, i, &mTask.gyroHandle) != NULL; i++) {
-            if (sensorRequest(mTask.tid, mTask.gyroHandle, mTask.raw_sensor_rate[GYR], mTask.raw_sensor_latency)) {
+            if (sensorRequest(mTask.tid, mTask.gyroHandle, mTask.raw_sensor_rate[GYR],
+                        mTask.raw_sensor_latency)) {
                 osEventSubscribe(mTask.tid, EVT_SENSOR_GYR_DATA_RDY);
                 break;
             }
         }
     } else {
-        sensorRequestRateChange(mTask.tid, mTask.gyroHandle, mTask.raw_sensor_rate[GYR], mTask.raw_sensor_latency);
+        sensorRequestRateChange(mTask.tid, mTask.gyroHandle, mTask.raw_sensor_rate[GYR],
+                mTask.raw_sensor_latency);
     }
 }
 
@@ -561,13 +588,16 @@ static void fusionSetRateMag(void)
         mTask.counters[MAG] = 0;
         mTask.last_time[MAG] = ULONG_LONG_MAX;
         for (i = 0; sensorFind(SENS_TYPE_MAG, i, &mTask.magHandle) != NULL; i++) {
-            if (sensorRequest(mTask.tid, mTask.magHandle, mTask.raw_sensor_rate[MAG], mTask.raw_sensor_latency)) {
+            if (sensorRequest(mTask.tid, mTask.magHandle, mTask.raw_sensor_rate[MAG],
+                        mTask.raw_sensor_latency)) {
                 osEventSubscribe(mTask.tid, EVT_SENSOR_MAG_DATA_RDY);
+                osEventSubscribe(mTask.tid, EVT_SENSOR_MAG_BIAS);
                 break;
             }
         }
     } else {
-        sensorRequestRateChange(mTask.tid, mTask.magHandle, mTask.raw_sensor_rate[MAG], mTask.raw_sensor_latency);
+        sensorRequestRateChange(mTask.tid, mTask.magHandle, mTask.raw_sensor_rate[MAG],
+                mTask.raw_sensor_latency);
     }
 }
 
@@ -733,6 +763,13 @@ static void fusionHandleEvent(uint32_t evtType, const void* evtData)
         fillSamples(ev, GYR);
         drainSamples();
         break;
+    case EVT_SENSOR_MAG_BIAS:
+        ev = (struct TripleAxisDataEvent *)evtData;
+        if (ev->samples[0].firstSample.biasPresent && mTask.flags & FUSION_FLAG_ENABLED) {
+            //it is a user initiated mag cal event
+            fusionSetMagTrust(&mTask.fusion, MANUAL_MAG_CAL);
+        }
+        break;
     case EVT_SENSOR_MAG_DATA_RDY:
         ev = (struct TripleAxisDataEvent *)evtData;
         fillSamples(ev, MAG);
@@ -751,7 +788,6 @@ static const struct SensorOps mSops =
 
 static bool fusionStart(uint32_t tid)
 {
-    osLog(LOG_INFO, "        ORIENTATION:  %ld\n", tid);
     size_t i, slabSize;
 
     mTask.tid = tid;
@@ -772,6 +808,7 @@ static bool fusionStart(uint32_t tid)
     mTask.sensors[GEOMAG].use_gyro_data = false;
     mTask.sensors[GAME].use_mag_data = false;
     mTask.sensors[GRAVITY].use_mag_data = false;
+    mTask.sensors[LINEAR].use_mag_data = false;
 
     mTask.accel_client_cnt = 0;
     mTask.gyro_client_cnt = 0;
@@ -779,7 +816,9 @@ static bool fusionStart(uint32_t tid)
 
     slabSize = sizeof(struct TripleAxisDataEvent)
         + MAX_NUM_COMMS_EVENT_SAMPLES * sizeof(struct TripleAxisDataPoint);
-    mDataSlab = slabAllocatorNew(slabSize, 4, 6 * (NUM_COMMS_EVENTS_IN_FIFO + 1)); // worst case 6 output sensors * (N + 1) comms_events
+
+    // worst case 6 output sensors * (N + 1) comms_events
+    mDataSlab = slabAllocatorNew(slabSize, 4, 6 * (NUM_COMMS_EVENTS_IN_FIFO + 1));
     if (!mDataSlab) {
         osLog(LOG_ERROR, "ORIENTATION: slabAllocatorNew() FAILED\n");
         return false;
@@ -799,7 +838,7 @@ static void fusionEnd()
 
 INTERNAL_APP_INIT(
         APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 4),
-        0,
+        ORIENTATION_APP_VERSION,
         fusionStart,
         fusionEnd,
         fusionHandleEvent);

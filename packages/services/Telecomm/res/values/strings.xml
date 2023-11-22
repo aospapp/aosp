@@ -109,12 +109,13 @@
 
     <!-- Title of dialog used to comfirm whether the user intends to change the default dialer
             application [CHAR LIMIT=55]-->
-    <string name="change_default_dialer_dialog_title">Change default Dialer app?</string>
-    <!-- Text in dialog used to confirm whether or not the user intends to change the default dialer, if a different default dialer has been previously set. -->
-    <string name="change_default_dialer_with_previous_app_set_text">Use <xliff:g id="new_app">%1$s</xliff:g> instead of <xliff:g id="current_app">%2$s</xliff:g> as your default dialer app?</string>
-    <!-- Text in dialog used to confirm whether or not the user intends to change the default dialer, if a different default dialer has not been previously set. -->
-    <string name="change_default_dialer_no_previous_app_set_text">Use <xliff:g id="new_app">%s</xliff:g> as your default dialer app?</string>
-
+    <string name="change_default_dialer_dialog_title">Make <xliff:g id="new_app">%s</xliff:g> your default Phone app?</string>
+    <!-- Confirmation text that a user taps on to change the Default Phone App-->
+    <string name="change_default_dialer_dialog_affirmative">Set Default</string>
+    <!-- Cancel text that a user taps on to not change the Default Phone App-->
+    <string name="change_default_dialer_dialog_negative">Cancel</string>
+    <!-- Warning message indicating what may happen if a user allows a 3rd party app to become the default dialer.-->
+    <string name="change_default_dialer_warning_message"><xliff:g id="new_app">%s</xliff:g> will be able to place and control all aspects of calls. Only apps you trust should be set as the default Phone app.</string>
 
     <!-- Blocked numbers -->
     <string name="blocked_numbers">Blocked numbers</string>

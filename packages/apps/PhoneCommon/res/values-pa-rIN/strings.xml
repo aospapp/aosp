@@ -47,6 +47,12 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"ਅਪ੍ਰਮਾਣਿਕ ਨੰਬਰ"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"ਵੌਇਸਮੇਲ ਨੰਬਰ ਅਗਿਆਤ।"</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY ਦੇ ਯੋਗ ਬਣਾਏ ਜਾਣ \'ਤੇ ਵੀਡੀਓ ਕਾਲਾਂ ਨਹੀਂ ਕੀਤੀਆਂ ਜਾ ਸਕਦੀਆਂ ਹਨ।"</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"ਕਾਲ ਕਿਸੇ ਹੋਰ ਡੀਵਾਈਸ \'ਤੇ ਟ੍ਰਾਂਸਫਰ ਕੀਤੀ ਗਈ।"</string>
     <string name="ringtone_silent" msgid="249805466934178869">"ਕੋਈ ਨਹੀਂ"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"ਅਗਿਆਤ ਰਿੰਗਟੋਨ"</string>
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"ਸਾਰੀਆਂ ਉਪਲਬਧ ਲਾਈਨਾਂ ਵਰਤੋਂ ਵਿੱਚ ਹਨ। ਇੱਕ ਕਾਲ ਕਰਨ ਲਈ, ਇਸ ਡੀਵਾਈਸ, ਜਾਂ ਤੁਹਾਡੀਆਂ ਹੋਰਾਂ ਡੀਵਾਈਸਾਂ ਵਿੱਚੋਂ ਕਿਸੇ ਇੱਕ \'ਤੇ ਕਾਲਾਂ ਵਿੱਚੋਂ ਕਿਸੇ ਇੱਕ ਨੂੰ ਡਿਸਕਨੈਕਟ ਕਰੋ।"</string>
+    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
+    <skip />
+    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
+    <skip />
 </resources>

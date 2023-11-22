@@ -184,4 +184,16 @@ public class SpannableStringTest extends AndroidTestCase {
         }
     }
 
+    @SmallTest
+    public void testCopyGrowable() {
+        SpannableString first = new SpannableString("t\nest data");
+        final int N_SPANS = 127;
+        for (int i = 0; i < N_SPANS; i++) {
+            first.setSpan(new QuoteSpan(), 0, 2, Spanned.SPAN_PARAGRAPH);
+        }
+        SpannableString second = new SpannableString(first.subSequence(0, first.length() - 1));
+        second.setSpan(new LocaleSpan(Locale.US), 2, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        Object[] secondSpans = second.getSpans(0, second.length(), Object.class);
+        assertEquals(secondSpans.length, N_SPANS + 1);
+    }
 }

@@ -1,4 +1,4 @@
-# Copyright 2011, The Android Open Source Project
+# Copyright 2016, The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,27 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-LOCAL_PATH:= $(call my-dir)
+LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-# We only want this apk build for tests.
-LOCAL_MODULE_TAGS := tests
-
-LOCAL_JAVA_LIBRARIES := android.test.runner telephony-common
-
-# Include all test java files.
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
-
-# Notice that we don't have to include the src files of Email because, by
-# running the tests using an instrumentation targeting Eamil, we
-# automatically get all of its classes loaded into our environment.
-
-LOCAL_PACKAGE_NAME := CellBroadcastReceiverTests
-
-# Apk must be signed with platform signature in order to send test broadcasts.
-LOCAL_CERTIFICATE := platform
-
-LOCAL_INSTRUMENTATION_FOR := CellBroadcastReceiver
-
-include $(BUILD_PACKAGE)
-
+# Include all makefiles in subdirectories
+include $(call all-makefiles-under,$(LOCAL_PATH))

@@ -86,9 +86,6 @@ def main():
         sens_min, sens_max = props['android.sensor.info.sensitivityRange']
         sens_max_analog = props['android.sensor.maxAnalogSensitivity']
         white_level = props['android.sensor.info.whiteLevel']
-        black_levels = props['android.sensor.blackLevelPattern']
-        idxs = its.image.get_canonical_cfa_order(props)
-        black_levels = [black_levels[i] for i in idxs]
 
         print "Sensitivity range: [%f, %f]" % (sens_min, sens_max)
         print "Max analog sensitivity: %f" % (sens_max_analog)
@@ -138,13 +135,14 @@ def main():
                     p = p.squeeze()
 
                     # Crop the plane to be a multiple of the tile size.
-                    p = p[0:p.shape[0] - p.shape[0]%tile_size, 
+                    p = p[0:p.shape[0] - p.shape[0]%tile_size,
                           0:p.shape[1] - p.shape[1]%tile_size]
 
                     # convert_capture_to_planes normalizes the range
                     # to [0, 1], but without subtracting the black
                     # level.
-                    black_level = black_levels[pidx]
+                    black_level = its.image.get_black_level(
+                        pidx, props, cap["metadata"])
                     p = p*white_level
                     p = (p - black_level)/(white_level - black_level)
 

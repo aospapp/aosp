@@ -24,7 +24,7 @@ public abstract class Runnable {
 
     private Session mSubsession;
     private final String mSubsessionName;
-    private final Object mLock = new Object();
+    private final Object mLock;
     private final java.lang.Runnable mRunnable = new java.lang.Runnable() {
             @Override
             public void run() {
@@ -42,7 +42,18 @@ public abstract class Runnable {
             }
         };
 
-    public Runnable(String subsessionName) {
+    /**
+     * Creates a new Telecom Runnable that incorporates Session Logging into it. Useful for carrying
+     * Logging Sessions through different threads as well as through handlers.
+     * @param subsessionName The name that will be used in the Logs to mark this Session
+     * @param lock The synchronization lock that will be used to lock loggedRun().
+     */
+    public Runnable(String subsessionName, Object lock) {
+        if (lock == null) {
+            mLock = new Object();
+        } else {
+            mLock = lock;
+        }
         mSubsessionName = subsessionName;
     }
 
@@ -78,7 +89,8 @@ public abstract class Runnable {
     }
 
     /**
-     * The method that will be run in the handler/thread.
+     * The method that will be run in the handler/thread. This method will be called with mLock
+     * held.
      */
     abstract public void loggedRun();
 

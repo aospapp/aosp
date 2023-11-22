@@ -167,6 +167,9 @@ typedef enum
     IMPEG2D_CMD_CTL_GET_BUFFER_DIMENSIONS = IVD_CMD_CTL_CODEC_SUBCMD_START
                     + 0x100,
 
+    /** Get Seq header/seq header extension info */
+    IMPEG2D_CMD_CTL_GET_SEQ_INFO     = IVD_CMD_CTL_CODEC_SUBCMD_START + 0x101,
+
 } IMPEG2D_CMD_CTL_SUB_CMDS;
 
 /*****************************************************************************/
@@ -509,6 +512,87 @@ typedef struct
     UWORD32 u4_buffer_ht[3];
 } impeg2d_ctl_get_frame_dimensions_op_t;
 
+typedef struct
+{
+    /**
+     * size
+     */
+    UWORD32 u4_size;
+
+    /**
+     * cmd
+     */
+    IVD_API_COMMAND_TYPE_T e_cmd;
+
+    /**
+     * sub cmd
+     */
+    IVD_CONTROL_API_COMMAND_TYPE_T e_sub_cmd;
+} impeg2d_ctl_get_seq_info_ip_t;
+
+typedef struct
+{
+    /**
+     * size
+     */
+    UWORD32 u4_size;
+
+    /**
+     * error_code
+     */
+    UWORD32 u4_error_code;
+
+    /**
+     * aspect_ratio_information
+     */
+    UWORD8 u1_aspect_ratio_information;
+
+    /**
+     * frame_rate_code
+     */
+    UWORD8 u1_frame_rate_code;
+
+    /**
+     * frame_rate_extension_n
+     */
+    UWORD8 u1_frame_rate_extension_n;
+
+    /**
+     * frame_rate_extension_d
+     */
+    UWORD8 u1_frame_rate_extension_d;
+
+    /**
+     * video_format
+     */
+    UWORD8 u1_video_format;
+
+    /**
+     * colour_primaries
+     */
+    UWORD8 u1_colour_primaries;
+
+    /**
+     * transfer_characteristics
+     */
+    UWORD8 u1_transfer_characteristics;
+
+    /**
+     * matrix_coefficients
+     */
+    UWORD8 u1_matrix_coefficients;
+
+    /**
+     * display_horizontal_size
+     */
+    UWORD16 u2_display_horizontal_size;
+
+    /**
+     * display_vertical_size
+     */
+    UWORD16 u2_display_vertical_size;
+
+} impeg2d_ctl_get_seq_info_op_t;
 #ifdef __cplusplus
 } /* closing brace for extern "C" */
 #endif

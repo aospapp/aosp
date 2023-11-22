@@ -116,6 +116,7 @@ List<String> samples = [
 "security/AsymmetricFingerprintDialog",
 "wearable/wear/WearSpeakerSample",
 "wearable/wear/WearDrawers",
+"ui/window/DragAndDropAcrossApps",
 ]
 
 List<String> taskNames = [

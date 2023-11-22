@@ -20,8 +20,7 @@ package com.android.compatibility.common.util;
  */
 public enum TestStatus {
     PASS("pass"),
-    FAIL("fail"),
-    NOT_EXECUTED("not_executed");
+    FAIL("fail");
 
     private String mValue;
 
@@ -45,7 +44,7 @@ public enum TestStatus {
      * @param value
      * @return the {@link TestStatus} or <code>null</code> if it could not be found
      */
-    static TestStatus getStatus(String  value) {
+    static TestStatus getStatus(String value) {
         for (TestStatus status : TestStatus.values()) {
             if (value.compareToIgnoreCase(status.getValue()) == 0) {
                 return status;

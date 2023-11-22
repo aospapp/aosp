@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Copyright (C) 2016 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_name" msgid="963247385700831716">"Storage Manager"</string>
+    <string name="cancel" msgid="7021218262867558825">"Kanselahin"</string>
+    <string name="storage_menu_free" msgid="1878247401436882778">"Magbakante ng espasyo"</string>
+    <string name="deletion_helper_title" msgid="7928959984891140427">"Piliin, mga aalising item"</string>
+    <string name="deletion_helper_app_summary" msgid="1923023368736447552">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$d</xliff:g> (na) araw na ang nakalipas"</string>
+    <string name="deletion_helper_app_summary_never_used" msgid="7461207117653761032">"<xliff:g id="USED">%1$s</xliff:g> • Hindi pa nagagamit"</string>
+    <string name="deletion_helper_app_summary_unknown_used" msgid="257918462233851162">"<xliff:g id="USED">%1$s</xliff:g> • Hindi tiyak kung kailan huling ginamit"</string>
+    <string name="deletion_helper_free_button" msgid="1760529213407548661">"Magbakante ng <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
+    <string name="deletion_helper_photos_title" msgid="8694284659307845664">"Mga larawan at video (<xliff:g id="NUM_ITEMS">%1$d</xliff:g>)"</string>
+    <string name="deletion_helper_photos_summary" msgid="2636724338009030470">"<xliff:g id="USED">%1$s</xliff:g> • Mas matagal sa <xliff:g id="DAYS">%2$d</xliff:g> (na) araw"</string>
+    <string name="deletion_helper_downloads_title" msgid="2976599380628177756">"Mga Download (<xliff:g id="NUMITEMS">%1$d</xliff:g>)"</string>
+    <!-- no translation found for deletion_helper_downloads_category_summary (8545989355108311347) -->
+    <skip />
+    <string name="deletion_helper_downloads_file_summary" msgid="2610952169093565355">"<xliff:g id="USED">%1$s</xliff:g> • <xliff:g id="DAYS">%2$s</xliff:g>"</string>
+    <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
+    <skip />
+    <string name="deletion_helper_clear_dialog_message" msgid="921129346098616363">"Mag-alis ng <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> sa iyong device."</string>
+    <string name="deletion_helper_clear_dialog_remove" msgid="3386502418767917932">"Alisin"</string>
+    <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Gusto mo bang awtomatikong pamahalaan ang storage?"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> na ang bakante. Gusto mo bang hayaan ang Storage manager na awtomatikong magbakante ng espasyo sa pamamagitan ng pag-aalis ng naka-back up na content sa iyong device?"</string>
+    <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"Salamat na lang"</string>
+    <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"I-on"</string>
+    <string name="deletion_helper_apps_group_title" msgid="6554321362396920050">"Mga App (<xliff:g id="NUM_ITEMS">%1$d</xliff:g>)"</string>
+    <string name="deletion_helper_apps_group_summary" msgid="3466154404460006085">"<xliff:g id="USED">%1$s</xliff:g> • Huling ginamit <xliff:g id="DAYS">%2$d</xliff:g> (na) araw na ang nakalipas"</string>
+    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"Awtomatiko"</string>
+    <string name="deletion_helper_manual_title" msgid="3905192395039688529">"Manual"</string>
+    <string name="deletion_helper_preference_title" msgid="803484286872745892">"Magbakante ng espasyo ngayon"</string>
+    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"Serbisyo sa Pamamahala ng Awtomatikong Pag-iimbak"</string>
+    <string name="automatic_storage_manager_notification_title" msgid="8480483265300964701">"Kaunti na ang espasyo ng iyong telepono"</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"Hayaang magbakante ng espasyo ang Storage Manager sa pamamagitan ng awtomatikong pag-aalis ng mga lumang larawan at video kapag nagsimulang mapuno muli ang iyong telepono."</string>
+    <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"Hindi, salamat na lang"</string>
+    <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"I-on"</string>
+    <string name="deletion_helper_photos_loading_title" msgid="5411813715495227745">"Mga larawan at video"</string>
+    <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Naghahanap ng mga item…"</string>
+</resources>

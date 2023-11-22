@@ -295,13 +295,6 @@ public class UtilsTest extends AndroidTestCase {
         assertFalse(mUtils.currentLauncherSupportsManagedProfiles(mockContext));
     }
 
-    public void testBrightness() {
-        assertTrue(mUtils.isBrightColor(Color.WHITE));
-        assertTrue(mUtils.isBrightColor(Color.YELLOW));
-        assertFalse(mUtils.isBrightColor(Color.BLACK));
-        assertFalse(mUtils.isBrightColor(Color.BLUE));
-    }
-
     private ApplicationInfo createApplicationInfo(String packageName, boolean system) {
         ApplicationInfo ai = new ApplicationInfo();
         ai.packageName = packageName;

@@ -45,9 +45,10 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Inombolo engekho yomyalezo wezwi"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Ayikho inombolo yomlayezo wezwi egcinwe ekhadini le-SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Engeza inombolo"</string>
-    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Guqula uhlelo lwakho lokusebenza oluzenzakalelayo lokudayela?"</string>
-    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Sebenzisa i-<xliff:g id="NEW_APP">%1$s</xliff:g> esikhundleni se-<xliff:g id="CURRENT_APP">%2$s</xliff:g> njengohlelo lwakho lokusebenza oluzenzakalelayo lokokudayela?"</string>
-    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Sebenzisa i-<xliff:g id="NEW_APP">%s</xliff:g> njengohlelo lwakho lokusebenza oluzenzakalelayo lokokudayela?"</string>
+    <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"Yenza i-<xliff:g id="NEW_APP">%s</xliff:g> uhlelo lwakho lwefoni oluzenzakalelayo?"</string>
+    <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Setha okuzenzakalelayo"</string>
+    <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Khansela"</string>
+    <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> Uzokwazi ukubeka nokulawula zonke izinto zamakholi. Izinhlelo zokusebenza kuphela ozithembayo ezingasethwa njengohlelo lokusebenza oluzenzakalelayo lefoni."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Izinombolo ezivinjiwe"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Ngeke uthole amakholi noma imibhalo kusuka kuzinombolo ezivinjelwe."</string>
     <string name="block_number" msgid="1101252256321306179">"Engeza inombolo"</string>

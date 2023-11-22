@@ -112,7 +112,7 @@ public class AospLauncherStrategy implements ILauncherStrategy {
         if (!mDevice.hasObject(APPS_CONTAINER)) {
             open();
             // taps on the "apps" button at the bottom of the screen
-            mDevice.findObject(By.desc("Apps")).click();
+            mDevice.findObject(getAllAppsButtonSelector()).click();
             // wait until hotseat disappears, so that we know that we are no longer on home screen
             mDevice.wait(Until.gone(getHotSeatSelector()), 2000);
             mDevice.waitForIdle();
@@ -171,6 +171,14 @@ public class AospLauncherStrategy implements ILauncherStrategy {
     @Override
     public String getSupportedLauncherPackage() {
         return LAUNCHER_PKG;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BySelector getAllAppsButtonSelector() {
+        return By.desc("Apps");
     }
 
     /**
